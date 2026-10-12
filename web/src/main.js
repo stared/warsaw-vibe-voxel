@@ -214,6 +214,7 @@ function updateShadowCam(dir) {
 // Hidden when another building is in the way (voxel ray test) or when it would collide with a more important label.
 const labelEls = [];
 const STEM = 20;
+document.fonts?.ready.then(() => { for (const L of labelEls) L.w = 0; });
 function makeLabels(meta) {
   const host = $('#labels');
   meta.labels.forEach((l, i) => {
@@ -227,7 +228,7 @@ function makeLabels(meta) {
     if (l.highlight) {
       edge = document.createElement('div');
       edge.className = 'edge off';
-      edge.innerHTML = `<i>➜</i><b>${l.name}</b>`;
+      edge.innerHTML = `<i>➜</i><b>${l.name}</b><small></small>`;
       edge.addEventListener('click', () => { const v = Object.values(VIEWS).find((w) => w.label === l.name.split(' ·')[0]); if (v) flyTo(v); });
       host.appendChild(edge);
     }
@@ -270,19 +271,27 @@ function updateLabels() {
         if (v.z < 1 && (-v.y * 0.5 + 0.5) * innerHeight > TOP + STEM + L.h + 30) {
           y = TOP + L.h + 4; pinned = true;
           // below the panel when the panel spans this column (phone: a full-width bar)
-          if (!gui._hidden && x > pr.left - 8 && x - 4 < pr.right) y = Math.max(y, pr.bottom + 8 + L.h + 4);
+          if (!gui._hidden && x > pr.left - 8 && x - 4 < pr.right) y = Math.max(y, pr.bottom + 12 + L.h + 8);
         }
       }
+      // no room above the anchor because of the panel bar: tuck the label just below the panel instead
+      const tuck = !gui._hidden && x > pr.left - 8 && x < pr.right && y - STEM - L.h < pr.bottom + 8 && y > pr.top;
+      if (tuck) { y = Math.max(y, pr.bottom + 12 + L.h + 8); pinned = true; }
       if (y <= innerHeight + 4) {
         const st = pinned ? 4 : STEM;
         const right = { x0: x - 4, x1: x + L.w, y0: y - st - L.h, y1: y + 4 };
         const left = { x0: x - L.w, x1: x + 4, y0: right.y0, y1: right.y1 };
+        // slide the text along so it fits (narrow screens): stem stays on the building, text centred where it fits
+        const sx = Math.min(Math.max(x - L.w / 2, 4), innerWidth - L.w - 4);
+        const shifted = { x0: sx, x1: sx + L.w, y0: right.y0, y1: right.y1 };
         if (free(right)) { vis = true; placed.push(right); }
         else if (free(left)) { vis = true; side = 'l'; placed.push(left); }
+        else if (L.w < innerWidth - 8 && free(shifted)) { vis = true; side = 's'; placed.push(shifted); L.shift = sx - x; }
       }
     }
     L.el.classList.toggle('off', !vis);
     L.el.classList.toggle('left', side === 'l');
+    L.txt.style.left = side === 's' ? `${L.shift.toFixed(0)}px` : '';
     L.el.classList.toggle('pinned', pinned);
     if (vis) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     // the highlighted building is always findable: an arrow on the screen edge while it is out of view
@@ -292,11 +301,14 @@ function updateLabels() {
       if (show) {
         let dx = x - innerWidth / 2, dy = y - innerHeight / 2;
         if (!inFront) { dx = -dx; dy = -dy; }
-        const ax = innerWidth / 2 - 90, ay = innerHeight / 2 - 40;
+        const ew = L.edge.offsetWidth || 90, ax = innerWidth / 2 - 14, ay = innerHeight / 2 - 18;
         const k = Math.min(ax / Math.max(Math.abs(dx), 1e-3), ay / Math.max(Math.abs(dy), 1e-3));
         let ex = innerWidth / 2 + dx * k, ey = innerHeight / 2 + dy * k;
         if (inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight) { ex = x; ey = y; } // on screen but crowded out
-        if (!gui._hidden && ex > pr.left - 110 && ey < pr.bottom + 20) ex = pr.left - 110; // keep clear of the panel
+        ex = Math.min(Math.max(ex, 14), innerWidth - ew - 4); ey = Math.min(Math.max(ey, 14), innerHeight - 14);
+        if (!gui._hidden && ex + ew > pr.left - 8 && ey < pr.bottom + 20) { if (ex > innerWidth / 2) ex = pr.left - ew - 8; else ey = pr.bottom + 24; } // keep clear of the panel
+        const dm = Math.hypot(L.p.x - camera.position.x, L.p.z - camera.position.z);
+        L.edge.querySelector('small').textContent = dm > 950 ? `${(dm / 1000).toFixed(1)} km` : `${Math.round(dm / 10) * 10} m`;
         L.edge.style.transform = `translate(${ex.toFixed(0)}px, ${ey.toFixed(0)}px)`;
         L.edge.querySelector('i').style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;
       }
@@ -315,7 +327,7 @@ n8.configuration.halfRes = true;
 n8.configuration.depthAwareUpsampling = true;
 composer.addPass(n8);
 bloom = new BloomEffect({ intensity: 0.2, luminanceThreshold: 0.92, luminanceSmoothing: 0.15, mipmapBlur: true, radius: 0.55 });
-const tilt = new TiltShiftEffect({ offset: 0.0, rotation: 0, focusArea: 0.7, feather: 0.22, kernelSize: 2 });
+const tilt = new TiltShiftEffect({ offset: 0.0, rotation: 0, focusArea: 0.8, feather: 0.22, kernelSize: 2 });
 const qsBoot = new URLSearchParams(location.search);
 const tone = new ToneMappingEffect({ mode: ToneMappingMode[qsBoot.get('tm') || 'ACES_FILMIC'] });
 const hueSat = new HueSaturationEffect({ saturation: +(qsBoot.get('sat') || 0.12) });
@@ -346,9 +358,9 @@ const P = {
 const gui = new GUI({ title: 'Warszawa · Śródmieście', width: 290 });
 gui.domElement.classList.add('panel');
 const fTime = gui.addFolder('Time');
-const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = ''; presetCtl.updateDisplay(); applyTime(h); });
+const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = 'custom'; presetCtl.updateDisplay(); applyTime(h); });
 hourCtl.updateDisplay = function () { this.$input.value = hhmm(this.getValue()); const t = (this.getValue() - 4.5) / 19; this.$fill.style.setProperty('width', `${t * 100}%`); return this; };
-const presetCtl = fTime.add(P, 'preset', Object.keys(PRESETS)).name('light').onChange((k) => animateTo(PRESETS[k]));
+const presetCtl = fTime.add(P, 'preset', [...Object.keys(PRESETS), 'custom']).name('light').onChange((k) => { if (k in PRESETS) animateTo(PRESETS[k]); });
 fTime.add(P, 'rate', RATES).name('animate day');
 const fGo = gui.addFolder('Go to');
 const search = new PlaceSearch(fGo.$children);
@@ -373,7 +385,7 @@ kbd(fKeys.$title, 'H');
 const HELP = [
   ['drag', 'turn around the centre'], ['right drag', 'look around'], ['shift drag', 'slide'], ['scroll', 'zoom to cursor'], ['double-click', 'fly there'],
   ['W A S D', 'move  (shift: faster)'], ['←  →', 'turn'], ['↑  ↓', 'look up · down'], ['Q  E', 'lower · higher'],
-  ['G', 'street level · Esc leaves'], ['1 – 7', 'places'], ['/', 'search'], ['[  ]', 'time −/+ 15 min'], ['L', 'labels'],
+  ['G', 'street level · Esc leaves'], ['/', 'search'], ['1 – 7', 'views (listed in search)'], ['[  ]', 'time −/+ 15 min'], ['L', 'labels'],
 ];
 const help = document.createElement('div');
 help.className = 'help';
@@ -493,7 +505,7 @@ function flyTo(v) {
   camera.updateProjectionMatrix();
   const qh = new URLSearchParams(location.search).get('hour');
   applyTime(qh ? +qh : PRESETS['golden hour']);
-  P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || '';
+  P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || 'custom';
   const qs = new URLSearchParams(location.search);
   if (qs.get('tilt') === '0' || innerWidth < 600) P.tilt = false;
   if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
@@ -514,7 +526,7 @@ renderer.setAnimationLoop((now) => {
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - 15;
   tiltPass.enabled = P.tilt && camH > 60;
-  tilt.focusArea = 0.7 + 0.3 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250)));
+  tilt.focusArea = 0.8 + 0.2 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250)));
   const tsec = (performance.now() - t0clock) / 1000;
   if (uniforms) uniforms.uTime.value = tsec;
   if (fountains) fountains.update(tsec, state.night);
@@ -523,4 +535,4 @@ renderer.setAnimationLoop((now) => {
   composer.render();
   updateLabels();
 });
-window.__three = { camera, controls, applyTime, flyTo, nav, gui, P, scene, renderer, sun, bbox, center };
+window.__three = { camera, controls, applyTime, flyTo, nav, gui, P, labelEls, scene, renderer, sun, bbox, center };

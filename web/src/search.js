@@ -8,7 +8,7 @@ export class PlaceSearch {
     this.max = max;
     this.el = document.createElement('div');
     this.el.className = 'search';
-    this.el.innerHTML = `<input type="search" spellcheck="false" autocomplete="off" placeholder="${placeholder}"><ol></ol>`;
+    this.el.innerHTML = `<input type="text" spellcheck="false" autocomplete="off" placeholder="${placeholder}"><ol></ol>`;
     host.appendChild(this.el);
     this.input = this.el.querySelector('input');
     this.list = this.el.querySelector('ol');
