@@ -1,6 +1,6 @@
 """OSM (Overpass `out geom`) parsing into shapely geometries in grid coordinates.
 
-Grid coordinates: gx = easting - X0 (column), gy = (Y0 + D) - northing (row, growing south).
+Grid coordinates: the rotated, PKiN-centred grid defined in aoi.py.
 """
 import json
 
@@ -8,14 +8,15 @@ from pyproj import Transformer
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import polygonize, unary_union
 
-from aoi import D, X0, Y0, RAW
+from aoi import RAW, to_grid as _aoi_grid
 
 _T = Transformer.from_crs(4326, 2180, always_xy=True)
 
 
 def to_grid(lon, lat):
     x, y = _T.transform(lon, lat)
-    return x - X0, (Y0 + D) - y
+    i, j = _aoi_grid(x, y)
+    return float(i), float(j)
 
 
 def _coords(geom):

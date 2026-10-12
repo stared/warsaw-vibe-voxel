@@ -29,8 +29,8 @@ LABELS = {
     "Ilmet": ("Ilmet", "1997, being stripped for Warsaw One", "top"),
     "The Westin Warsaw": ("The Westin", "2003", "top"),
 }
-# places without a single OSM polygon (grid col, row)
-EXTRA_LABELS = [("Zielona Złota", "street greening, opened Aug 2026", 1180, 385)]
+# places without a single OSM polygon (EPSG:2180 x, y)
+EXTRA_LABELS = [("Zielona Złota", "street greening, opened Aug 2026", 637420, 487015)]
 
 
 def adjust_heights(top, feats, note):
@@ -105,10 +105,48 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note):
             continue
         found[n] = dict(name=label, note=sub, x=c, y=r, z=top_at(r, c))
     labels = [found[n] for n in LABELS if n in found]
-    for label, sub, c, r in EXTRA_LABELS:
+    from aoi import to_grid
+    for label, sub, wx, wy in EXTRA_LABELS:
+        c, r = (int(v) for v in to_grid(wx, wy))
         labels.append(dict(name=label, note=sub, x=c, y=r, z=top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
-    return labels
+    return labels, make_views(found, osm, g, top_at, note)
+
+
+def make_views(found, osm, g, top_at, note):
+    """Camera presets in three.js coords (x = col, y = up, z = row), derived from landmark positions."""
+    def at(name, dz=0.0):
+        l = found[name]
+        return [l["x"] + 0.5, dz, l["y"] + 0.5]
+
+    def add(t, off):
+        return [t[0] + off[0], t[1] + off[1], t[2] + off[2]]
+
+    views = {}
+    pk = at("Pałac Kultury i Nauki")
+    views["overview"] = dict(label="Overview", target=[pk[0], 20, pk[2]], pos=add([pk[0], 20, pk[2]], (-420, 860, 1180)))
+    views["pkin"] = dict(label="Palace", target=[pk[0], 110, pk[2]], pos=add([pk[0], 110, pk[2]], (420, 160, 300)))
+    z44 = at("Złota 44", 90)
+    views["zlota44"] = dict(label="Złota 44", target=z44, pos=add(z44, (260, 140, 240)))
+    # Złota at street level: the renovated stretch east of Marszałkowska, looking east along the street
+    pts = np.array([c for oid, t, l in osm.lines if t.get("name") == "Złota" and "highway" in t
+                    for c in l.coords if c[0] > found["Pałac Kultury i Nauki"]["x"] + 330])
+    if len(pts) > 4:
+        mu = pts.mean(0)
+        _, _, vt = np.linalg.svd(pts - mu)
+        d = vt[0] if vt[0][0] > 0 else -vt[0]  # principal direction, pointing east
+        proj = (pts - mu) @ d
+        p0, p1 = mu + d * proj.min(), mu + d * proj.max()
+        L = float(proj.max() - proj.min())
+        gz = int(g[int(p0[1]), int(p0[0])])
+        views["zlota"] = dict(label="Złota street", target=[*(p0 + d * L * 0.55)[:1], gz + 3, (p0 + d * L * 0.55)[1]],
+                              pos=[float(p0[0] - d[0] * 20), gz + 10, float(p0[1] - d[1] * 20)])
+        views["zlota"]["target"] = [float(v) for v in views["zlota"]["target"]]
+        note("Złota street view along", round(L), "m of street east of Marszałkowska")
+    st = at("Warszawa Centralna", 15)
+    views["station"] = dict(label="Centralna", target=st, pos=add(st, (300, 120, 40)))
+    views["skyline"] = dict(label="Skyline", target=[pk[0], 130, pk[2]], pos=add([pk[0], 130, pk[2]], (1150, -10, 520)))
+    return views
 
 
 def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):

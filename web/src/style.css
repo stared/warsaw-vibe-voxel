@@ -27,3 +27,4 @@ button.on { background: var(--ink); color: #fff; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 600px) { #panel { left: 16px; right: 16px; width: auto; } #title h1 { font-size: 20px; } #sources { display: none; } }
 .noui #panel, .noui #title, .noui #sources, .noui #labels { display: none !important; }
+.hint { font-size: 11px; opacity: .6; }

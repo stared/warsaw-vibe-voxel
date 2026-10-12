@@ -21,7 +21,7 @@ from shapely.geometry import LineString, Point
 from shapely.ops import substring
 from shapely.strtree import STRtree
 
-from aoi import D, W, X0, Y0
+from aoi import CX, CY, D, THETA, W
 from osm import OSM
 import landmarks
 
@@ -710,7 +710,7 @@ for i, sl in enumerate(objs, 1):
 note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 
 # ---------------------------------------------------------------- curated landmark details
-labels = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note)
+labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note)
 
 # ---------------------------------------------------------------- export
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
@@ -752,8 +752,8 @@ for ln in sorted(tram_lines, key=lambda l: -l.length):
         path.append([round(p.x, 1), round(p.y, 1), int(g[r, c])])
     trams.append(path)
 note("tram paths:", len(trams), "total km", round(sum(len(p) for p in trams) * 2 / 1000, 2))
-meta = dict(W=W, D=D, H=Hm, base=BASE, origin=[X0, Y0 + D], crs="EPSG:2180", trams=trams,
-            palette=[list(e) for e in pal.entries], lamps=lamps, labels=labels,
+meta = dict(W=W, D=D, H=Hm, base=BASE, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams,
+            palette=[list(e) for e in pal.entries], lamps=lamps, labels=labels, views=views,
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))
 json.dump(meta, open(OUT / "meta.json", "w"))

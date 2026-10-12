@@ -20,14 +20,17 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 $('#app').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 5, 9000);
+const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 9000);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI * 0.47;
-controls.minDistance = 40;
+controls.maxPolarAngle = Math.PI * 0.495; // allow near-horizontal street-level views
+controls.minDistance = 4;
 controls.maxDistance = 4000;
 controls.screenSpacePanning = false;
+controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
+controls.listenToKeyEvents(window); // arrow keys pan
+controls.keyPanSpeed = 25;
 
 async function loadData() {
   status('Loading voxels…');
@@ -270,15 +273,7 @@ function animateTo(h) {
     if (t >= 1) anim = null;
   };
 }
-const VIEWS = {
-  overview: { pos: [180, 720, 1700], target: [660, 30, 520] },
-  pkin: { pos: [1000, 250, 760], target: [710, 100, 430] },
-  zlota: { pos: [720, 220, 720], target: [472, 90, 493] },
-  zielona: { pos: [1040, 230, 610], target: [1180, 0, 380] },
-  station: { pos: [820, 130, 690], target: [529, 15, 758] },
-  skyline: { pos: [1700, 110, 760], target: [520, 130, 480] },
-};
-document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => flyTo(VIEWS[b.dataset.view])));
+let VIEWS = {};
 let fly = null;
 function flyTo(v) {
   const p0 = camera.position.clone(), t0v = controls.target.clone(), t0 = performance.now();
@@ -308,6 +303,14 @@ function flyTo(v) {
   bbox.setFromObject(group);
   bbox.getCenter(center);
   makeLabels(meta);
+  VIEWS = meta.views;
+  const vhost = $('#views');
+  for (const [k, v] of Object.entries(VIEWS)) {
+    const b = document.createElement('button');
+    b.textContent = v.label;
+    b.addEventListener('click', () => flyTo(v));
+    vhost.appendChild(b);
+  }
   trams = new Trams(scene, meta.trams || []);
   $('#t-trams').addEventListener('change', (e) => { trams.group.visible = e.target.checked; });
   $('#stats').textContent = `${meta.W}×${meta.D} m · 1 m voxels · ${(tris / 1e6).toFixed(1)} M tris`;
@@ -315,6 +318,7 @@ function flyTo(v) {
   const v = VIEWS[new URLSearchParams(location.search).get('view') || 'overview'] || VIEWS.overview;
   camera.position.set(...v.pos);
   controls.target.set(...v.target);
+  camera.updateProjectionMatrix();
   const qh = new URLSearchParams(location.search).get('hour');
   applyTime(qh ? +qh : PRESETS.golden);
   const qs = new URLSearchParams(location.search);
@@ -330,6 +334,10 @@ renderer.setAnimationLoop((now) => {
   if (anim) anim(now);
   if (fly) fly(now);
   controls.update();
+  // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
+  const camH = camera.position.y - 15;
+  tiltPass.enabled = $('#t-tilt').checked && camH > 60;
+  tilt.focusArea = 0.7 + 0.3 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250)));
   const tsec = (performance.now() - t0clock) / 1000;
   if (uniforms) uniforms.uTime.value = tsec;
   if (trams) trams.update(tsec, state.night);

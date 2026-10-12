@@ -23,18 +23,13 @@
       <button data-preset="night">Night</button>
     </div>
     <div class="row slider"><input id="hour" type="range" min="4.5" max="23.5" step="0.05" value="19" /><span id="hour-label">19:00</span></div>
-    <div class="row views">
-      <button data-view="overview">Overview</button>
-      <button data-view="pkin">Palace</button>
-      <button data-view="zlota">Złota 44</button>
-      <button data-view="zielona">Zielona Złota</button>
-      <button data-view="station">Centralna</button>
-      <button data-view="skyline">Skyline</button>
-    </div>
+    <div class="row views" id="views"></div>
     <div class="row toggles">
       <label><input type="checkbox" id="t-labels" checked /> Labels</label>
       <label><input type="checkbox" id="t-tilt" checked /> Tilt-shift</label>
       <label><input type="checkbox" id="t-trams" checked /> Trams</label>
+    </div>
+    <div class="row hint">Drag to orbit · right-drag or arrows to pan · scroll zooms toward the cursor
     </div>
   </nav>
   <footer id="sources"></footer>
