@@ -39,7 +39,7 @@ def note(*a):
 
 
 # ---------------------------------------------------------------- materials / palette
-M_SOLID, M_WALL, M_GLASS, M_LEAF, M_WATER, M_LAMP, M_METAL, M_PKIN, M_GRASS, M_MARK, M_SOIL, M_CAR, M_ROOF, M_CONCRETE = range(14)
+M_SOLID, M_WALL, M_GLASS, M_LEAF, M_WATER, M_LAMP, M_METAL, M_PKIN, M_GRASS, M_MARK, M_SOIL, M_CAR, M_ROOF, M_CONCRETE, M_CLOCK, M_BRONZE, M_SIGN = range(17)
 
 
 class Palette:
@@ -117,8 +117,8 @@ C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "pole": pal("#3a3e42", M_METAL), "steps": pal("#a8a296"), "hatch": pal("#d9c860", M_MARK),
     "fence": pal("#dfe3e6", M_METAL), "crane": pal("#e7b23c", M_METAL), "crane_d": pal("#3d4249", M_METAL),
     "shelter": pal("#a9c3cf", M_GLASS), "deck": pal("#a7a49d", M_CONCRETE), "parking": pal("#6a6d73"),
-    "track": pal("#b8875a"), "kerb": pal("#cfc7b8"), "granite_d": pal("#55595c"), "jet": pal("#dff1f7", M_WATER),
-    "boulder": pal("#e3d6b4"), "benchkerb": pal("#dcd9d1", M_CONCRETE),
+    "track": pal("#b8875a"), "kerb": pal("#cfc7b8"), "granite_d": pal("#55595c"), "jet": pal("#dff1f7", 17),
+    "benchkerb": pal("#dcd9d1", M_CONCRETE),
 }
 PERENNIALS = [pal(c, M_LEAF) for c in ["#8e6fae", "#a690c4", "#6f9a4f", "#8aa27a", "#5f8a49", "#7c9c5a", "#c98fb0"]]
 LEAVES = [pal(c, M_LEAF) for c in ["#a3c65c", "#8db552", "#76a24a", "#618f43", "#4f7c3c",
@@ -294,6 +294,9 @@ burn(gcol, rails, all_touched=True)
 water = [(geom, C["granite_d"] if t.get("fountain") == "splash_pad" else C["water"]) for oid, typ, t, geom in osm.areas
          if (t.get("amenity") == "fountain" or t.get("natural") == "water" or t.get("water")) and not tunnelish(t)]
 burn(gcol, water)
+from shapely.ops import unary_union as _uu
+_zl = [l for oid, t, l in osm.lines if t.get("name") == "Złota" and t.get("highway") in ("living_street", "pedestrian")]
+zlota_line = _uu(_zl) if _zl else None
 splash_pads = [geom for oid, typ, t, geom in osm.areas if t.get("fountain") == "splash_pad" and not tunnelish(t)]
 
 # zebra crossings + lane markings on asphalt
@@ -637,20 +640,70 @@ for oid, t, p in trees:
         landmarks.small_tree(vol, g, r, c, stable_hash(oid), LEAVES, C["trunk"], height=hgt)
 note("OSM trees without 2025 LiDAR crown -> procedural:", n_new)
 
-# ---------------------------------------------------------------- fountains (visual_ref.md)
-# walk-on fountain at the former Marszałkowska bus-tunnel ramp: dark granite, jets on a ~2 m grid
+# ---------------------------------------------------------------- fountains (visual_ref.md, Commons photos Aug 2026)
+# Flat walk-on fountain on the filled-in Marszałkowska tunnel ramp: dark speckled granite cut into irregular
+# polygons, darker shard inlays, flush with the paving, slot drain round the edge, jets from steel rings ~2 m apart.
+GRAN = [pal("#6a6e71"), pal("#62666a"), pal("#72767a")]
+SHARD, DRAIN, RING = pal("#4a4d50"), pal("#3a3c3f", M_METAL), pal("#b9bdc0", M_METAL)
 n_jets = 0
-vol_jets = []
+jets = []
 for geom in splash_pads:
     rr, cc = cells_of(geom)
+    if len(rr) == 0:
+        continue
+    m = np.zeros((D, W), bool)
+    m[rr, cc] = True
+    edge = m & ~ndimage.binary_erosion(m)
+    # polygon slabs: Voronoi cells around a few random seeds
+    rng = np.random.default_rng(stable_hash(int(rr.mean()), int(cc.mean())))
+    seeds = np.stack([rng.uniform(rr.min(), rr.max() + 1, 14), rng.uniform(cc.min(), cc.max() + 1, 14)], 1)
     for r, c in zip(rr, cc):
-        if r % 2 == 0 and c % 2 == 0:
-            hj = 1 + stable_hash(r, c) % 2
-            vol_jets.append((r, c, hj))
+        z0 = g[r, c] - 1
+        d2 = ((seeds - (r + 0.5, c + 0.5)) ** 2).sum(1)
+        o2 = np.sort(d2)
+        k = int(np.argmin(d2))
+        if edge[r, c]:
+            v = DRAIN
+        elif o2[1] - o2[0] < 1.6:  # seam between slabs
+            v = SHARD
+        elif r % 2 == 0 and c % 2 == 0:
+            v = RING
+            jets.append([c + 0.5, int(z0 + 1), r + 0.5])  # rendered as animated water columns in the viewer
             n_jets += 1
-for r, c, hj in vol_jets:
-    vol[g[r, c]:g[r, c] + hj, r, c] = C["jet"]
-note("splash-pad jets:", n_jets)
+        else:
+            v = SHARD if stable_hash(r, c, 7) % 23 == 0 else GRAN[k % 3]
+        vol[z0, r, c] = v
+note("splash-pad fountain jets:", n_jets)
+
+# "Mountain" mist fountain mid-block on Złota: an oval lawn with ~22 cream sandstone boulders and stepping stones
+BOULDER, STEP = pal("#d6cfc0"), pal("#c9c3b6")
+n_b = 0
+for oid, typ, t, geom in osm.areas:
+    if t.get("amenity") != "fountain" or t.get("fountain") == "splash_pad" or geom.area > 80 or tunnelish(t):
+        continue
+    near_zlota = geom.centroid.distance(zlota_line) < 15 if zlota_line is not None else False
+    if not near_zlota:
+        continue
+    cy, cx = geom.centroid.y, geom.centroid.x
+    rng = np.random.default_rng(oid % (2 ** 32))
+    for r in range(int(cy) - 5, int(cy) + 6):
+        for c in range(int(cx) - 7, int(cx) + 8):
+            e = ((r + 0.5 - cy) / 4.5) ** 2 + ((c + 0.5 - cx) / 6.5) ** 2
+            if e > 1 or bmask[r, c]:
+                continue
+            z0 = g[r, c] - 1
+            vol[z0, r, c] = C["grass"] if e > 0.18 else pal("#5a5e61")
+            if e > 0.18 and stable_hash(r, c, 3) % 9 == 0:
+                vol[z0, r, c] = STEP
+    for _ in range(22):
+        a, rad = rng.uniform(0, 2 * np.pi), rng.uniform(0.45, 0.95)
+        r, c = int(cy + 4.5 * rad * np.sin(a)), int(cx + 6.5 * rad * np.cos(a))
+        if not bmask[r, c]:
+            vol[g[r, c], r, c] = BOULDER
+            if rng.random() < 0.35 and not bmask[r, c + 1]:
+                vol[g[r, c + 1], r, c + 1] = BOULDER
+            n_b += 1
+note("boulder fountain boulders:", n_b)
 
 # ---------------------------------------------------------------- planted beds (Zielona Złota, Plac Centralny)
 # small leisure=garden / flowerbed islands are raised perennial beds edged with concrete bench-kerbs (photos 2026)
@@ -753,7 +806,9 @@ for i, sl in enumerate(objs, 1):
 note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 
 # ---------------------------------------------------------------- curated landmark details
-labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note)
+landmarks.apply_zones(vol, g, feats, pal, bmask, note)
+leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
+labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 
 # ---------------------------------------------------------------- export
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
@@ -795,7 +850,7 @@ for ln in sorted(tram_lines, key=lambda l: -l.length):
         path.append([round(p.x, 1), round(p.y, 1), int(g[r, c])])
     trams.append(path)
 note("tram paths:", len(trams), "total km", round(sum(len(p) for p in trams) * 2 / 1000, 2))
-meta = dict(W=W, D=D, H=Hm, base=BASE, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams,
+meta = dict(W=W, D=D, H=Hm, base=BASE, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets,
             palette=[list(e) for e in pal.entries], lamps=lamps, labels=labels, views=views,
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))

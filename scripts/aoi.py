@@ -14,7 +14,7 @@ import numpy as np
 
 CX, CY = 636965.62, 486975.12  # PKiN spire (OSM way 240119160), EPSG:2180
 THETA = math.radians(21.5)
-W, D = 1300, 1300  # metres = voxels
+W, D = 1500, 1500  # metres = voxels; 1500 keeps Astoria (Przeskok 2) ~200 m from the east edge
 RAW = "data/raw"
 
 EU = np.array([math.cos(THETA), math.sin(THETA)])   # grid +i in world

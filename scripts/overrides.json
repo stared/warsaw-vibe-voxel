@@ -1,0 +1,79 @@
+{
+  "_doc": "Per-building curation applied on top of LiDAR+OSM. Keyed by OSM element id (way/relation) or by name. Fields: wall/roof {colour, material}; zones: facade split along the footprint's long axis (from/to are fractions 0..1, measured from end 'origin': west|east|north|south); crown: facade band at the top {height, colour, material, sign_colour, tip: only the first fraction of the long axis from the origin end}; min_part_height: apply only to parts taller than this; label/note; sources. Materials: wall, glass, concrete, metal, pkin, bronze_grid, sign.",
+  "buildings": {
+    "306124863": {
+      "name": "Astoria Premium Offices (Brokla 2, formerly Przeskok 2)",
+      "label": "Astoria · Business Link",
+      "note": "Quesma office · 45 m, 2016",
+      "zones": [
+        {
+          "from": 0.0,
+          "to": 0.5,
+          "origin": "west",
+          "wall": {
+            "colour": "#4f6472",
+            "material": "bronze_grid"
+          }
+        },
+        {
+          "from": 0.5,
+          "to": 1.0,
+          "origin": "west",
+          "wall": {
+            "colour": "#d9d5cc",
+            "material": "wall"
+          }
+        }
+      ],
+      "crown": {
+        "height": 2,
+        "colour": "#2b2a28",
+        "material": "sign_band",
+        "sign_colour": "#d8b45a",
+        "tip": 0.12,
+        "_note": "dark bronze band with backlit gold 'ASTORIA Premium Offices' lettering round the cylindrical west tip only"
+      },
+      "sources": [
+        "https://www.strabag-real-estate.com/en/project/astoria-premium-offices-warschau/",
+        "https://urbanity.pl/mazowieckie/warszawa/budynek-przy-ul-przeskok,b8495",
+        "https://beton-architektoniczny.pl/realizacje/elewacje/13-astoria-premium-offices",
+        "OSM way 306124863, Wikidata Q107862777"
+      ]
+    },
+    "Muzeum Sztuki Nowoczesnej": {
+      "wall": {
+        "colour": "#f1f0ec",
+        "material": "concrete"
+      },
+      "sources": [
+        "research.md: white architectural concrete, Thomas Phifer"
+      ]
+    },
+    "Kinomuzeum": {
+      "wall": {
+        "colour": "#f1f0ec",
+        "material": "concrete"
+      }
+    },
+    "Centrum LIM": {
+      "min_part_height": 20,
+      "wall": {
+        "colour": "#464a50",
+        "material": "glass"
+      },
+      "sources": [
+        "Marriott tower: dark smoked glass (photo Warszawa_LIM_i_Ch8_23.09.2026)"
+      ]
+    },
+    "Varso Tower": {
+      "min_part_height": 232,
+      "wall": {
+        "colour": "#eceef0",
+        "material": "metal"
+      },
+      "sources": [
+        "visual_ref.md: spire is a white steel lattice"
+      ]
+    }
+  }
+}

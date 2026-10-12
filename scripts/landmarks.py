@@ -1,7 +1,10 @@
 """Curated, research-backed details (see research.md) layered on top of the data-driven voxels."""
+import json
 import math
+from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 
 M_WALL, M_GLASS, M_PKIN, M_CONCRETE, M_CLOCK = 1, 2, 7, 13, 14
 
@@ -37,17 +40,105 @@ def adjust_heights(top, feats, note):
     """Hook for per-building height corrections (none needed unless the cross-check flags one)."""
 
 
-def wall_override(f, pal):
-    n = f["tags"].get("name") or (f.get("parent") or {}).get("tags", {}).get("name")
-    if _name(f) == "Złote Tarasy" and f["tags"].get("building:colour", "").lower() == "#336699":
-        return pal((198, 212, 216), M_GLASS)
-    if n == "Centrum LIM" and (f["maxh"] or 0) > 20:
-        return pal((70, 74, 80), M_GLASS)  # Marriott tower: dark smoked glass
-    if n == "Varso Tower" and (f["maxh"] or 0) > 232:
-        return pal((236, 238, 240), 6)  # spire: white steel lattice (visual_ref.md)
-    if n in ("Muzeum Sztuki Nowoczesnej", "Kinomuzeum"):
-        return pal((241, 240, 236), M_CONCRETE)  # white architectural concrete (research.md)
+MAT_IDS = {"solid": 0, "wall": 1, "glass": 2, "metal": 6, "pkin": 7, "grass": 8, "roof": 12, "concrete": 13,
+           "bronze_grid": 15, "sign": 16, "sign_band": 18}
+OVERRIDES = json.load(open(Path(__file__).with_name("overrides.json")))["buildings"]
+
+
+def _hex(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def override_for(f):
+    """overrides.json entry for a feature: by its own id, its parent outline's id, or its (parent's) name."""
+    keys = [str(f["id"])]
+    if f.get("parent"):
+        keys.append(str(f["parent"]["id"]))
+    keys.append(_name(f) or "")
+    for k in keys:
+        o = OVERRIDES.get(k)
+        if o and (f["maxh"] or 0) >= o.get("min_part_height", -1):
+            return o
     return None
+
+
+def _style(pal, spec):
+    return pal(_hex(spec["colour"]), MAT_IDS[spec.get("material", "wall")])
+
+
+def wall_override(f, pal):
+    if _name(f) == "Złote Tarasy" and f["tags"].get("building:colour", "").lower() == "#336699":
+        return pal((198, 212, 216), M_GLASS)  # canopy glass, see roof_override
+    o = override_for(f)
+    return _style(pal, o["wall"]) if o and "wall" in o else None
+
+
+def apply_zones(vol, g, feats, pal, bmask, note):
+    """Facade zones and crown bands from overrides.json, painted onto the voxels of the building's footprint."""
+    by_outline = {}
+    for f in feats:
+        o = override_for(f)
+        if o and ("zones" in o or "crown" in o):
+            root = f.get("parent") or f
+            by_outline.setdefault(root["id"], (o, []))[1].append(f)
+    for oid, (o, fs) in by_outline.items():
+        rr = np.concatenate([f["rr"] for f in fs])
+        cc = np.concatenate([f["cc"] for f in fs])
+        keep = bmask[rr, cc]
+        rr, cc = rr[keep], cc[keep]
+        if len(rr) == 0:
+            continue
+        # long axis of the footprint; "west" end = smaller grid column
+        pts = np.stack([cc, rr], 1).astype(float)
+        mu = pts.mean(0)
+        _, _, vt = np.linalg.svd(pts - mu, full_matrices=False)
+        ax = vt[0] if vt[0][0] >= 0 else -vt[0]
+        t = (pts - mu) @ ax
+        t = (t - t.min()) / max(np.ptp(t), 1e-6)
+        zone_of = np.full(len(rr), -1)
+        for k, z in enumerate(o.get("zones", [])):
+            tt = t if z.get("origin", "west") in ("west", "north") else 1 - t
+            m = (tt >= z["from"]) & (tt <= z["to"]) & (zone_of < 0)
+            zone_of[m] = k
+            idx = _style(pal, z["wall"])
+            for r, c in zip(rr[m], cc[m]):
+                col = vol[:, r, c]
+                nz = np.nonzero(col)[0]
+                nz = nz[nz >= g[r, c]]
+                if len(nz) > 1:
+                    col[nz[:-1]] = idx  # keep the roof voxel
+        cr = o.get("crown")
+        if cr:
+            m = t <= cr.get("tip", 1.0)
+            fp = np.zeros(vol.shape[1:], bool)
+            fp[rr, cc] = True
+            edge_fp = fp & ~ndimage.binary_erosion(fp)  # facade cells only
+            band, sign = _style(pal, cr), pal(_hex(cr.get("sign_colour", cr["colour"])), MAT_IDS["sign"])
+            for r, c in set(zip(rr[m], cc[m])):
+                if not edge_fp[r, c]:
+                    continue
+                nz = np.nonzero(vol[:, r, c])[0]
+                top = nz.max()
+                for k in range(0, cr["height"]):
+                    vol[top - k, r, c] = sign if (k == 0 and (r + c) % 2 == 0) else band
+        if "roof" in o:
+            ridx = _style(pal, o["roof"])
+            for r, c in zip(rr, cc):
+                vol[np.nonzero(vol[:, r, c])[0].max(), r, c] = ridx
+        note(f"override zones: {o.get('name', oid)}: {len(rr)} cells, zones "
+             f"{[int((zone_of == k).sum()) for k in range(len(o.get('zones', [])))]}")
+
+
+def override_labels(feats, g, top_at):
+    out = []
+    for f in feats:
+        o = OVERRIDES.get(str(f["id"]))
+        if o and "label" in o and not f["part"] and len(f["rr"]):
+            k = len(f["rr"]) // 2
+            r, c = int(np.median(f["rr"])), int(np.median(f["cc"]))
+            out.append(dict(name=o["label"], note=o.get("note", ""), x=c, y=r, z=top_at(r, c), highlight=True))
+    return out
 
 
 def _name(f):
@@ -86,7 +177,7 @@ def small_tree(vol, g, r, c, h, leaves, trunk, height=None):
                     vol[zz, rr, cc] = leaf if (dr + dc + k) % 3 else leaf2
     vol[z0 + tr:z0 + H - 1, r, c] = trunk  # leader through the crown
 
-def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note):
+def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
     pkin_clock(vol, g, feats, pal, note)
     H = vol.shape[0]
 
@@ -112,16 +203,18 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note):
         if not (0 <= r < vol.shape[1] and 0 <= c < vol.shape[2]):
             continue
         found[n] = dict(name=label, note=sub, x=c, y=r, z=top_at(r, c))
-    labels = [found[n] for n in LABELS if n in found]
+    labels = override_labels(feats, g, top_at) + [found[n] for n in LABELS if n in found]
     from aoi import to_grid
     for label, sub, wx, wy in EXTRA_LABELS:
         c, r = (int(v) for v in to_grid(wx, wy))
         labels.append(dict(name=label, note=sub, x=c, y=r, z=top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
-    return labels, make_views(found, osm, g, top_at, note, bmask)
+    extra = {"astoria": l for l in labels if l.get("highlight")}
+    return labels, make_views(found, osm, g, top_at, note, bmask, extra, vol, leaf_ids)
 
 
-def make_views(found, osm, g, top_at, note, bmask):
+def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, leaf_ids=()):
+    found_extra = found_extra or {}
     """Camera presets in three.js coords (x = col, y = up, z = row), derived from landmark positions."""
     def at(name, dz=0.0):
         l = found[name]
@@ -157,6 +250,53 @@ def make_views(found, osm, g, top_at, note, bmask):
         views["zlota"] = dict(label="Złota street", target=[float(pkl["x"]), ge + 1.5, float(pkl["y"])],
                               pos=[float(pe[0]), ge + 2.5, float(pe[1])])
         note("Złota street view along", round(L), "m of street east of Marszałkowska")
+    # buildings with an overrides.json label get a preset looking at the end the zones start from (Astoria's round tip)
+    for oid, o in OVERRIDES.items():
+        if "label" not in o or not oid.isdigit():
+            continue
+        geom = next((gm for i, typ, t, gm in osm.areas if str(i) == oid), None)
+        if geom is None:
+            continue
+        pts = np.array(geom.exterior.coords)
+        mu = pts.mean(0)
+        _, _, vt = np.linalg.svd(pts - mu)
+        ax = vt[0] if vt[0][0] >= 0 else -vt[0]
+        tip = pts[np.argmin((pts - mu) @ ax)]
+        gt = int(g[int(tip[1]), int(tip[0])])
+        target = np.array([tip[0], gt + 22.0, tip[1]])
+        best = None
+        for rad in (110, 90, 140, 70, 55):
+            for deg in range(0, 181, 15):  # sweep the half-plane facing away from the building
+                for sgn in (1, -1):
+                    a = math.radians(deg) * sgn
+                    d2 = np.array([-ax[0] * math.cos(a) - ax[1] * math.sin(a), ax[0] * math.sin(a) - ax[1] * math.cos(a)])
+                    c2 = tip + d2 * rad
+                    ci, ri = int(c2[0]), int(c2[1])
+                    if not (0 <= ri < vol.shape[1] and 0 <= ci < vol.shape[2]) or bmask[ri, ci]:
+                        continue
+                    cam = np.array([c2[0], g[ri, ci] + 14.0, c2[1]])
+                    # line of sight: sample the segment, stop 6 m short of the facade
+                    n = int(rad)
+                    ok = True
+                    for k in range(1, n - 6):
+                        p_ = cam + (target - cam) * k / n
+                        zi, ri2, ci2 = int(p_[1]), int(p_[2]), int(p_[0])
+                        if vol[zi, ri2, ci2] != 0 and vol[zi, ri2, ci2] not in leaf_ids:
+                            ok = False
+                            break
+                    if ok:
+                        best = cam
+                        break
+                if best is not None:
+                    break
+            if best is not None:
+                break
+        if best is None:
+            note("no clear viewpoint for", oid)
+            continue
+        views[f"b{oid}"] = dict(label=o["label"].split(" ·")[0], target=[float(v) for v in target],
+                                pos=[float(v) for v in best])
+        note("viewpoint for", o["label"], "at", [round(float(v)) for v in best])
     st = at("Warszawa Centralna", 15)
     views["station"] = dict(label="Centralna", target=st, pos=add(st, (300, 120, 40)))
     views["skyline"] = dict(label="Skyline", target=[pk[0], 130, pk[2]], pos=add([pk[0], 130, pk[2]], (1150, -10, 520)))

@@ -5,6 +5,7 @@ import { N8AOPostPass } from 'n8ao';
 import { makePaletteTexture, makeVoxelMaterial } from './voxelMaterial.js';
 import { Sky } from './sky.js';
 import { Trams } from './trams.js';
+import { Fountains } from './fountains.js';
 import './style.css';
 
 const $ = (s) => document.querySelector(s);
@@ -137,7 +138,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 let state = { hour: 18.9, night: 0 };
-let trams = null;
+let trams = null, fountains = null;
 let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3();
 
 function applyTime(hour) {
@@ -200,7 +201,7 @@ function makeLabels(meta) {
   const host = $('#labels');
   for (const l of meta.labels) {
     const el = document.createElement('div');
-    el.className = 'label';
+    el.className = l.highlight ? 'label hl' : 'label';
     el.innerHTML = `<b>${l.name}</b>${l.note ? `<span>${l.note}</span>` : ''}`;
     host.appendChild(el);
     labelEls.push({ el, p: new THREE.Vector3(l.x + 0.5, l.z + 3, l.y + 0.5) });
@@ -312,6 +313,7 @@ function flyTo(v) {
     vhost.appendChild(b);
   }
   trams = new Trams(scene, meta.trams || []);
+  fountains = new Fountains(scene, meta.jets || []);
   $('#t-trams').addEventListener('change', (e) => { trams.group.visible = e.target.checked; });
   $('#stats').textContent = `${meta.W}×${meta.D} m · 1 m voxels · ${(tris / 1e6).toFixed(1)} M tris`;
   $('#sources').textContent = `LiDAR + orthophoto: GUGiK 2025 · OSM ${meta.sources.osm.slice(0, 10)}`;
@@ -341,6 +343,7 @@ renderer.setAnimationLoop((now) => {
   const tsec = (performance.now() - t0clock) / 1000;
   if (uniforms) uniforms.uTime.value = tsec;
   if (trams) trams.update(tsec, state.night);
+  if (fountains) fountains.update(tsec, state.night);
   sky.mesh.position.copy(camera.position);
   composer.render();
   updateLabels();

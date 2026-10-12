@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // material ids (must match scripts/voxelize.py)
-export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14 };
+export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18 };
 
 export function makePaletteTexture(palette) {
   const n = palette.length;
@@ -125,6 +125,29 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
         } else if (m == ${MAT.CAR}) {
           gRough = 0.25; gMetal = 0.3;
           if (uNight > 0.0 && vert) gEmissive = vec3(1.0, 0.3, 0.2) * 0.2 * uNight * step(0.7, h);
+        } else if (m == ${MAT.BRONZE}) {
+          // curtain wall with champagne-bronze vertical mullion caps and dark floor bands (Astoria west half)
+          if (vert) {
+            if (mod(lvl, 4.0) < 0.5) { col = vec3(0.025, 0.024, 0.022); gRough = 0.5; }
+            else if (mod(u, 3.0) < 0.5) {
+              col = vec3(0.16, 0.12, 0.065); gRough = 0.55; gMetal = 0.25;
+              gEmissive = vec3(1.0, 0.75, 0.4) * 0.35 * uNight; // mullion caps glow warm at night
+            } else {
+              col = base * 0.6; gRough = 0.06; gMetal = 0.5;
+              if (hash12(vec2(floor(u / 2.0) + cell.x * 0.17, floor(lvl / 4.0))) > 0.6) gEmissive = vec3(1.0, 0.85, 0.6) * 0.5 * uNight;
+            }
+          }
+        } else if (m == ${MAT.SIGNBAND}) {
+          col = base; gRough = 0.35; gMetal = 0.7;
+        } else if (m == ${MAT.SIGN}) {
+          col = base; gRough = 0.3; gMetal = 0.6;
+          gEmissive = base * (0.15 + 2.2 * uNight); // backlit gold lettering
+        } else if (m == ${MAT.JET}) {
+          // fountain jets: pulse in and out of the paving
+          float ph = sin(uTime * 2.4 + h * 6.28);
+          if (ph < -0.2 + (lvl - 0.0) * 0.6) discard;
+          col = base; gRough = 0.05; gMetal = 0.2;
+          gEmissive = vec3(0.7, 0.85, 1.0) * 0.8 * uNight;
         } else if (m == ${MAT.CLOCK}) {
           gRough = 0.3; gEmissive = vec3(1.0, 0.95, 0.8) * 1.4 * uNight;
         } else if (m == ${MAT.MARK}) {

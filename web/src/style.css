@@ -28,3 +28,5 @@ button.on { background: var(--ink); color: #fff; }
 @media (max-width: 600px) { #panel { left: 16px; right: 16px; width: auto; } #title h1 { font-size: 20px; } #sources { display: none; } }
 .noui #panel, .noui #title, .noui #sources, .noui #labels { display: none !important; }
 .hint { font-size: 11px; opacity: .6; }
+.label.hl { background: #2b2a28; color: #f3e3b8; }
+.label.hl::after { border-top-color: #2b2a28; }

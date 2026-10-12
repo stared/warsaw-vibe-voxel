@@ -1,6 +1,6 @@
 # Warszawa Śródmieście in voxels
 
-A 1300 × 1300 m diorama of central Warsaw at 1 m voxels, centred on the PKiN spire and rotated 21.5° to the Palace axes (so walls and the street grid are not staircased), in the style of MagicaVoxel renders (ephtracy). It covers:
+A 1500 × 1500 m diorama of central Warsaw at 1 m voxels, centred on the PKiN spire and rotated 21.5° to the Palace axes (so walls and the street grid are not staircased), in the style of MagicaVoxel renders (ephtracy). It covers:
 - the Palace of Culture and Science (PKiN)
 - Złota 44, Złote Tarasy and the newly greened Złota
 - Warszawa Centralna station and the Rondo ONZ towers
@@ -51,3 +51,26 @@ sh scripts/build_data.sh      # ~5 GB of GUGiK downloads on first run (cached in
 - Windows are procedural, generated in the shader from floor height and material. They are not real window positions.
 - OSM maps 44 of the 81 elms reported on Złota, and only those 44 are drawn.
 - The 51 parked cars are frozen from the moment of the 2025 LiDAR flight. The trams are animated on the real OSM track geometry; their positions are not real.
+
+## Curating a building (scripts/overrides.json)
+
+Hand-curated detail goes in **one data file, keyed by OSM id**, never as one-off code. Each entry can set:
+- facade zones along the footprint's long axis
+- wall and roof colour and material
+- a crown or sign band
+- a label
+- **source URLs**
+
+The pipeline applies every entry the same way, and also derives from it:
+- a label
+- a camera preset, chosen by a line-of-sight search through the voxels
+
+To add or fix a building:
+1. Find it in OSM. Prefer fixing `building:colour`, `height` and `building:part` in OSM itself, so everyone benefits.
+2. For what OSM can't express (facade rhythm, signage, two-character facades), add an `overrides.json` entry, with photo sources.
+3. Run `sh scripts/build_data.sh`. Then compare `pnpm shot` renders against the reference photos.
+
+Example: Astoria (Brokla 2, formerly Przeskok 2; Quesma's office). Details are in `research_astoria.md`.
+- The west half is near-black glass with bronze mullions and floor bands.
+- The east half is off-white pilasters.
+- A gold-lettered crown band runs round the round tip.
