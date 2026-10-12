@@ -742,6 +742,27 @@ for oid, t, p in osm.nodes_with("highway", ("street_lamp",)):
     vol[z0 + hgt - 1, r, c] = C["lamp"]
     lamps.append((c, r, int(z0 + hgt - 1)))
 note("street lamps:", len(lamps))
+# Złota after the 2026 redesign: photos show slim lantern poles every ~15-20 m along the street, OSM maps only a
+# few. Infer lamps along the new Złota ways where OSM has none within 9 m.
+n_inf = 0
+lamp_xy = np.array([(c, r) for c, r, _ in lamps], float) if lamps else np.zeros((0, 2))
+for oid, t, line in osm.lines:
+    if t.get("name") != "Złota" or t.get("highway") not in ("living_street", "pedestrian") or line.length < 20:
+        continue
+    for dist in np.arange(8, line.length - 4, 18.0):
+        p = line.interpolate(dist)
+        c, r = int(p.x), int(p.y)
+        if not (0 <= c < W and 0 <= r < D) or bmask[r, c]:
+            continue
+        if len(lamp_xy) and np.min(np.hypot(lamp_xy[:, 0] - c, lamp_xy[:, 1] - r)) < 9:
+            continue
+        z0 = g[r, c]
+        vol[z0:z0 + 6, r, c] = np.where(vol[z0:z0 + 6, r, c] == 0, C["pole"], vol[z0:z0 + 6, r, c])
+        vol[z0 + 6, r, c] = C["lamp"]
+        lamps.append((c, r, int(z0 + 6)))
+        lamp_xy = np.vstack([lamp_xy, [c, r]])
+        n_inf += 1
+note("inferred lamps on renovated Złota (photos, OSM incomplete):", n_inf)
 
 for oid, typ, t, geom in osm.areas_with("amenity", ("shelter",)):
     if t.get("shelter_type") not in (None, "public_transport", "basic_hut") or bmask[cells_of(geom)].any():

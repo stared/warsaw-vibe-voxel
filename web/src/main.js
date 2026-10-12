@@ -92,10 +92,11 @@ function makeLampMap(meta) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.globalCompositeOperation = 'lighter';
   for (const [x, y] of meta.lamps) {
-    const r = 16 * s;
+    const r = 20 * s;
     const gr = ctx.createRadialGradient((x + 0.5) * s, (y + 0.5) * s, 0, (x + 0.5) * s, (y + 0.5) * s, r);
-    gr.addColorStop(0, 'rgba(255,190,110,0.55)');
-    gr.addColorStop(0.35, 'rgba(255,170,90,0.18)');
+    gr.addColorStop(0, 'rgba(255,196,120,0.65)');
+    gr.addColorStop(0.3, 'rgba(255,176,96,0.28)');
+    gr.addColorStop(0.65, 'rgba(255,160,90,0.08)');
     gr.addColorStop(1, 'rgba(255,150,80,0)');
     ctx.fillStyle = gr;
     ctx.fillRect((x + 0.5) * s - r, (y + 0.5) * s - r, 2 * r, 2 * r);
@@ -184,6 +185,7 @@ function applyTime(hour) {
   const { el, az } = sunAt(hour);
   const elDeg = el * 180 / Math.PI;
   const night = 1 - smooth(-7, 1, elDeg);
+  const deep = smooth(-9, -17, elDeg); // 0 = blue hour, 1 = full night
   state.night = night;
   const day = 1 - night;
   const golden = 1 - smooth(8, 34, elDeg);
@@ -196,22 +198,24 @@ function applyTime(hour) {
   const sunCol = new THREE.Color().setRGB(1, lerp(0.97, 0.66, golden), lerp(0.92, 0.42, golden));
   const moonCol = new THREE.Color(0x9fb4ff);
   sun.color.copy(sunCol).lerp(moonCol, night);
-  sun.intensity = lerp(lerp(4.4, 4.8, golden), 0.35, night) * (elDeg > -2 ? smooth(-2, 3, elDeg) * day + night : night);
-  hemi.color.set(0xbfd6ff).lerp(new THREE.Color(0xffc49a), golden * 0.5).lerp(new THREE.Color(0x2a3a66), night);
-  hemi.groundColor.set(0x6b5a48).lerp(new THREE.Color(0x141018), night);
-  hemi.intensity = lerp(0.3, 0.12, night);
-  sky.set(elDeg, dir, golden, night);
+  sun.intensity = lerp(lerp(4.4, 4.8, golden), 0.5, night) * (elDeg > -2 ? smooth(-2, 3, elDeg) * day + night : night);
+  // night fill: cool sky light keeps facades readable (photos: walls stay blue, never black)
+  hemi.color.set(0xbfd6ff).lerp(new THREE.Color(0xffc49a), golden * 0.5).lerp(new THREE.Color(0x4a64b0), night);
+  hemi.groundColor.set(0x6b5a48).lerp(new THREE.Color(0x3a2a30), night);
+  hemi.intensity = lerp(0.3, lerp(0.95, 0.6, deep), night);
+  const trueSun = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+  sky.set(elDeg, dir, golden, night, trueSun, deep);
   sun.shadow.normalBias = Math.min(3, Math.max(0.5, 0.3 / Math.max(dir.y, 0.05)));
   updateShadowCam(dir);
-  if (uniforms) uniforms.uNight.value = night;
-  if (bloom) bloom.intensity = lerp(0.15, 1.6, night);
+  if (uniforms) { uniforms.uNight.value = night; uniforms.uDeep.value = deep; }
+  if (bloom) bloom.intensity = lerp(0.15, 0.9, night);
   renderer.toneMappingExposure = 1;
   scene.fog = new THREE.Fog(sky.horizon.clone(), 2500, 7000);
   // environment for reflections
   if (envRT) envRT.dispose();
   envRT = pmrem.fromScene(sky.envScene(), 0, 1, 10000);
   scene.environment = envRT.texture;
-  scene.environmentIntensity = lerp(0.38, 0.08, night);
+  scene.environmentIntensity = lerp(0.38, lerp(0.55, 0.3, deep), night); // glass reflects the blue sky
   $('#hour').value = hour;
   $('#hour-label').textContent = `${String(Math.floor(hour) % 24).padStart(2, '0')}:${String(Math.round((hour % 1) * 60) % 60).padStart(2, '0')}`;
 }
@@ -276,7 +280,7 @@ n8.configuration.intensity = 2.2;
 n8.configuration.halfRes = true;
 n8.configuration.depthAwareUpsampling = true;
 composer.addPass(n8);
-bloom = new BloomEffect({ intensity: 0.2, luminanceThreshold: 0.85, luminanceSmoothing: 0.2, mipmapBlur: true, radius: 0.7 });
+bloom = new BloomEffect({ intensity: 0.2, luminanceThreshold: 0.92, luminanceSmoothing: 0.15, mipmapBlur: true, radius: 0.55 });
 const tilt = new TiltShiftEffect({ offset: 0.0, rotation: 0, focusArea: 0.7, feather: 0.22, kernelSize: 2 });
 const qsBoot = new URLSearchParams(location.search);
 const tone = new ToneMappingEffect({ mode: ToneMappingMode[qsBoot.get('tm') || 'ACES_FILMIC'] });
@@ -296,7 +300,7 @@ addEventListener('resize', () => {
 });
 
 // ------------------------------------------------------------------ UI
-const PRESETS = { golden: 17.7, midday: 13.0, night: 22.6 };
+const PRESETS = { golden: 17.7, midday: 13.0, night: 20.95 }; // night = blue hour, like the reference photos
 document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('[data-preset]').forEach((x) => x.classList.toggle('on', x === b));
   animateTo(PRESETS[b.dataset.preset]);

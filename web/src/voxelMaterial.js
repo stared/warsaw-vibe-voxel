@@ -24,6 +24,7 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
     uLampMap: { value: lampTex },
     uSize: { value: new THREE.Vector2(W, D) },
     uNight: { value: 0 },
+    uDeep: { value: 0 },
     uTime: { value: 0 },
   };
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
@@ -53,11 +54,17 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform sampler2D uPalette; uniform sampler2D uGround; uniform sampler2D uLampMap;
-        uniform vec2 uSize; uniform float uNight; uniform float uTime;
+        uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime;
         varying vec3 vVox; varying vec3 vN; varying float vAO; flat varying int vPal;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
         vec3 gEmissive; float gRough; float gMetal;
+        // interior light colours: warm homes (2700 K), neutral, and cool office LED
+        vec3 roomLight(float r){
+          if (r < 0.55) return vec3(1.0, 0.66, 0.34);
+          if (r < 0.85) return vec3(1.0, 0.82, 0.58);
+          return vec3(0.78, 0.88, 1.0);
+        }
       `)
       .replace('#include <color_fragment>', `
         vec4 pe = texelFetch(uPalette, ivec2(vPal % 64, vPal / 64), 0);
@@ -67,24 +74,33 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
         float gz = texture2D(uGround, (cell.xz + 0.5) / uSize).r;
         float lvl = cell.y - gz;                 // voxel level above local ground
         bool vert = abs(vN.y) < 0.5;
-        float u = abs(vN.x) > 0.5 ? cell.z : cell.x;
+        float u = abs(vN.x) > 0.5 ? cell.z : cell.x;      // along the facade
+        float wpos = abs(vN.x) > 0.5 ? cell.x : cell.z;   // constant across one facade plane
         float h = hash13(cell);
         gEmissive = vec3(0.); gRough = 0.88; gMetal = 0.0;
         vec3 col = base * (0.97 + 0.06 * h);
         vec3 warm = vec3(1.0, 0.72, 0.42);
+        // fraction of lit rooms falls through the night (blue hour ~32%, late night ~15%)
+        float litFrac = mix(0.32, 0.15, uDeep);
+        bool shopLvl = lvl > 0.5 && lvl < 3.5;
         if (m == ${MAT.WALL} || m == ${MAT.CONCRETE}) {
           if (vert) {
             float fl = mod(lvl, 3.0);
-            bool shop = lvl < 4.0 && lvl >= 0.0;
+            bool shop = lvl < 4.0 && lvl >= 1.0;
             bool win = m == ${MAT.WALL} ? (fl > 0.5 && mod(u, 2.0) < 0.5) : false;
             if (m == ${MAT.CONCRETE}) win = shop && mod(u, 4.0) > 0.5;
             if (shop && m == ${MAT.WALL}) win = mod(u, 5.0) > 0.5 && lvl > 0.5;
             if (win) {
+              // unlit glass picks up the sky; lit rooms are whole 2-window flats
               col = mix(base * 0.42, vec3(0.10, 0.13, 0.17), 0.55) + 0.025 * h;
-              gRough = 0.15; gMetal = 0.5;
-              float lit = hash12(vec2(floor(u / 2.0) + cell.x * 0.13 + cell.z * 0.7, floor(lvl / 3.0)));
-              if (shop) lit = 0.9;
-              if (lit > 0.72) gEmissive = warm * (0.45 + 0.5 * h) * uNight;
+              gRough = 0.12; gMetal = 0.6;
+              vec2 room = vec2(floor(u / 4.0) + wpos * 17.31 + vN.x * 3.1, floor(lvl / 3.0) + vN.z * 5.7);
+              float lit = hash12(room);
+              if (shop) {
+                if (hash12(vec2(floor(u / 6.0), wpos * 3.7)) < 0.8) gEmissive = vec3(1.0, 0.8, 0.55) * 1.5 * uNight;
+              } else if (lit < litFrac) {
+                gEmissive = roomLight(hash12(room + 7.1)) * (0.55 + 0.35 * hash12(room + 3.3)) * uNight;
+              }
             }
           }
         } else if (m == ${MAT.GLASS}) {
@@ -93,20 +109,28 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
             if (span) { col = base * 0.55 + 0.04; gRough = 0.5; }
             else {
               col = base * (0.8 + 0.12 * step(0.5, mod(u, 2.0)));
-              gRough = 0.1; gMetal = 0.35;
-              float lit = hash12(vec2(floor(u / 3.0) + cell.x * 0.11 + cell.z * 0.53, floor(lvl / 4.0)));
-              if (lit > 0.68) gEmissive = mix(warm, vec3(0.85, 0.92, 1.0), step(0.9, lit)) * 0.55 * uNight;
+              gRough = 0.08; gMetal = mix(0.35, 0.6, uNight);
+              // offices: whole floor stretches (~12 m) switch on together, mostly cool white
+              vec2 zone = vec2(floor(u / 12.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
+              float lit = hash12(zone);
+              if (shopLvl && lvl < 4.0) gEmissive = vec3(1.0, 0.86, 0.66) * 1.3 * uNight;
+              else if (lit < litFrac * 0.9) gEmissive = mix(vec3(0.8, 0.9, 1.0), vec3(1.0, 0.88, 0.7), step(0.7, hash12(zone + 1.7))) * 0.7 * uNight;
             }
           } else { gRough = 0.3; gMetal = 0.4; }
         } else if (m == ${MAT.PKIN}) {
+          // floodlit: warm gold washing up each tier from its base (photos: PKiN at dusk), plus lit rooms
+          float tier = fract(lvl / 34.0);
+          float wash = 0.55 + 0.45 * (1.0 - tier) ;
           if (vert) {
             bool win = mod(lvl, 4.0) > 0.5 && mod(lvl, 4.0) < 2.5 && mod(u, 3.0) < 0.5;
             if (win) {
-              col = base * 0.28; gRough = 0.2;
-              if (hash12(vec2(u, floor(lvl / 4.0))) > 0.5) gEmissive = warm * 0.6 * uNight;
+              col = base * 0.35; gRough = 0.2;
+              if (hash12(vec2(u, floor(lvl / 4.0))) < 0.45) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
+            } else {
+              gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * 0.85 * wash;
             }
-            // floodlight from below at night
-            gEmissive += base * vec3(1.0, 0.85, 0.7) * uNight * 0.22 * (0.6 + 0.4 * clamp(1.0 - lvl / 240.0, 0.0, 1.0));
+          } else {
+            gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * 0.35;
           }
         } else if (m == ${MAT.LEAF}) {
           col = base * (0.8 + 0.35 * h); gRough = 0.95;
@@ -116,15 +140,18 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
           float r = sin(cell.x * 0.9 + uTime * 1.3) * sin(cell.z * 1.1 - uTime) * 0.5 + 0.5;
           col = base * (0.75 + 0.25 * r); gRough = 0.04; gMetal = 0.3;
         } else if (m == ${MAT.LAMP}) {
-          col = base; gEmissive = vec3(1.0, 0.82, 0.55) * (0.15 + 6.0 * uNight);
+          col = base; gEmissive = vec3(1.0, 0.82, 0.55) * (0.15 + 3.2 * uNight);
         } else if (m == ${MAT.METAL}) {
           gRough = 0.4; gMetal = 0.5;
+          // gilded spire / crown pieces catch the floodlights
+          if (base.r > 0.3 && base.r > base.b * 2.0) gEmissive = base * 1.2 * uNight;
         } else if (m == ${MAT.SOIL}) {
           float band = mod(cell.y, 5.0) < 1.0 ? 0.82 : 1.0;
           col = base * band * (0.9 + 0.2 * h); gRough = 1.0;
         } else if (m == ${MAT.CAR}) {
           gRough = 0.25; gMetal = 0.3;
-          if (uNight > 0.0 && vert) gEmissive = vec3(1.0, 0.3, 0.2) * 0.2 * uNight * step(0.7, h);
+          // parked/frozen cars: tail lights and headlights
+          if (uNight > 0.0 && vert && lvl < 1.0) gEmissive = mix(vec3(1.0, 0.12, 0.08), vec3(1.0, 0.95, 0.85), step(0.5, h)) * 1.4 * uNight * step(0.55, fract(h * 7.0));
         } else if (m == ${MAT.BRONZE}) {
           // curtain wall with champagne-bronze vertical mullion caps and dark floor bands (Astoria west half)
           if (vert) {
@@ -156,8 +183,10 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
         // street-lamp glow on everything near the ground at night
         if (uNight > 0.0) {
           vec3 lm = texture2D(uLampMap, (vVox.xz) / uSize).rgb;
-          float fall = clamp(1.0 - (vVox.y - gz) / 14.0, 0.0, 1.0);
-          gEmissive += col * lm * fall * uNight * 1.6;
+          float hgt = vVox.y - gz;
+          float fall = clamp(1.0 - hgt / 16.0, 0.0, 1.0);
+          float up = (m == ${MAT.LEAF}) ? (vN.y < -0.5 ? 2.6 : 1.7) : 1.0; // canopies glow from below
+          gEmissive += col * lm * fall * uNight * 2.2 * up;
         }
         diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
       `)
