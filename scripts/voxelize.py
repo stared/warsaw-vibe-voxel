@@ -212,6 +212,8 @@ soft.sort(key=lambda s: -s[0].area)
 burn(gcol, containers)
 burn(gcol, soft)
 burn(gcol, hard)
+parking_mask = np.zeros((D, W), np.uint16)
+burn(parking_mask, [(geom, 1) for geom, _ in hard])
 
 # ortho says grass where OSM is silent (cross-check, only on default paving cells, low & green)
 ortho_grass = (gcol == C["paving"]) & (exg > 0.09) & (nd_mean < 0.8)
@@ -749,9 +751,13 @@ lamp_xy = np.array([(c, r) for c, r, _ in lamps], float) if lamps else np.zeros(
 for oid, t, line in osm.lines:
     if t.get("name") != "Złota" or t.get("highway") not in ("living_street", "pedestrian") or line.length < 20:
         continue
-    for dist in np.arange(8, line.length - 4, 18.0):
+    for k_, dist in enumerate(np.arange(8, line.length - 4, 18.0)):
         p = line.interpolate(dist)
-        c, r = int(p.x), int(p.y)
+        q_ = line.interpolate(min(dist + 1, line.length))
+        tx, ty = q_.x - p.x, q_.y - p.y
+        tl = max(np.hypot(tx, ty), 1e-6)
+        side = 5.5 if k_ % 2 else -5.5  # alternate kerbs, clear of the central walkway
+        c, r = int(p.x - ty / tl * side), int(p.y + tx / tl * side)
         if not (0 <= c < W and 0 <= r < D) or bmask[r, c]:
             continue
         if len(lamp_xy) and np.min(np.hypot(lamp_xy[:, 0] - c, lamp_xy[:, 1] - r)) < 9:
@@ -792,7 +798,8 @@ for oid, typ, t, geom in osm.areas_with("man_made", ("bridge",)):
     note("bridge deck", oid, t.get("name"), len(rr), "cells")
 
 # ---------------------------------------------------------------- vehicles frozen from the 2025 LiDAR + ortho
-veh = (~bmask) & (~veg) & is_road & (nd_mean > 1.1) & (nd_mean < 4.2)
+# only parked cars stay frozen; cars caught mid-carriageway by the 2025 flight are replaced by the live simulation
+veh = (~bmask) & (~veg) & (parking_mask > 0) & (nd_mean > 1.1) & (nd_mean < 4.2)
 lab, n = ndimage.label(veh)
 objs = ndimage.find_objects(lab)
 n_cars = n_bus = 0
@@ -876,6 +883,8 @@ meta = dict(W=W, D=D, H=Hm, base=BASE, center=[CX, CY], theta_deg=math.degrees(T
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))
 json.dump(meta, open(OUT / "meta.json", "w"))
+import traffic
+json.dump(traffic.build(g, nd_mean, note), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel

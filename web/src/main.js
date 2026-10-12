@@ -6,6 +6,7 @@ import { makePaletteTexture, makeVoxelMaterial } from './voxelMaterial.js';
 import { Sky } from './sky.js';
 import { Trams } from './trams.js';
 import { Fountains } from './fountains.js';
+import { StreetLife } from './sim.js';
 import './style.css';
 
 const $ = (s) => document.querySelector(s);
@@ -177,7 +178,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 let state = { hour: 18.9, night: 0 };
-let trams = null, fountains = null;
+let trams = null, fountains = null, life = null, lastT = performance.now();
 let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3();
 
 function applyTime(hour) {
@@ -356,6 +357,11 @@ function flyTo(v) {
   }
   trams = new Trams(scene, meta.trams || []);
   fountains = new Fountains(scene, meta.jets || []);
+  fetch('data/traffic.json').then((r) => r.json()).then((td) => {
+    life = new StreetLife(scene, td);
+    window.__life = life;
+    $('#t-life').addEventListener('change', (e) => { life.group.visible = e.target.checked; });
+  });
   $('#t-trams').addEventListener('change', (e) => { trams.group.visible = e.target.checked; });
   $('#stats').textContent = `${meta.W}×${meta.D} m · 1 m voxels · ${(tris / 1e6).toFixed(1)} M tris`;
   $('#sources').textContent = `LiDAR + orthophoto: GUGiK 2025 · OSM ${meta.sources.osm.slice(0, 10)}`;
@@ -387,6 +393,8 @@ renderer.setAnimationLoop((now) => {
   if (uniforms) uniforms.uTime.value = tsec;
   if (trams) trams.update(tsec, state.night);
   if (fountains) fountains.update(tsec, state.night);
+  const dtf = (now - lastT) / 1000; lastT = now;
+  if (life && life.group.visible) life.update(dtf, state.hour, state.night);
   sky.mesh.position.copy(camera.position);
   composer.render();
   updateLabels();
