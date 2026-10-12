@@ -43,8 +43,10 @@ def wall_override(f, pal):
         return pal((198, 212, 216), M_GLASS)
     if n == "Centrum LIM" and (f["maxh"] or 0) > 20:
         return pal((70, 74, 80), M_GLASS)  # Marriott tower: dark smoked glass
+    if n == "Varso Tower" and (f["maxh"] or 0) > 232:
+        return pal((236, 238, 240), 6)  # spire: white steel lattice (visual_ref.md)
     if n in ("Muzeum Sztuki Nowoczesnej", "Kinomuzeum"):
-        return pal((236, 234, 228), M_CONCRETE)  # white architectural concrete (research.md)
+        return pal((241, 240, 236), M_CONCRETE)  # white architectural concrete (research.md)
     return None
 
 
@@ -60,23 +62,29 @@ def roof_override(f, pal):
 
 
 def small_tree(vol, g, r, c, h, leaves, trunk, height=None):
-    """A young voxel tree (e.g. the 2025-26 plantings on Plac Centralny / Złota)."""
-    H = int(height or 6 + h % 3)
+    """A young street tree as planted 2025-26 (Plac Centralny, Złota): photos show a clear trunk to ~4 m and a
+    narrow, airy crown on top (visual_ref.md, Złota 2026 photos)."""
+    H = int(height or 7 + h % 3)
     z0 = int(g[r, c])
-    tr = max(2, H // 2 - 1)
+    tr = max(3, int(H * 0.42))
     vol[z0:z0 + tr, r, c] = trunk
-    rad = 1.6 + (h >> 4) % 2 * 0.6
-    cz = z0 + tr + (H - tr) / 2
-    leaf = leaves[(h >> 8) % 5]
-    for dz in range(-3, 4):
-        for dr in range(-3, 4):
-            for dc in range(-3, 4):
-                rz = (H - tr) / 2 + 0.3
-                if (dr / rad) ** 2 + (dc / rad) ** 2 + ((dz + 0.5) / rz) ** 2 <= 1:
-                    zz, rr, cc = int(cz + dz), r + dr, c + dc
-                    if 0 <= rr < vol.shape[1] and 0 <= cc < vol.shape[2] and 0 <= zz < vol.shape[0] and vol[zz, rr, cc] == 0:
-                        vol[zz, rr, cc] = leaf
-
+    leaf = leaves[1 + (h >> 8) % 4]
+    leaf2 = leaves[(1 + (h >> 8) % 4 + 2) % len(leaves)]
+    ch = H - tr  # crown height
+    for k in range(ch):
+        f = (k + 0.5) / ch
+        rad = 0.6 + 1.3 * math.sin(math.pi * min(1.0, f * 1.1))  # spindle, widest just below the middle
+        for dr in range(-2, 3):
+            for dc in range(-2, 3):
+                d = (dr * dr + dc * dc) ** 0.5
+                if d > rad:
+                    continue
+                if d > 0.5 and ((h >> ((k * 5 + dr * 3 + dc + 20) % 28)) & 7) == 0:
+                    continue  # airy gaps
+                zz, rr, cc = z0 + tr + k, r + dr, c + dc
+                if 0 <= rr < vol.shape[1] and 0 <= cc < vol.shape[2] and zz < vol.shape[0] and vol[zz, rr, cc] == 0:
+                    vol[zz, rr, cc] = leaf if (dr + dc + k) % 3 else leaf2
+    vol[z0 + tr:z0 + H - 1, r, c] = trunk  # leader through the crown
 
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note):
     pkin_clock(vol, g, feats, pal, note)
@@ -110,10 +118,10 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note):
         c, r = (int(v) for v in to_grid(wx, wy))
         labels.append(dict(name=label, note=sub, x=c, y=r, z=top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
-    return labels, make_views(found, osm, g, top_at, note)
+    return labels, make_views(found, osm, g, top_at, note, bmask)
 
 
-def make_views(found, osm, g, top_at, note):
+def make_views(found, osm, g, top_at, note, bmask):
     """Camera presets in three.js coords (x = col, y = up, z = row), derived from landmark positions."""
     def at(name, dz=0.0):
         l = found[name]
@@ -139,9 +147,15 @@ def make_views(found, osm, g, top_at, note):
         p0, p1 = mu + d * proj.min(), mu + d * proj.max()
         L = float(proj.max() - proj.min())
         gz = int(g[int(p0[1]), int(p0[0])])
-        views["zlota"] = dict(label="Złota street", target=[*(p0 + d * L * 0.55)[:1], gz + 3, (p0 + d * L * 0.55)[1]],
-                              pos=[float(p0[0] - d[0] * 20), gz + 10, float(p0[1] - d[1] * 20)])
-        views["zlota"]["target"] = [float(v) for v in views["zlota"]["target"]]
+        # stand on the street itself (a Złota vertex ~75% of the way east, clear of buildings), at eye height,
+        # looking west along the street toward PKiN like the 2026 photos
+        cand = [q for q in pts if not bmask[int(q[1]), int(q[0])]]
+        cand.sort(key=lambda q: abs((q - mu) @ d - (proj.min() + 0.75 * L)))
+        pe = cand[0]
+        ge = int(g[int(pe[1]), int(pe[0])])
+        pkl = found["Pałac Kultury i Nauki"]
+        views["zlota"] = dict(label="Złota street", target=[float(pkl["x"]), ge + 1.5, float(pkl["y"])],
+                              pos=[float(pe[0]), ge + 2.5, float(pe[1])])
         note("Złota street view along", round(L), "m of street east of Marszałkowska")
     st = at("Warszawa Centralna", 15)
     views["station"] = dict(label="Centralna", target=st, pos=add(st, (300, 120, 40)))
@@ -201,4 +215,38 @@ def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
                     vol[z + dz, plane, int(round(cc + du))] = v
                 else:
                     vol[z + dz, int(round(rc + du)), plane] = v
+    pkin_crown(vol, pal, pk, z, minx, miny, maxx, maxy, note)
     note(f"PKiN clock at z={z} (rel {z - g0} m), tower {r1 - r0 + 1}x{c1 - c0 + 1} m")
+
+
+def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
+    """Above the clock storey (photo 23.09.2026, visual_ref.md): a short verdigris pyramidal cap, a small open
+    stage, a dark bronze sphere and a long, thin gilded spire. The LiDAR blob there is replaced by clean geometry."""
+    verd, bronze, gold = pal((78, 127, 106), M_PKIN), pal((70, 56, 42), 6), pal((190, 160, 62), 6)
+    box = vol[:, miny:maxy, minx:maxx]
+    occ = (box != 0).reshape(box.shape[0], -1).sum(1)
+    top = int(np.nonzero(occ)[0].max())
+    base = occ[z_clock]
+    z_roof = next(zz for zz in range(z_clock + 3, top) if occ[zz] < 0.6 * base)  # top of the clock storey
+    rows, cols = np.nonzero(box[z_clock] != 0)
+    rc, cc = (rows.min() + rows.max()) / 2, (cols.min() + cols.max()) / 2
+    half = (min(rows.max() - rows.min(), cols.max() - cols.min()) + 1) / 2
+    box[z_roof:top + 1] = 0
+    # pyramidal cap: from the full tower width down to ~2 m over ~11 m
+    cap_h = 11
+    for k in range(cap_h):
+        hw = half * (1 - k / cap_h) + 1.0 * (k / cap_h)
+        r0, r1 = int(np.floor(rc - hw + 0.5)), int(np.ceil(rc + hw - 0.5))
+        c0, c1 = int(np.floor(cc - hw + 0.5)), int(np.ceil(cc + hw - 0.5))
+        box[z_roof + k, r0:r1 + 1, c0:c1 + 1] = verd
+    ri, ci = int(round(rc)), int(round(cc))
+    z = z_roof + cap_h
+    box[z:z + 3, ri, ci] = gold  # open stage / mast foot
+    zs = z + 4  # bronze sphere, ~3 m
+    for dz in range(-1, 2):
+        for dr in range(-1, 2):
+            for dc in range(-1, 2):
+                if abs(dz) + abs(dr) + abs(dc) <= 2:
+                    box[zs + dz, ri + dr, ci + dc] = bronze
+    box[zs + 2:top + 1, ri, ci] = gold  # needle up to the measured 237 m
+    note(f"PKiN crown: cap {z_roof}-{z_roof + cap_h}, sphere {zs}, gilded spire to {top}")

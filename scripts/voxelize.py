@@ -106,19 +106,21 @@ def stable_hash(*a):
 
 pal = Palette()
 C = {  # ground & misc palette (MagicaVoxel-like pastel)
-    "paving": pal("#c4bbaa"), "paving2": pal("#b9af9d"), "asphalt": pal("#5f636b"), "asphalt_l": pal("#6e7178"),
-    "sett": pal("#8f8981"), "concrete": pal("#bdbab2"), "cycle": pal("#b35f50"), "gravel": pal("#c7b593"),
+    "paving": pal("#c6c2b8"), "paving2": pal("#b5b4af"), "asphalt": pal("#5f636b"), "asphalt_l": pal("#6e7178"),
+    "sett": pal("#8f8981"), "concrete": pal("#bdbab2"), "cycle": pal("#a8453e"), "gravel": pal("#d8ccb5"),
     "grass": pal("#86b45a", M_GRASS), "grass2": pal("#79a852", M_GRASS), "garden": pal("#73a34e", M_GRASS),
     "scrub": pal("#5f8f45", M_LEAF), "flower": pal("#d98fb3", M_GRASS), "flower2": pal("#e8c25e", M_GRASS),
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
     "ballast": pal("#8a8178"), "rail": pal("#55575d", M_METAL), "trambed": pal("#a9a59c"),
     "platform": pal("#b7b1a6"), "water": pal("#5fa8c9", M_WATER), "mark": pal("#f1efe8", M_MARK),
     "soil": pal("#7a5c45", M_SOIL), "trunk": pal("#6b4f3a"), "lamp": pal("#ffe2a8", M_LAMP),
-    "pole": pal("#7d858b", M_METAL), "steps": pal("#a8a296"), "hatch": pal("#d9c860", M_MARK),
+    "pole": pal("#3a3e42", M_METAL), "steps": pal("#a8a296"), "hatch": pal("#d9c860", M_MARK),
     "fence": pal("#dfe3e6", M_METAL), "crane": pal("#e7b23c", M_METAL), "crane_d": pal("#3d4249", M_METAL),
     "shelter": pal("#a9c3cf", M_GLASS), "deck": pal("#a7a49d", M_CONCRETE), "parking": pal("#6a6d73"),
-    "track": pal("#b8875a"), "kerb": pal("#cfc7b8"),
+    "track": pal("#b8875a"), "kerb": pal("#cfc7b8"), "granite_d": pal("#55595c"), "jet": pal("#dff1f7", M_WATER),
+    "boulder": pal("#e3d6b4"), "benchkerb": pal("#dcd9d1", M_CONCRETE),
 }
+PERENNIALS = [pal(c, M_LEAF) for c in ["#8e6fae", "#a690c4", "#6f9a4f", "#8aa27a", "#5f8a49", "#7c9c5a", "#c98fb0"]]
 LEAVES = [pal(c, M_LEAF) for c in ["#a3c65c", "#8db552", "#76a24a", "#618f43", "#4f7c3c",
                                     "#93bb6a", "#7da95f", "#689655", "#56834c", "#456f43"]]
 WALL_DEFAULTS = ["#d8cfc0", "#cbbfa8", "#e2d6bf", "#c4bbad", "#d9c7a7", "#cdc6ba", "#e6ddcc", "#bdb09b",
@@ -289,9 +291,10 @@ burn(gcol, rail_beds)
 burn(gcol, rails, all_touched=True)
 
 # water
-water = [(geom, C["water"]) for oid, typ, t, geom in osm.areas
+water = [(geom, C["granite_d"] if t.get("fountain") == "splash_pad" else C["water"]) for oid, typ, t, geom in osm.areas
          if (t.get("amenity") == "fountain" or t.get("natural") == "water" or t.get("water")) and not tunnelish(t)]
 burn(gcol, water)
+splash_pads = [geom for oid, typ, t, geom in osm.areas if t.get("fountain") == "splash_pad" and not tunnelish(t)]
 
 # zebra crossings + lane markings on asphalt
 asph = np.isin(gcol, [C["asphalt"], C["asphalt_l"], C["parking"]])
@@ -633,6 +636,46 @@ for oid, t, p in trees:
         hgt = parse_len(t.get("height")) or (9 if p.x > 1000 and p.distance(zlota) < 12 else None)
         landmarks.small_tree(vol, g, r, c, stable_hash(oid), LEAVES, C["trunk"], height=hgt)
 note("OSM trees without 2025 LiDAR crown -> procedural:", n_new)
+
+# ---------------------------------------------------------------- fountains (visual_ref.md)
+# walk-on fountain at the former Marszałkowska bus-tunnel ramp: dark granite, jets on a ~2 m grid
+n_jets = 0
+vol_jets = []
+for geom in splash_pads:
+    rr, cc = cells_of(geom)
+    for r, c in zip(rr, cc):
+        if r % 2 == 0 and c % 2 == 0:
+            hj = 1 + stable_hash(r, c) % 2
+            vol_jets.append((r, c, hj))
+            n_jets += 1
+for r, c, hj in vol_jets:
+    vol[g[r, c]:g[r, c] + hj, r, c] = C["jet"]
+note("splash-pad jets:", n_jets)
+
+# ---------------------------------------------------------------- planted beds (Zielona Złota, Plac Centralny)
+# small leisure=garden / flowerbed islands are raised perennial beds edged with concrete bench-kerbs (photos 2026)
+n_beds = 0
+for oid, typ, t, geom in osm.areas:
+    if not (t.get("leisure") == "garden" or t.get("landuse") == "flowerbed") or tunnelish(t) or not (4 <= geom.area <= 400):
+        continue
+    rr, cc = cells_of(geom)
+    k = ~bmask[rr, cc]
+    rr, cc = rr[k], cc[k]
+    if len(rr) == 0:
+        continue
+    m = np.zeros((D, W), bool)
+    m[rr, cc] = True
+    edge = m & ~ndimage.binary_erosion(m)
+    for r, c in zip(rr, cc):
+        z0 = g[r, c]
+        if vol[z0, r, c] != 0:
+            continue
+        if edge[r, c] and geom.area > 12:
+            vol[z0, r, c] = C["benchkerb"]
+        elif stable_hash(oid, r, c) % 5:
+            vol[z0, r, c] = PERENNIALS[stable_hash(r, c, oid) % len(PERENNIALS)]
+    n_beds += 1
+note("raised planting beds:", n_beds)
 
 # ---------------------------------------------------------------- street furniture
 lamps = []
