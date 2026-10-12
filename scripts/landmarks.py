@@ -11,29 +11,29 @@ M_WALL, M_GLASS, M_PKIN, M_CONCRETE, M_CLOCK = 1, 2, 7, 13, 14
 # OSM name -> (label, note, anchor). Order = label priority (decluttering keeps earlier ones).
 # anchor "top": highest voxel in the footprint (towers, spires); "center": top voxel at the centroid.
 LABELS = {
-    "Pałac Kultury i Nauki": ("Palace of Culture and Science", "237 m incl. spire, 1955", "top"),
-    "Varso Tower": ("Varso Tower", "310 m incl. spire, 2022", "top"),
-    "Złota 44": ("Złota 44", "192 m, Daniel Libeskind, 2017", "top"),
-    "Warszawa Centralna": ("Warszawa Centralna", "main station, 1975", "center"),
-    "Złote Tarasy": ("Złote Tarasy", "glass canopy, 2007", "center"),
-    "Muzeum Sztuki Nowoczesnej": ("Museum of Modern Art", "opened Oct 2024", "center"),
-    "Plac Centralny": ("Plac Centralny", "opened Jun 2025", "center"),
-    "TR Warszawa": ("TR Warszawa site", "theatre under construction", "center"),
-    "Rotunda PKO": ("Rotunda", "rebuilt 2019", "center"),
+    "Pałac Kultury i Nauki": ("Pałac Kultury i Nauki", "Palace of Culture and Science · 237 m · 1955", "top"),
+    "Varso Tower": ("Varso Tower", "310 m with spire · Foster + Partners · 2022", "top"),
+    "Złota 44": ("Złota 44", "192 m · Daniel Libeskind · 2017", "top"),
+    "Warszawa Centralna": ("Warszawa Centralna", "main railway station · 1975", "center"),
+    "Złote Tarasy": ("Złote Tarasy", "shopping centre, glass canopy · 2007", "center"),
+    "Muzeum Sztuki Nowoczesnej": ("Muzeum Sztuki Nowoczesnej", "Museum of Modern Art · opened Oct 2024", "center"),
+    "Plac Centralny": ("Plac Centralny", "new square · opened Jun 2025", "center"),
+    "TR Warszawa": ("TR Warszawa", "theatre · under construction", "center"),
+    "Rotunda PKO": ("Rotunda PKO", "rebuilt 2019", "center"),
     "Park Świętokrzyski": ("Park Świętokrzyski", "", "center"),
-    "Rondo 1": ("Rondo 1", "192 m, 2006", "top"),
-    "Q22": ("Q22", "195 m, 2016", "top"),
-    "InterContinental": ("InterContinental", "164 m, 2004", "top"),
-    "Centrum LIM": ("Marriott", "170 m incl. antenna, 1989", "top"),
-    "Novotel Warszawa Centrum": ("Novotel", "111 m, 1974", "top"),
-    "Cosmopolitan": ("Cosmopolitan", "160 m, Helmut Jahn, 2013", "top"),
-    "Spektrum Tower": ("Spektrum Tower", "128 m, 2003", "top"),
+    "Rondo 1": ("Rondo 1", "192 m · 2006", "top"),
+    "Q22": ("Q22", "195 m · 2016", "top"),
+    "InterContinental": ("InterContinental", "164 m · 2004", "top"),
+    "Centrum LIM": ("Marriott", "170 m with antenna · 1989", "top"),
+    "Novotel Warszawa Centrum": ("Novotel", "111 m · 1974", "top"),
+    "Cosmopolitan": ("Cosmopolitan", "160 m · Helmut Jahn · 2013", "top"),
+    "Spektrum Tower": ("Spektrum Tower", "128 m · 2003", "top"),
     "Central Point": ("Central Point", "2022", "top"),
-    "Ilmet": ("Ilmet", "1997, being stripped for Warsaw One", "top"),
+    "Ilmet": ("Ilmet", "1997 · to be rebuilt as Warsaw One", "top"),
     "The Westin Warsaw": ("The Westin", "2003", "top"),
 }
 # places without a single OSM polygon (EPSG:2180 x, y)
-EXTRA_LABELS = [("Zielona Złota", "street greening, opened Aug 2026", 637420, 487015)]
+EXTRA_LABELS = [("Zielona Złota", "street greening · opened Aug 2026", 637420, 487015)]
 
 
 def adjust_heights(top, feats, note):

@@ -3,45 +3,74 @@
 html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1d22; font-family: Inter, system-ui, sans-serif; color: var(--ink); }
 #app canvas { display: block; }
 
-/* title: plain map caption */
-#title { position: fixed; top: 14px; left: 16px; pointer-events: none; color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.6), 0 1px 10px rgba(0,0,0,.3); }
-#title h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .01em; }
-#title p { margin: 2px 0 0; font-size: 11px; opacity: .8; font-variant-numeric: tabular-nums; }
-#sources { position: fixed; left: 16px; bottom: 10px; font-size: 10.5px; color: #fff; opacity: .7; text-shadow: 0 0 3px rgba(0,0,0,.7); }
+/* Panel: dat.gui's language with a strict palette —
+   surfaces: black + one widget tone; text: white + one grey; colour only in the type stripes. */
+.lil-gui.panel {
+  --bg: #000; --w: #1f1f1f; --t: #fff; --t2: #8c8c8c;
+  --background-color: var(--bg); --widget-color: var(--w); --hover-color: var(--w); --focus-color: var(--w);
+  --text-color: var(--t); --title-background-color: var(--bg); --title-text-color: var(--t);
+  --number-color: #2fa1d6; --string-color: #1ed36f;
+  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; --font-size: 11px; --input-font-size: 11px;
+  --widget-height: 22px; --spacing: 4px; --padding: 6px; --widget-border-radius: 0; --folder-indent: 0px;
+  position: fixed; top: 0; right: 14px; z-index: 5; max-height: 100vh;
+}
+.lil-gui.panel .lil-gui .lil-controller, .lil-gui.panel .lil-controller { border: none; border-left: 3px solid transparent; margin: 0; padding: 2px 6px 2px 7px; }
+.lil-gui.panel .lil-controller.lil-number { border-left-color: #2fa1d6; }
+.lil-gui.panel .lil-controller.lil-boolean { border-left-color: #806787; }
+.lil-gui.panel .lil-controller.lil-function { border-left-color: #e61d5f; }
+.lil-gui.panel .lil-controller.lil-option { border-left-color: #1ed36f; }
+.lil-gui.panel .lil-controller .lil-name { display: flex; align-items: center; }
+.panel .lil-title { display: flex; align-items: center; font-weight: 600; background: var(--bg); }
+.panel > .lil-title { font-size: 12px; padding-top: 9px; padding-bottom: 9px; }
+.panel .lil-children .lil-title { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; border-top: 1px solid var(--w); }
+.panel .lil-title::before { color: var(--t2); }
+.panel kbd { margin-left: auto; padding: 0 2px 0 8px; font: 10.5px ui-monospace, Menlo, monospace; color: var(--t2); text-transform: none; letter-spacing: 0; }
+.panel .lil-slider { background: var(--w); }
+.panel .lil-fill { background: #2fa1d6; border-right: 0; }
+.panel .lil-option .lil-widget, .panel .lil-option .lil-display { width: 100%; }
+.panel .help { display: grid; grid-template-columns: 92px 1fr; gap: 3px 10px; padding: 6px 10px 9px; }
+.panel .help .k { font: 11px ui-monospace, Menlo, monospace; color: var(--t); white-space: nowrap; }
+.panel .help span:not(.k) { color: var(--t2); }
+.panel .foot { padding: 6px 10px 9px; font-size: 10px; line-height: 1.5; color: var(--t2); }
+/* search: type-ahead in the "Go to" folder, green like dat.gui strings */
+.panel .search { border-left: 3px solid #1ed36f; padding: 4px 6px 4px 7px; }
+.panel .search input { width: 100%; height: 24px; box-sizing: border-box; border: 0; outline: 0; padding: 0 7px; background: var(--w); color: var(--t); font: inherit; font-size: 12px; border-radius: 0; }
+.panel .search input::placeholder { color: var(--t2); }
+.panel .search ol { list-style: none; margin: 0; padding: 0; }
+.panel .search li { display: flex; gap: 8px; padding: 4px 7px; cursor: pointer; white-space: nowrap; }
+.panel .search li span { overflow: hidden; text-overflow: ellipsis; }
+.panel .search li em { margin-left: auto; font-style: normal; color: var(--t2); }
+.panel .search li.sel, .panel .search li:hover { background: var(--w); }
+@media (max-width: 600px) { .lil-gui.panel { right: 0; left: 0; width: 100% !important; } }
 
-/* lil-gui: keep its own look, just place it */
-.lil-gui.root { position: fixed; top: 10px; right: 10px; z-index: 5; }
-
-/* keyboard / mouse help, same visual language as lil-gui */
-#help { position: fixed; left: 16px; bottom: 32px; z-index: 5; background: #1f1f1f; color: #ebebeb; font: 11px/1.2 -apple-system, system-ui, sans-serif; padding: 6px 8px; border-radius: 0; opacity: .94; }
-#help table { border-collapse: collapse; }
-#help td { padding: 2px 6px; vertical-align: top; }
-#help tr.h td { color: #8c8c8c; padding-top: 6px; text-transform: uppercase; letter-spacing: .06em; font-size: 9.5px; }
-#help kbd { font: 10.5px ui-monospace, Menlo, monospace; background: #424242; color: #fff; padding: 1px 5px; white-space: nowrap; }
-
-/* walk-mode status line */
-#mode { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); font: 11px ui-monospace, Menlo, monospace; color: #fff; background: rgba(20,20,20,.7); padding: 4px 9px; display: none; }
-.walking #mode { display: block; }
+/* walk mode: only a centre dot */
 .walking #app::after { content: ''; position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255,255,255,.8); box-shadow: 0 0 0 1px rgba(0,0,0,.4); pointer-events: none; }
 
-/* labels: map pins — dot on the roof, hairline stem, haloed text; no boxes */
+/* labels: map pins — dot on the roof, hairline stem, name with a dark halo; no boxes */
 #labels { position: fixed; inset: 0; pointer-events: none; }
 .label { position: absolute; left: 0; top: 0; transition: opacity .25s; }
-.label.off { opacity: 0; }
-.label .dot { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(15,15,20,.75); }
-.label .stem { position: absolute; left: -.5px; bottom: 3px; width: 1px; height: 17px; background: rgba(255,255,255,.85); box-shadow: 0 0 2px rgba(0,0,0,.6); }
+.label.off, .edge.off { opacity: 0; pointer-events: none; }
+.label .dot { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.8); }
+.label .stem { position: absolute; left: -.5px; bottom: 3px; width: 1px; height: 17px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.5); }
 .label .txt { position: absolute; left: -1px; bottom: 20px; white-space: nowrap; color: #fff;
-  text-shadow: 0 0 2px rgba(0,0,0,.95), 0 0 5px rgba(0,0,0,.6), 0 0 12px rgba(0,0,0,.25); }
-.label b { display: block; font-weight: 600; font-size: 12px; line-height: 1.15; }
-.label span { display: block; font-weight: 500; font-size: 9px; line-height: 1.35; text-transform: uppercase; letter-spacing: .09em; opacity: .82; }
-.label.major b { font-size: 14px; letter-spacing: -.005em; }
+  text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.45); }
+.label.left .txt { left: auto; right: -1px; text-align: right; }
+.label.pinned .dot, .label.pinned .stem { display: none; }
+.label.pinned .txt { bottom: 4px; }
+.label b { display: block; font-weight: 600; font-size: 12.5px; line-height: 1.2; }
+.label span { display: block; font-weight: 500; font-size: 10.5px; line-height: 1.3; color: #e8e8e8; }
+.label.major b { font-size: 14.5px; }
 .label.hl b { color: var(--hl); }
-.label.hl .dot { background: var(--hl); }
-.label.hl .stem { background: var(--hl); }
+.label.hl .dot, .label.hl .stem { background: var(--hl); }
+.edge { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  margin: -10px 0 0 -10px; color: var(--hl); font: 600 12px Inter, system-ui, sans-serif; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px #000; transition: opacity .25s; }
+.edge i { font-style: normal; display: inline-block; width: 14px; text-align: center; }
 
 #loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; background: #e9e4da; color: #555; font-size: 13px; transition: opacity .6s; z-index: 10; }
 #loading.hidden { opacity: 0; pointer-events: none; }
 .spinner { width: 28px; height: 28px; border: 3px solid rgba(0,0,0,.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 600px) { #sources, #help { display: none; } }
-.noui #title, .noui #sources, .noui #labels, .noui #help, .noui #mode { display: none !important; }
+.noui #labels { display: none !important; }
+
+.label.pick b { color: #1ed36f; }
+.label.pick .dot, .label.pick .stem { background: #1ed36f; }

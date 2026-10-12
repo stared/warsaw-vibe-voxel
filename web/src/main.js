@@ -7,6 +7,7 @@ import { Sky } from './sky.js';
 import { Fountains } from './fountains.js';
 import { StreetLife } from './sim.js';
 import { Nav, VoxelWorld } from './nav.js';
+import { PlaceSearch } from './search.js';
 import GUI from 'lil-gui';
 import './style.css';
 
@@ -187,7 +188,7 @@ function applyTime(hour) {
   }
   scene.environmentIntensity = lerp(0.38, lerp(0.55, 0.3, deep), night); // glass reflects the blue sky
   P.hour = hour;
-  hourCtl?.name(`time  ${hhmm(hour)}`).updateDisplay();
+  hourCtl?.updateDisplay();
 }
 const hhmm = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60) % 60).padStart(2, '0')}`;
 
@@ -222,7 +223,15 @@ function makeLabels(meta) {
     host.appendChild(el);
     // footprint radius of the labelled building, so a ray hitting the building itself doesn't count as occlusion
     const g = world.groundAt(l.x, l.y), R = world.extent(l.x, l.y, g + Math.max(6, (l.z - g) * 0.4)) + 6;
-    labelEls.push({ el, txt: el.querySelector('.txt'), p: new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), R, occluded: false });
+    let edge = null;
+    if (l.highlight) {
+      edge = document.createElement('div');
+      edge.className = 'edge off';
+      edge.innerHTML = `<i>➜</i><b>${l.name}</b>`;
+      edge.addEventListener('click', () => { const v = Object.values(VIEWS).find((w) => w.label === l.name.split(' ·')[0]); if (v) flyTo(v); });
+      host.appendChild(edge);
+    }
+    labelEls.push({ el, edge, txt: el.querySelector('.txt'), p: new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), base: new THREE.Vector3(l.x + 0.5, g + 2, l.y + 0.5), R, occluded: false });
   });
 }
 let labelFrame = 0;
@@ -231,7 +240,6 @@ function updateLabels() {
   host.style.display = P.labels ? '' : 'none';
   if (!P.labels) return;
   const v = new THREE.Vector3(), dir = new THREE.Vector3();
-  const placed = [];
   // occlusion is checked a few labels per frame (voxel DDA from the camera)
   if (world) for (let k = 0; k < 4 && labelEls.length; k++) {
     const L = labelEls[labelFrame++ % labelEls.length];
@@ -243,18 +251,56 @@ function updateLabels() {
     const hx = camera.position.x + dir.x * t - L.p.x, hz = camera.position.z + dir.z * t - L.p.z;
     L.occluded = t < dist - 3 && hx * hx + hz * hz > L.R * L.R;
   }
+  // the panel is an obstacle like any placed label
+  const pr = gui.domElement.getBoundingClientRect();
+  const placed = gui._hidden ? [] : [{ x0: pr.left - 8, x1: pr.right, y0: pr.top, y1: pr.bottom + 8 }];
+  const free = (r) => r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && r.y1 <= innerHeight - 4 &&
+    !placed.some((q) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
+  const TOP = 8;
   for (const L of labelEls) {
     v.copy(L.p).project(camera);
-    let vis = !L.occluded && v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
-    const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
-    if (vis) {
-      if (!L.w) { L.w = L.txt.offsetWidth || 160; L.h = L.txt.offsetHeight || 30; }
-      const r = { x0: x - 4, x1: x + L.w, y0: y - STEM - L.h, y1: y + 4 };
-      vis = r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && !placed.some((q) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
-      if (vis) placed.push(r);
+    const inFront = v.z < 1;
+    let x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
+    if (!L.w) { L.w = L.txt.offsetWidth || 160; L.h = L.txt.offsetHeight || 30; }
+    let vis = false, side = 'r', pinned = false;
+    if (!L.occluded && inFront && x > -20 && x < innerWidth + 20) {
+      // roof above the screen but the building itself in view: pin the label to the top edge
+      if (y < TOP + STEM + L.h && y > -innerHeight * 0.8) {
+        v.copy(L.base).project(camera);
+        if (v.z < 1 && (-v.y * 0.5 + 0.5) * innerHeight > TOP + STEM + L.h + 30) {
+          y = TOP + L.h + 4; pinned = true;
+          // below the panel when the panel spans this column (phone: a full-width bar)
+          if (!gui._hidden && x > pr.left - 8 && x - 4 < pr.right) y = Math.max(y, pr.bottom + 8 + L.h + 4);
+        }
+      }
+      if (y <= innerHeight + 4) {
+        const st = pinned ? 4 : STEM;
+        const right = { x0: x - 4, x1: x + L.w, y0: y - st - L.h, y1: y + 4 };
+        const left = { x0: x - L.w, x1: x + 4, y0: right.y0, y1: right.y1 };
+        if (free(right)) { vis = true; placed.push(right); }
+        else if (free(left)) { vis = true; side = 'l'; placed.push(left); }
+      }
     }
     L.el.classList.toggle('off', !vis);
+    L.el.classList.toggle('left', side === 'l');
+    L.el.classList.toggle('pinned', pinned);
     if (vis) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    // the highlighted building is always findable: an arrow on the screen edge while it is out of view
+    if (L.edge) {
+      const show = !vis && !L.occluded || (!vis && !(inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight));
+      L.edge.classList.toggle('off', !show);
+      if (show) {
+        let dx = x - innerWidth / 2, dy = y - innerHeight / 2;
+        if (!inFront) { dx = -dx; dy = -dy; }
+        const ax = innerWidth / 2 - 90, ay = innerHeight / 2 - 40;
+        const k = Math.min(ax / Math.max(Math.abs(dx), 1e-3), ay / Math.max(Math.abs(dy), 1e-3));
+        let ex = innerWidth / 2 + dx * k, ey = innerHeight / 2 + dy * k;
+        if (inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight) { ex = x; ey = y; } // on screen but crowded out
+        if (!gui._hidden && ex > pr.left - 110 && ey < pr.bottom + 20) ex = pr.left - 110; // keep clear of the panel
+        L.edge.style.transform = `translate(${ex.toFixed(0)}px, ${ey.toFixed(0)}px)`;
+        L.edge.querySelector('i').style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;
+      }
+    }
   }
 }
 
@@ -287,79 +333,76 @@ addEventListener('resize', () => {
   composer.setSize(innerWidth, innerHeight);
 });
 
-// ------------------------------------------------------------------ UI (lil-gui)
+// ------------------------------------------------------------------ UI: one dat.gui-style panel holds everything
+// (title, controls, key help, stats, attribution); nothing else floats over the map except the labels.
 const PRESETS = { morning: 7.5, midday: 13.0, 'golden hour': 17.7, 'blue hour': 20.95, night: 23.0 };
-const RATES = { off: 0, '1 min/s': 1 / 60, '10 min/s': 1 / 6, '1 h/s': 1 };
+const RATES = { off: 0, '1 min / s': 1 / 60, '10 min / s': 1 / 6, '1 h / s': 1 };
 const P = {
-  hour: 18.9, preset: 'golden hour', rate: 0,
+  hour: 18.9, preset: 'golden hour', rate: 0, street: false,
   labels: true, life: true, fountains: true, tilt: true,
   fov: 28, bloom: 1, ao: 2.2, saturation: 0.12, contrast: 0.06,
   speed: 1, look: 1,
-  walk: () => nav.setMode(nav.mode === 'walk' ? 'orbit' : 'walk'),
-  help: () => toggleHelp(),
 };
-const gui = new GUI({ title: 'Warszawa voxel', width: 268 });
+const gui = new GUI({ title: 'Warszawa · Śródmieście', width: 290 });
+gui.domElement.classList.add('panel');
 const fTime = gui.addFolder('Time');
 const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = ''; presetCtl.updateDisplay(); applyTime(h); });
-const presetCtl = fTime.add(P, 'preset', Object.keys(PRESETS)).name('preset').onChange((k) => animateTo(PRESETS[k]));
-fTime.add(P, 'rate', RATES).name('time-lapse');
-const fView = gui.addFolder('Camera');
-const viewCtls = [];
-fView.add(P, 'walk').name('walk at street level (G)');
-fView.add(P, 'fov', 15, 75, 1).name('field of view').onChange((f) => { camera.fov = f; camera.updateProjectionMatrix(); });
-fView.add(P, 'speed', 0.25, 4, 0.05).name('move speed');
-fView.add(P, 'look', 0.3, 3, 0.05).name('look sensitivity').onChange((s) => { nav.lookSens = s; });
-fView.add(P, 'help').name('mouse & keys… (H)');
-const fPlaces = gui.addFolder('Places');
-const fLayers = gui.addFolder('Layers');
-fLayers.add(P, 'labels').name('labels (L)');
-fLayers.add(P, 'life').name('traffic, trams, people').onChange((v) => { if (life) life.group.visible = v; });
-fLayers.add(P, 'fountains').onChange((v) => { if (fountains?.group) fountains.mesh.visible = v; });
-fLayers.add(P, 'tilt').name('tilt-shift (high up)');
-const fLook = gui.addFolder('Rendering').close();
-fLook.add(P, 'bloom', 0, 3, 0.05).name('bloom ×');
-fLook.add(P, 'ao', 0, 5, 0.1).name('ambient occlusion').onChange((v) => { n8.configuration.intensity = v; });
+hourCtl.updateDisplay = function () { this.$input.value = hhmm(this.getValue()); const t = (this.getValue() - 4.5) / 19; this.$fill.style.setProperty('width', `${t * 100}%`); return this; };
+const presetCtl = fTime.add(P, 'preset', Object.keys(PRESETS)).name('light').onChange((k) => animateTo(PRESETS[k]));
+fTime.add(P, 'rate', RATES).name('animate day');
+const fGo = gui.addFolder('Go to');
+const search = new PlaceSearch(fGo.$children);
+const streetCtl = fGo.add(P, 'street').name('street level').onChange((v) => nav.setMode(v ? 'walk' : 'orbit'));
+const kbd = (el, k) => { el.querySelector(':scope > kbd')?.remove(); const b = document.createElement('kbd'); b.textContent = k; el.appendChild(b); };
+const fShow = gui.addFolder('Show').close();
+fShow.add(P, 'labels').name('labels');
+fShow.add(P, 'life').name('traffic & trams').onChange((v) => { if (life) life.group.visible = v; });
+fShow.add(P, 'fountains').onChange((v) => { if (fountains) fountains.mesh.visible = v; });
+fShow.add(P, 'tilt').name('miniature blur');
+const fCam = gui.addFolder('Camera').close();
+fCam.add(P, 'fov', 15, 75, 1).name('field of view').onChange((f) => { camera.fov = f; camera.updateProjectionMatrix(); });
+fCam.add(P, 'speed', 0.25, 4, 0.05).name('move speed');
+fCam.add(P, 'look', 0.3, 3, 0.05).name('look speed').onChange((s) => { nav.lookSens = s; });
+const fLook = gui.addFolder('Render').close();
+fLook.add(P, 'bloom', 0, 3, 0.05);
+fLook.add(P, 'ao', 0, 5, 0.1).name('occlusion').onChange((v) => { n8.configuration.intensity = v; });
 fLook.add(P, 'saturation', -0.5, 0.6, 0.01).onChange((v) => { hueSat.saturation = v; });
 fLook.add(P, 'contrast', -0.3, 0.4, 0.01).onChange((v) => { bc.contrast = v; });
-if (innerWidth < 700) gui.close();
-
+const fKeys = gui.addFolder('Mouse & keys');
+kbd(fKeys.$title, 'H');
 const HELP = [
-  ['Mouse', ''],
-  ['left drag', 'orbit around the focus'],
-  ['right drag', 'look around (turn in place)'],
-  ['shift / middle drag', 'pan'],
-  ['wheel', 'zoom towards cursor'],
-  ['double-click', 'fly to that spot'],
-  ['Keys', ''],
-  ['W A S D', 'move  (Shift = fast)'],
-  ['← →', 'turn'],
-  ['↑ ↓', 'look up / down'],
-  ['Shift + arrows', 'orbit around the focus'],
-  ['Q  E', 'down / up'],
-  ['G', 'walk at street level  (Esc leaves)'],
-  ['1 – 9', 'places'],
-  ['[  ]', 'time −/+ 15 min'],
-  ['L  H', 'labels · this help'],
+  ['drag', 'turn around the centre'], ['right drag', 'look around'], ['shift drag', 'slide'], ['scroll', 'zoom to cursor'], ['double-click', 'fly there'],
+  ['W A S D', 'move  (shift: faster)'], ['←  →', 'turn'], ['↑  ↓', 'look up · down'], ['Q  E', 'lower · higher'],
+  ['G', 'street level · Esc leaves'], ['1 – 7', 'places'], ['/', 'search'], ['[  ]', 'time −/+ 15 min'], ['L', 'labels'],
 ];
-$('#help').innerHTML = `<table>${HELP.map(([k, v]) => v ? `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>` : `<tr class="h"><td colspan="2">${k}</td></tr>`).join('')}</table>`;
+const help = document.createElement('div');
+help.className = 'help';
+help.innerHTML = HELP.map(([k, v]) => `<span class="k">${k}</span><span>${v}</span>`).join('');
+fKeys.$children.appendChild(help);
+const fAbout = gui.addFolder('About').close();
+const foot = document.createElement('div');
+foot.className = 'foot';
+foot.innerHTML = '<div id="sources"></div><div id="stats">loading…</div>';
+fAbout.$children.appendChild(foot);
+// one plain sentence for first-time visitors, first thing in the panel
+if (innerWidth < 600) gui.close();
 function toggleHelp(show) {
-  const h = $('#help');
-  h.hidden = show === undefined ? !h.hidden : !show;
-  try { localStorage.setItem('helpSeen', '1'); } catch { /* storage unavailable */ }
+  fKeys.openAnimated(show === undefined ? fKeys._closed : show);
 }
 function onMode(m) {
   document.body.classList.toggle('walking', m === 'walk');
-  $('#mode').textContent = m === 'walk' ? 'Walking · mouse looks · WASD · Shift runs · Esc leaves' : '';
+  P.street = m === 'walk'; streetCtl.updateDisplay();
 }
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('.lil-gui input'))) return;
-  if (e.code === 'KeyG') P.walk();
+  if (e.code === 'KeyG') nav.setMode(nav.mode === 'walk' ? 'orbit' : 'walk');
+  else if (e.key === '/') { search.input.focus(); e.preventDefault(); }
   else if (e.code === 'KeyH' || e.key === '?') toggleHelp();
   else if (e.code === 'KeyL') { P.labels = !P.labels; gui.controllersRecursive().forEach((c) => c.updateDisplay()); }
   else if (e.code === 'BracketLeft' || e.code === 'BracketRight') { anim = null; applyTime(Math.min(23.5, Math.max(4.5, state.hour + (e.code === 'BracketLeft' ? -0.25 : 0.25)))); }
   else if (/^Digit[1-9]$/.test(e.code) && viewCtls[+e.code.slice(5) - 1]) viewCtls[+e.code.slice(5) - 1]();
-  else if (e.code === 'Escape' && !$('#help').hidden) toggleHelp(false);
 });
+const viewCtls = [];
 let anim = null;
 function animateTo(h) {
   const from = state.hour, t0 = performance.now();
@@ -370,6 +413,29 @@ function animateTo(h) {
   };
 }
 let VIEWS = {};
+// frame a searched place from the current compass direction, ~30° down; pin it with a temporary label
+function goPlace(x, y, size, pin) {
+  if (nav.mode === 'walk') nav.setMode('orbit');
+  const g = world.groundAt(x, y), top = world.top(Math.floor(x), Math.floor(y));
+  const h = Math.max(0, top - g);
+  const t = new THREE.Vector3(x + 0.5, g + Math.min(h * 0.5, 60), y + 0.5);
+  const dist = Math.min(700, Math.max(70, size * 1.4 + h * 1.6));
+  const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z), el = 0.52;
+  const pos = t.clone().add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(dist));
+  pinPlace(pin && { ...pin, x, y, z: Math.max(top, g + 2) });
+  flyTo({ pos: pos.toArray(), target: t.toArray() });
+}
+let pinL = null;
+function pinPlace(p) {
+  if (pinL) { pinL.el.remove(); labelEls.splice(labelEls.indexOf(pinL), 1); pinL = null; }
+  if (!p) return;
+  const el = document.createElement('div');
+  el.className = 'label pick';
+  el.innerHTML = `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${p.name}</b><span>${p.note}</span></div>`;
+  $('#labels').appendChild(el);
+  pinL = { el, txt: el.querySelector('.txt'), p: new THREE.Vector3(p.x + 0.5, p.z + 1, p.y + 0.5), base: new THREE.Vector3(p.x + 0.5, p.z, p.y + 0.5), R: 40, occluded: false };
+  labelEls.unshift(pinL);
+}
 let fly = null;
 function flyTo(v) {
   const p0 = camera.position.clone(), t0v = controls.target.clone(), t0 = performance.now();
@@ -401,11 +467,18 @@ function flyTo(v) {
   VIEWS = meta.views;
   world = nav.world = new VoxelWorld(meta, data.counts, data.runs, data.ground);
   makeLabels(meta);
+  const items = [];
   Object.values(VIEWS).forEach((v, i) => {
-    const go = () => { if (nav.mode === 'walk') nav.setMode('orbit'); flyTo(v); };
+    const go = () => { if (nav.mode === 'walk') nav.setMode('orbit'); pinPlace(null); flyTo(v); };
     viewCtls.push(go);
-    fPlaces.add({ go }, 'go').name(`${i < 9 ? `${i + 1} · ` : ''}${v.label}`);
+    items.push({ name: v.label, kind: `view ${i + 1}`, featured: true, go });
   });
+  for (const l of meta.labels) items.push({ name: l.name, alt: l.note, kind: 'landmark', go: () => goPlace(l.x, l.y, 40, null) });
+  fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
+    for (const [name, kind, x, y, size, alt] of places) items.push({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) });
+    search.setItems(items);
+  });
+  search.setItems(items);
   fountains = new Fountains(scene, meta.jets || []);
   fetch('data/traffic.json').then((r) => r.json()).then((td) => {
     life = new StreetLife(scene, td);
@@ -413,7 +486,7 @@ function flyTo(v) {
     life.group.visible = P.life;
   });
   $('#stats').textContent = `${meta.W}×${meta.D} m · 1 m voxels · ${(tris / 1e6).toFixed(1)} M tris`;
-  $('#sources').textContent = `LiDAR + orthophoto: GUGiK 2025 · OSM ${meta.sources.osm.slice(0, 10)}`;
+  $('#sources').innerHTML = `LiDAR, orthophoto: GUGiK 2025<br>map data © OpenStreetMap contributors, ${meta.sources.osm.slice(0, 10)}`;
   const v = VIEWS[new URLSearchParams(location.search).get('view') || 'overview'] || VIEWS.overview;
   camera.position.set(...v.pos);
   controls.target.set(...v.target);
@@ -422,9 +495,8 @@ function flyTo(v) {
   applyTime(qh ? +qh : PRESETS['golden hour']);
   P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || '';
   const qs = new URLSearchParams(location.search);
-  if (qs.get('tilt') === '0') P.tilt = false;
+  if (qs.get('tilt') === '0' || innerWidth < 600) P.tilt = false;
   if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
-  else { let seen = null; try { seen = localStorage.getItem('helpSeen'); } catch { /* storage unavailable */ } if (!seen) toggleHelp(true); }
   gui.controllersRecursive().forEach((c) => c.updateDisplay());
   if (qs.get('cam')) { const c = qs.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
   $('#loading').classList.add('hidden');

@@ -359,6 +359,7 @@ export class StreetLife {
     const myTurn = car.next >= 0 ? turnOf(e, this.roads[car.next]) : 0;
     for (const h of holders) {
       if (h === car) continue;
+      this.boxBlocker = h;
       if (h.boxFrom === e.i) { // same approach: fine if lanes are ordered like the turns (no crossing paths)
         const dl = car.lane - h.boxLane, dt = myTurn - h.boxTurn;
         if (dl === 0) continue; // same lane: plain car-following
@@ -389,9 +390,10 @@ export class StreetLife {
   }
 
   carObstacle(car, e) {
-    let gap = Infinity, lv = 0, why = 'free';
+    let gap = Infinity, lv = 0, why = 'free', by = null;
     const assertive = car.ghost > 0; // after a long deadlock-type wait: ignore box locks and cross traffic only
-    const lead = (o, g) => { if (g < gap) { gap = g; lv = o.v; why = o.e === car.e ? 'leader' : 'next-edge-car'; } };
+    const ig = car.ignore && car.ignoreT > this.t ? car.ignore : null; // waived blocker (deadlock breaker)
+    const lead = (o, g) => { if (o === ig && o.e !== car.e) return; if (g < gap) { gap = g; lv = o.v; why = o.e === car.e ? 'leader' : 'next-edge-car'; by = o; } };
     for (const o of e.lists[car.lane]) if (o !== car && o.s > car.s) lead(o, o.s - o.len - car.s);
     // cars changing into my lane, and (if I am changing) cars in my target lane
     for (let l = 0; l < e.lanes; l++) {
@@ -413,57 +415,85 @@ export class StreetLife {
       const st = signalState(this.ctrls[sg.ctrl], this.t, sg.axis);
       const d = sg.s - car.s;
       const canStop = d > (car.v * car.v) / (2 * IDM.b) + 1;
-      if ((st === 'R' || (st === 'Y' && canStop)) && d < gap) { gap = d; lv = 0; why = 'signal'; }
+      if ((st === 'R' || (st === 'Y' && canStop)) && d < gap) { gap = d; lv = 0; why = 'signal'; by = null; }
     }
     // don't block the box: only enter the junction if there is room to clear it on the exit road
     if (CFG.room && !assertive && car.next >= 0 && car.boxNode !== e.b && e.L - car.s < BOX_IN + 15) {
       const n = this.roads[car.next], t = turnOf(e, n);
       const nl = t === -1 ? 0 : t === 1 ? n.lanes - 1 : Math.min(car.lane, n.lanes - 1);
       let room = Infinity;
-      for (const o of n.lists[nl]) if (o.v < 2) room = Math.min(room, o.s - o.len);
+      let rb = null;
+      for (const o of n.lists[nl]) if (o.v < 2 && o.s - o.len < room) { room = o.s - o.len; rb = o; }
       if (room < car.len + 2 && n.L > car.len + 4) {
         const d = e.L - BOX_IN - car.s;
-        if (d < gap) { gap = Math.max(d, 0.01); lv = 0; why = 'no-room-exit'; }
+        if (d < gap && rb !== ig) { gap = Math.max(d, 0.01); lv = 0; why = 'no-room-exit'; by = rb; }
       }
     }
     // physical blocker in my path; circular waits are broken after 6 s when the blocker is itself stuck
     const sameDir = car.block && (car.block.o.geo.fx * car.geo.fx + car.block.o.geo.fy * car.geo.fy) > 0.7;
-    if (CFG.spatial && car.block && (sameDir || !assertive) && !(car.wait > 6 && car.block.o.wait > 3 && !sameDir) && car.block.gap < gap) { gap = Math.max(car.block.gap, 0.01); lv = car.block.o.v * Math.max(0, car.block.o.geo.fx * car.geo.fx + car.block.o.geo.fy * car.geo.fy); why = 'spatial'; }
+    if (CFG.spatial && car.block && car.block.o !== ig && (sameDir || !assertive) && !(car.wait > 6 && car.block.o.wait > 3 && !sameDir) && car.block.gap < gap) { gap = Math.max(car.block.gap, 0.01); lv = car.block.o.v * Math.max(0, car.block.o.geo.fx * car.geo.fx + car.block.o.geo.fy * car.geo.fy); why = 'spatial'; by = car.block.o; }
     const xs = this.roadX.get(e.i);
+    // already over the tracks: clear them; never stop on a level crossing because of the tram that is waiting for me
+    const onX = xs && xs.some((x) => car.s > x.sR - 2.5 && car.s - car.len < x.sR + 2.5);
     if (CFG.level && xs) for (const x of xs) { // level crossing ahead: stop if a tram is on it or due within ~4 s
       const d = x.sR - car.s;
-      if (d < 0 || d > 40) continue;
-      const busy = this.trams.some((tr) => tr.p === x.path && tr.s - this.tramLen() < x.sT + 3 &&
+      if (d < 2.5 || d > 40) continue; // front already at the tracks: committed, clear them
+      const busy = this.trams.find((tr) => tr.p === x.path && tr.s - this.tramLen() < x.sT + 3 &&
         (tr.s > x.sT - 2 || (tr.v > 1 && tr.s > x.sT - tr.v * 4)));
-      if (busy && d - 3.5 < gap) { gap = Math.max(d - 3.5, 0.01); lv = 0; why = 'tram-crossing'; }
+      if (busy && busy !== ig && d - 3.5 < gap) { gap = Math.max(d - 3.5, 0.01); lv = 0; why = 'tram-crossing'; by = busy; }
       // keep the crossing clear: don't start across unless there is room for my whole car beyond the tracks
       if (d > 0.5) {
         let room = Infinity;
-        for (const o of e.lists[car.lane]) if (o !== car && o.s > x.sR && o.v < 2) room = Math.min(room, o.s - o.len - (x.sR + 2.5));
-        if (room < car.len + 1 && d - 3.5 < gap) { gap = Math.max(d - 3.5, 0.01); lv = 0; why = 'keep-crossing-clear'; }
+        let rb = null;
+        for (const o of e.lists[car.lane]) if (o !== car && o.s > x.sR && o.v < 2 && o.s - o.len - (x.sR + 2.5) < room) { room = o.s - o.len - (x.sR + 2.5); rb = o; }
+        if (room < car.len + 1 && rb !== ig && d - 3.5 < gap) { gap = Math.max(d - 3.5, 0.01); lv = 0; why = 'keep-crossing-clear'; by = rb; }
       }
     }
-    if (CFG.tramobs && this.tramObs.length) { // yield to any tram body in the next 25 m of my path
+    if (CFG.tramobs && !onX && this.tramObs.length) { // yield to any tram body in the next 25 m of my path
       const P = this.carPoint(car, car.s, { x: 0, y: 0, z: 0 }), F = this.carPoint(car, car.s + 1, { x: 0, y: 0, z: 0 });
       const fx = F.x - P.x, fy = F.y - P.y;
-      for (const [x, y] of this.tramObs) {
+      for (const [x, y, tro] of this.tramObs) {
         const rx = x - P.x, ry = y - P.y;
         if (Math.abs(rx) > 30 || Math.abs(ry) > 30) continue;
         const along = rx * fx + ry * fy, lat = Math.abs(rx * fy - ry * fx);
-        if (along > 0 && along < 25 && lat < 2.4 && along - 2 < gap) { gap = Math.max(along - 2, 0.01); lv = 0; why = 'tram'; }
+        if (tro !== ig && along > 0 && along < 25 && lat < 2.4 && along - 2 < gap) { gap = Math.max(along - 2, 0.01); lv = 0; why = 'tram'; by = tro; }
       }
     }
     if (CFG.box && !assertive && car.boxNode !== e.b && car.next >= 0 && e.L - car.s < BOX_IN + 15) {
-      const free = this.boxFree(car, e, e.b) || car.wait > 10; // nudge through after 10 s (prevents deadlock)
-      if (!free) { const d = e.L - BOX_IN - car.s; if (d < gap) { gap = Math.max(d, 0.01); lv = 0; why = 'box-busy'; } }
+      const free = this.boxFree(car, e, e.b) || car.wait > 10 || (ig && this.boxBlocker === ig); // nudge through after 10 s (prevents deadlock)
+      if (!free) { const d = e.L - BOX_IN - car.s; if (d < gap) { gap = Math.max(d, 0.01); lv = 0; why = 'box-busy'; by = this.boxBlocker; } }
     }
     car.why = assertive && why === 'free' ? 'assertive' : why;
+    car.by = by;
     return [gap, lv];
   }
 
   // ------------------------------------------------------------------ step
+  // Circular waits: every stopped agent waits for at most one other (`by`), so cycles are cheap to find.
+  // In each cycle the member with the softest reason may ignore its blocker for a few seconds.
+  breakDeadlocks() {
+    const SOFT = ['spatial', 'box-busy', 'no-room-exit', 'hold-at-line', 'keep-crossing-clear', 'next-edge-car', 'tram-crossing', 'tram'];
+    const rank = (a) => { const i = SOFT.indexOf(a.why); return a.isTram ? 20 + ['road-occupied', 'car-on-track', 'tram'].indexOf(a.why) : i < 0 ? 99 : i; };
+    const state = new Map(); // 1 = on current path, 2 = done
+    for (const tr of this.trams) tr.isTram = true;
+    for (const a0 of [...this.cars, ...this.trams]) {
+      if (state.has(a0)) continue;
+      const path = [];
+      let a = a0;
+      while (a && !state.has(a) && a.v < 0.3 && a.by) { state.set(a, 1); path.push(a); a = a.by; }
+      if (a && state.get(a) === 1) {
+        const cyc = path.slice(path.indexOf(a));
+        let best = null;
+        for (const m of cyc) if (rank(m) < 99 && (!best || rank(m) < rank(best))) best = m;
+        if (best) { best.ignore = best.by; best.ignoreT = this.t + 4; this.nBreak = (this.nBreak || 0) + 1; }
+      }
+      for (const p of path) state.set(p, 2);
+    }
+  }
+
   step(dt, density) {
     this.t += dt;
+    if (((this.t / 0.5) | 0) !== ((this.t - dt) / 0.5 | 0)) this.breakDeadlocks();
     const targetCars = Math.min(this.MAXC, Math.round(this.laneKm * 9 * density.cars));
     const targetPeds = Math.min(this.MAXP, Math.round(this.pedKm * 24 * density.peds));
     for (let k = 0; k < 6 && this.cars.length < targetCars; k++) this.spawnCar(this.cars.length > targetCars * 0.5);
@@ -474,7 +504,7 @@ export class StreetLife {
     this.tramObs = [];
     { const q1 = { x: 0, y: 0, z: 0 };
       for (const tr of this.trams) { const tp = this.tramPaths[tr.p];
-        for (let s0 = 0; s0 <= TRAM.n * (TRAM.sec + TRAM.gap); s0 += 3) { at(tp, tr.s - s0, 0, q1); this.tramObs.push([q1.x, q1.y]); } } }
+        for (let s0 = 0; s0 <= TRAM.n * (TRAM.sec + TRAM.gap); s0 += 3) { at(tp, tr.s - s0, 0, q1); this.tramObs.push([q1.x, q1.y, tr]); } } }
     // ---- spatial snapshot of all cars (front point, direction, centre) for physical conflict checks
     const grid = new Map();
     const G = 8, key = (x, y) => ((x / G) | 0) * 100003 + ((y / G) | 0);
@@ -557,8 +587,9 @@ export class StreetLife {
         {
           const n0 = this.roads[car.next], t0 = turnOf(e, n0);
           const l0 = t0 === -1 ? 0 : t0 === 1 ? n0.lanes - 1 : Math.min(car.lane, n0.lanes - 1);
-          if (CFG.hold && n0.lists[l0].some((o) => o.s < car.len + 1.5)) { // target lane start occupied: hold at the line
-            e.lists[car.lane].push(car); car.s = e.L - 0.01; car.v = 0; car.why = 'hold-at-line'; continue;
+          const hb = n0.lists[l0].find((o) => o.s < car.len + 1.5);
+          if (CFG.hold && hb && !(car.ignore === hb && car.ignoreT > this.t)) { // target lane start occupied: hold at the line
+            e.lists[car.lane].push(car); car.s = e.L - 0.01; car.v = 0; car.why = 'hold-at-line'; car.by = n0.lists[l0].find((o) => o.s < car.len + 1.5); continue;
           }
         }
         car.prev = car.e; car.prevOff = car.off;
@@ -600,7 +631,8 @@ export class StreetLife {
       const p = this.tramPaths[tr.p];
       at(p, tr.s, 0, tq); at(p, tr.s + 1, 0, tq2);
       const fdx = tq2.x - tq.x, fdy = tq2.y - tq.y;
-      let gap = Infinity;
+      let gap = Infinity, tw = 'free', tb = null;
+      const G2 = (g, w, b) => { if (g < gap) { gap = g; tw = w; tb = b; } };
       for (const [oj, x, y] of tramPts) { // any tram body ahead on my track (shared track between lines)
         if (oj === ti) continue;
         const rx = x - tq.x, ry = y - tq.y;
@@ -609,7 +641,7 @@ export class StreetLife {
         if (along > -0.5 && along < 70 && lat < 2.2 + Math.min(along, 40) * 0.12) {
           if (lat > 2.2 && oj < ti && this.trams[oj].yieldTo === ti) continue; // mutual at a merge: lower index goes
           if (lat > 2.2) tr.yieldTo = oj;
-          gap = Math.min(gap, along - 1.5);
+          if (!(tr.ignore === this.trams[oj] && tr.ignoreT > this.t)) G2(along - 1.5, 'tram', this.trams[oj]);
         }
       }
       if (this.carGrid) { // cars standing on my track ahead
@@ -617,7 +649,7 @@ export class StreetLife {
         for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) for (const c of this.carGrid.get((gx + i) * 100003 + (gy + j)) || []) {
           const rx = c.geo.cx - tq.x, ry = c.geo.cy - tq.y;
           const along = rx * fdx + ry * fdy, lat = Math.abs(rx * fdy - ry * fdx);
-          if (along > -1 && along < 30 && lat < 2.4) gap = Math.min(gap, along - 2.5);
+          if (along > -1 && along < 30 && lat < 2.4) { if (!(tr.ignore === c && tr.ignoreT > this.t)) G2(along - 2.5, 'car-on-track', c); }
         }
       }
       for (const x of p.xs) {
@@ -625,23 +657,25 @@ export class StreetLife {
         if (x.kind === 'road') {
           if (d < 0 || d > 25) continue;
           const lst = this.roads[x.e].lists;
-          const occupied = lst.some((l) => l.some((c) => c.s > x.sR - 1.5 && c.s - c.len < x.sR + 1.5));
-          if (occupied) gap = Math.min(gap, d - 4);
+          let occ = null;
+          for (const l of lst) for (const c of l) if (c.s > x.sR - 1.5 && c.s - c.len < x.sR + 1.5) occ = c;
+          if (occ && !(tr.ignore === occ && tr.ignoreT > this.t)) G2(d - 4, 'road-occupied', occ);
         } else {
           const D = this.diamonds[x.id];
           if (D.holder === tr && tr.s - this.tramLen() > x.sT + 2) { D.holder = null; continue; }
           if (d < 0 || d > 30) continue;
           if (!D.holder || !this.trams.includes(D.holder)) D.holder = tr;
-          else if (D.holder !== tr) gap = Math.min(gap, d - 6);
+          else if (D.holder !== tr) G2(d - 6, 'diamond', D.holder);
         }
       }
       for (const st of p.stops) {
         if (tr.s > st.s + 0.3 || st.s - tr.s > 80) continue;
         const sgl = signalState(this.ctrls[st.ctrl], this.t, st.axis);
         const d = st.s - tr.s;
-        if (sgl === 'R' || (sgl === 'Y' && d > (tr.v * tr.v) / (2 * TRAM.b) + 1)) gap = Math.min(gap, d);
+        if (sgl === 'R' || (sgl === 'Y' && d > (tr.v * tr.v) / (2 * TRAM.b) + 1)) G2(d, 'signal', null);
       }
       if (gap === Infinity) tr.yieldTo = -1;
+      tr.why = tw; tr.by = tb;
       const ss = 3 + Math.max(0, tr.v * 1.5);
       let acc = TRAM.a * (1 - (tr.v / TRAM.v) ** 4 - (gap === Infinity ? 0 : (ss / Math.max(gap, 0.1)) ** 2));
       acc = Math.max(acc, -5);
