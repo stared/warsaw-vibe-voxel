@@ -37,7 +37,8 @@ def underground(t):
             or t.get("location") == "underground" or (_num(t.get("level"), 0) or 0) < 0 or t.get("covered") == "yes")
 
 
-def build(g, nd_mean, note):
+def build(g, nd_mean, note, surf=None):
+    """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving"""
     data = json.load(open(f"{RAW}/osm.json"))
     nodes = {}  # id -> (x, y) grid
     ntags = {}
@@ -153,7 +154,7 @@ def build(g, nd_mean, note):
             L = length(p)
             if L < 1:
                 continue
-            e = dict(a=node_idx(s[0]), b=node_idx(s[-1]), p=p, L=round(L, 1), lanes=max(1, min(nl, 4)),
+            e = dict(a=node_idx(s[0]), b=node_idx(s[-1]), w=w["id"], p=p, L=round(L, 1), lanes=max(1, min(nl, 4)),
                      v=round(v, 1), c=CLASS.get(hw.replace("_link", ""), 1), two=not (ow or rev))
             # signal for this direction: a signal node on this edge (not its start) within 45 m of its end
             cum = np.concatenate([[0], np.cumsum([math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:])])])
@@ -171,6 +172,53 @@ def build(g, nd_mean, note):
                 dx, dy = p[k][0] - p[k - 1][0], p[k][1] - p[k - 1][1]
                 e["sig"] = dict(s=round(best[0], 1), ctrl=best[1], axis=0 if abs(dx) >= abs(dy) else 1)
             roads.append(e)
+    # validate lanes against the actual paved surface: a lane centre must run mostly on carriageway and not on
+    # the tram bed (OSM lanes= often counts space the tracks take, or a wider road than the mapped centreline allows)
+    n_drop = 0
+    if surf is not None:
+        from scipy import ndimage as _nd
+        tramzone = _nd.binary_dilation(surf == 2, iterations=1)  # ~1 m clearance so bodies never touch
+        surf = np.where(tramzone & (surf != 2), 2, surf).astype(np.uint8)
+        for e in roads:
+            p = np.array(e["p"], float)
+            cum = np.concatenate([[0], np.cumsum(np.hypot(*np.diff(p[:, :2], axis=0).T))])
+            L = cum[-1]
+            ss = np.arange(min(8, L / 3), max(L - min(8, L / 3), 0.1), 3.0)
+            if len(ss) == 0:
+                ss = np.array([L / 2])
+            idx = np.clip(np.searchsorted(cum, ss), 1, len(p) - 1)
+            f = (ss - cum[idx - 1]) / np.maximum(cum[idx] - cum[idx - 1], 1e-6)
+            xy = p[idx - 1, :2] + (p[idx, :2] - p[idx - 1, :2]) * f[:, None]
+            d = (p[idx, :2] - p[idx - 1, :2]) / np.maximum(np.hypot(*(p[idx, :2] - p[idx - 1, :2]).T), 1e-6)[:, None]
+            n = e["lanes"]
+            offs = [(l + 0.5) * 3.0 if e["two"] else (l + 0.5 - n / 2) * 3.0 for l in range(n)]
+            ok = []
+            for o in offs:
+                q = xy + np.stack([-d[:, 1], d[:, 0]], 1) * o
+                c = np.clip(q[:, 0].astype(int), 0, surf.shape[1] - 1)
+                r = np.clip(q[:, 1].astype(int), 0, surf.shape[0] - 1)
+                v = surf[r, c]
+                ok.append((v == 1).mean() >= 0.5 and (v == 2).mean() <= 0.25)
+            # longest contiguous run of valid lanes (keep at least the best single lane)
+            best, cur, bs = (0, 0), 0, 0
+            for l, good in enumerate(ok + [False]):
+                if good:
+                    cur += 1
+                    if cur > best[1]:
+                        best = (l - cur + 1, cur)
+                else:
+                    cur = 0
+            if best[1] == 0:
+                best = (int(np.argmin(np.abs(offs))), 1)
+            if best[1] < n:
+                n_drop += n - best[1]
+            e["lanes"] = best[1]
+            e["o0"] = round(offs[best[0]], 2)
+    else:
+        for e in roads:
+            e["o0"] = 1.5 if e["two"] else round((0.5 - e["lanes"] / 2) * 3.0, 2)
+    note(f"traffic: {n_drop} OSM lanes dropped where the lane centre is not on carriageway or runs on the tram bed")
+
     # approaches into a signalled junction without their own signal node (side streets) obey the same controller
     n_inf = 0
     for e in roads:
@@ -184,6 +232,18 @@ def build(g, nd_mean, note):
         e["sig"] = dict(s=round(max(0.5, e["L"] - 5.5), 1), ctrl=k, axis=0 if abs(dx) >= abs(dy) else 1, inferred=1)
         n_inf += 1
     note(f"traffic: {n_inf} side-street approaches inferred onto nearby signal controllers")
+    # OSM turn restrictions (from way, via node, to way)
+    restr = []
+    for rel in data["elements"]:
+        t = rel.get("tags", {})
+        if rel["type"] != "relation" or t.get("type") != "restriction" or not t.get("restriction"):
+            continue
+        fr = [m["ref"] for m in rel.get("members", []) if m.get("role") == "from" and m["type"] == "way"]
+        to = [m["ref"] for m in rel.get("members", []) if m.get("role") == "to" and m["type"] == "way"]
+        via = [m["ref"] for m in rel.get("members", []) if m.get("role") == "via" and m["type"] == "node"]
+        if fr and to and via and via[0] in nid_index:
+            restr.append([fr[0], nid_index[via[0]], to[0], t["restriction"]])
+    note(f"traffic: {len(restr)} turn restrictions on the road graph")
     rnodes = [None] * len(nid_index)
     for n, i in nid_index.items():
         x, y = nodes[n]
@@ -241,6 +301,59 @@ def build(g, nd_mean, note):
         c_, r_ = min(max(int(hx), 0), W - 1), min(max(int(hy), 0), D - 1)
         heads.append([round(hx, 1), round(hy, 1), int(g[r_, c_]), round(math.atan2(dx, dy), 2), sg["ctrl"], sg["axis"]])
 
+    # ---------------- trams: real route relations (PTv2, one relation per direction), chained and clipped
+    way_by_id = {e["id"]: e for e in data["elements"] if e["type"] == "way"}
+    for e in data["elements"]:  # tram ways are railway=*, not highway=*: register their nodes too
+        if e["type"] == "way" and e.get("tags", {}).get("railway") == "tram":
+            for nid, p_ in zip(e["nodes"], e.get("geometry") or []):
+                if p_ and nid not in nodes:
+                    x, y = _T.transform(p_["lon"], p_["lat"])
+                    i, j = to_grid(x, y)
+                    nodes[nid] = (float(i), float(j))
+    trams = []
+    for rel in data["elements"]:
+        t = rel.get("tags", {})
+        if rel["type"] != "relation" or t.get("route") != "tram":
+            continue
+        seq = []
+        for m in rel.get("members", []):
+            if m["type"] != "way" or m.get("role") not in ("", "forward", "backward"):
+                continue
+            w = way_by_id.get(m["ref"])
+            if not w or w.get("tags", {}).get("railway") not in ("tram", "rail", "light_rail"):
+                continue
+            ns = [n for n in w["nodes"] if n in nodes]
+            if len(ns) < 2:
+                continue
+            if m.get("role") == "backward":
+                ns = ns[::-1]
+            if seq:
+                if seq[-1] == ns[-1]:
+                    ns = ns[::-1]
+                elif seq[-1] != ns[0]:
+                    if seq[0] in (ns[0], ns[-1]) and len(seq) == len(w["nodes"]) or seq[0] == ns[-1]:
+                        pass
+                    if seq[-1] not in (ns[0], ns[-1]):
+                        # gap (route leaves the downloaded area or member order is off): start a new chain piece
+                        seq.append(None)
+                seq.extend(ns[1:] if seq[-1] == ns[0] else ns)
+            else:
+                seq = list(ns)
+        # split at gaps, clip to AOI, keep inside runs >= 120 m
+        piece = []
+        for n in seq + [None]:
+            if n is None or not inside(n):
+                if len(piece) >= 2:
+                    pp = pts_of(piece, False)
+                    if length(pp) >= 120:
+                        trams.append(dict(ref=t.get("ref", "?"), p=pp, L=round(length(pp), 1)))
+                piece = []
+            else:
+                if not piece or piece[-1] != n:
+                    piece.append(n)
+    # identical paths from different refs share track: keep all (each ref runs its own service)
+    note(f"traffic: {len(trams)} tram route pieces inside the AOI, lines {sorted({tr['ref'] for tr in trams}, key=lambda r: (len(r), r))}")
+
     for c in ctrls:
         c["x"], c["y"] = round(c["x"], 1), round(c["y"], 1)
         del c["n"]
@@ -249,4 +362,4 @@ def build(g, nd_mean, note):
     note(f"traffic: {len(roads)} directed road edges ({round(sum(e['L'] * e['lanes'] for e in roads) / 1000, 1)} lane-km), "
          f"{len(ctrls)} signal controllers, {nsig} signalled approaches; {len(peds)} footpath edges "
          f"({round(sum(e['L'] for e in peds) / 1000, 1)} km), {ncross} signalled crossings")
-    return dict(roads=roads, rnodes=rnodes, ctrls=ctrls, heads=heads, peds=peds, pnodes=pn)
+    return dict(roads=roads, rnodes=rnodes, ctrls=ctrls, heads=heads, peds=peds, pnodes=pn, trams=trams, restr=restr)

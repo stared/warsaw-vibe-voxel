@@ -1,19 +1,29 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-// Live street simulation on the real OSM networks (scripts/traffic.py):
-//  - signal controllers: two-axis fixed-time cycle (green / amber / all-red), per-junction offset
-//  - cars: Intelligent Driver Model car-following per lane, stop at red/amber, slow for turns,
-//          pick the next edge at junctions (prefer straight & bigger roads, no U-turns)
-//  - pedestrians: random walk on the footpath graph, keep right, wait for green at signalled crossings
-//  - density follows the time of day
+// Live street simulation on the real OSM networks (scripts/traffic.py).
+//  signals  : per-junction controllers, two-axis fixed-time cycle (green / amber / all-red), random offsets
+//  cars     : Intelligent Driver Model per lane; stop at red/amber; slow for turns; choose turn lanes early and
+//             change lanes smoothly; obey OSM turn restrictions; junction "box" locks so conflicting movements
+//             never share a junction; positions blend across the junction node into a smooth turning arc
+//  trams    : run their real OSM route relations one way, articulated sections on the track, IDM behind any
+//             tram ahead on the same track (spatial leader search, so shared track between lines works), obey signals
+//  people   : random walk on the footpath graph, keep right, wait for their green at signalled crossings
+//  density  : follows the time of day
 
-const CYCLE = 64, GREEN = 26, AMBER = 3, ALLRED = 3; // s; axis 0 then axis 1
-const PED_GREEN = 18; // pedestrians cross during the first part of the parallel car green
+const CYCLE = 64, GREEN = 26, AMBER = 3;
+const PED_GREEN = 18;
 const LANE_W = 3.0;
 const IDM = { a: 1.4, b: 2.2, s0: 2.2, T: 1.2 };
+const BLEND = 7; // m either side of a junction node over which lane offsets are blended into an arc
+const BOX_IN = 7, BOX_OUT = 9; // junction lock zone: last/first metres of incoming/outgoing edges
+const TRAM = { sec: 10.5, gap: 0.6, n: 3, v: 11, a: 1.0, b: 1.6, headway: 300 };
 
+// rule switches (for diagnosis: ?sim=nobox,nospatial,...)
+const CFG = { box: true, spatial: true, room: true, level: true, tramobs: true, hold: true };
+try { for (const k of (new URLSearchParams(location.search).get('sim') || '').split(',')) if (k.startsWith('no')) CFG[k.slice(2)] = false; } catch (e) { /* worker / node */ }
 const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 function vcolor(g, hex) {
   const c = new THREE.Color(hex);
@@ -28,49 +38,66 @@ function box(w, h, l, x, y, z, hex) {
   return hex === undefined ? g : vcolor(g, hex);
 }
 
-// ---------------------------------------------------------------------------------------- geometry helpers
-function prepEdge(e) {
+// ---------------------------------------------------------------------------------------- polyline helpers
+function prepPath(e) {
   const n = e.p.length;
   e.cum = new Float32Array(n);
   for (let i = 1; i < n; i++) e.cum[i] = e.cum[i - 1] + Math.hypot(e.p[i][0] - e.p[i - 1][0], e.p[i][1] - e.p[i - 1][1]);
   e.L = e.cum[n - 1];
+  e.startD = dirAt(e, 0);
+  e.endD = dirAt(e, n - 2);
+  // turn classification uses the direction over the last/first ~15 m (U-turns via short connector shapes)
+  const a = { x: 0, y: 0, z: 0 }, b = { x: 0, y: 0, z: 0 };
+  const d = Math.min(15, e.L);
+  at(e, e.L - d, 0, a); at(e, e.L, 0, b);
+  let l = Math.hypot(b.x - a.x, b.y - a.y) || 1; e.endD15 = [(b.x - a.x) / l, (b.y - a.y) / l];
+  at(e, 0, 0, a); at(e, d, 0, b);
+  l = Math.hypot(b.x - a.x, b.y - a.y) || 1; e.startD15 = [(b.x - a.x) / l, (b.y - a.y) / l];
 }
-function sample(e, s, out) {
-  s = Math.min(Math.max(s, 0), e.L);
-  const c = e.cum;
-  let lo = 0, hi = c.length - 1;
-  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] < s) lo = m; else hi = m; }
-  const a = e.p[lo], b = e.p[hi];
-  const seg = c[hi] - c[lo] || 1e-6, f = (s - c[lo]) / seg;
-  out.x = a[0] + (b[0] - a[0]) * f;
-  out.y = a[1] + (b[1] - a[1]) * f;
-  out.z = a[2] + (b[2] - a[2]) * f;
-  out.dx = (b[0] - a[0]) / seg;
-  out.dy = (b[1] - a[1]) / seg;
-  return out;
-}
-function endDir(e, atEnd) {
-  const p = e.p, n = p.length;
-  const [a, b] = atEnd ? [p[n - 2], p[n - 1]] : [p[0], p[1]];
+function dirAt(e, i) {
+  const a = e.p[i], b = e.p[i + 1];
   const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
   return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
 }
+// point at arc length s (extrapolated linearly beyond either end), optional right-hand offset
+function at(e, s, off, out) {
+  let x, y, z, dx, dy;
+  if (s <= 0) {
+    [dx, dy] = e.startD; const p = e.p[0];
+    x = p[0] + dx * s; y = p[1] + dy * s; z = p[2];
+  } else if (s >= e.L) {
+    [dx, dy] = e.endD; const p = e.p[e.p.length - 1];
+    x = p[0] + dx * (s - e.L); y = p[1] + dy * (s - e.L); z = p[2];
+  } else {
+    const c = e.cum;
+    let lo = 0, hi = c.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] < s) lo = m; else hi = m; }
+    const a = e.p[lo], b = e.p[hi], seg = c[hi] - c[lo] || 1e-6, f = (s - c[lo]) / seg;
+    x = a[0] + (b[0] - a[0]) * f; y = a[1] + (b[1] - a[1]) * f; z = a[2] + (b[2] - a[2]) * f;
+    dx = (b[0] - a[0]) / seg; dy = (b[1] - a[1]) / seg;
+  }
+  out.x = x - dy * off; out.y = y + dx * off; out.z = z;
+  return out;
+}
+function turnOf(e, n) { // -1 left, 0 straight, 1 right, 2 U-turn-ish (grid y points "south": cross>0 = right)
+  const A = e.endD15 || e.endD, B = n.startD15 || n.startD;
+  const dot = A[0] * B[0] + A[1] * B[1];
+  const cross = A[0] * B[1] - A[1] * B[0];
+  if (dot < -0.5) return 2;
+  if (dot > 0.75) return 0;
+  return cross > 0 ? 1 : -1;
+}
 
 // ---------------------------------------------------------------------------------------- signals
+function phaseK(ctrl, t, axis) {
+  const u = ((t + ctrl.off) % CYCLE + CYCLE) % CYCLE;
+  return ((u - (axis === 0 ? 0 : CYCLE / 2)) % CYCLE + CYCLE) % CYCLE;
+}
 export function signalState(ctrl, t, axis) {
-  const u = ((t + ctrl.off) % CYCLE + CYCLE) % CYCLE;
-  const start = axis === 0 ? 0 : CYCLE / 2;
-  const k = ((u - start) % CYCLE + CYCLE) % CYCLE;
-  if (k < GREEN) return 'G';
-  if (k < GREEN + AMBER) return 'Y';
-  return 'R';
+  const k = phaseK(ctrl, t, axis);
+  return k < GREEN ? 'G' : k < GREEN + AMBER ? 'Y' : 'R';
 }
-function pedGreen(ctrl, t, axis) {
-  const u = ((t + ctrl.off) % CYCLE + CYCLE) % CYCLE;
-  const start = axis === 0 ? 0 : CYCLE / 2;
-  const k = ((u - start) % CYCLE + CYCLE) % CYCLE;
-  return k < PED_GREEN;
-}
+const pedGreen = (ctrl, t, axis) => phaseK(ctrl, t, axis) < PED_GREEN;
 
 // ---------------------------------------------------------------------------------------- simulation
 export class StreetLife {
@@ -79,21 +106,25 @@ export class StreetLife {
     this.roads = data.roads;
     this.peds = data.peds;
     this.ctrls = data.ctrls.map((c, i) => ({ ...c, off: hash(i + 1) * CYCLE }));
-    this.roads.forEach(prepEdge);
-    this.peds.forEach(prepEdge);
+    this.roads.forEach(prepPath);
+    this.peds.forEach(prepPath);
     // road topology
     this.outs = new Map();
-    this.hasIn = new Set();
+    this.ins = new Map();
     this.roads.forEach((e, i) => {
       e.i = i;
       e.lists = Array.from({ length: e.lanes }, () => []);
-      if (!this.outs.has(e.a)) this.outs.set(e.a, []);
-      this.outs.get(e.a).push(i);
-      this.hasIn.add(e.b);
-      e.endD = endDir(e, true);
-      e.startD = endDir(e, false);
+      (this.outs.get(e.a) || this.outs.set(e.a, []).get(e.a)).push(i);
+      (this.ins.get(e.b) || this.ins.set(e.b, []).get(e.b)).push(i);
+      e.off = (lane) => e.o0 + lane * LANE_W; // lane 0 = leftmost valid lane (validated against paving)
     });
-    this.sources = this.roads.filter((e) => !this.hasIn.has(e.a) && e.L > 15).map((e) => e.i);
+    this.box = new Map(); // junction node -> Set(cars inside)
+    this.restr = new Map(); // `${fromWay}:${via}` -> [{to, type}]
+    for (const [fr, via, to, type] of data.restr || []) {
+      const k = `${fr}:${via}`;
+      (this.restr.get(k) || this.restr.set(k, []).get(k)).push({ to, type });
+    }
+    this.sources = this.roads.filter((e) => !this.ins.has(e.a) && e.L > 15).map((e) => e.i);
     this.roadW = this.roads.map((e) => e.L * e.lanes * e.c);
     this.roadWsum = this.roadW.reduce((a, b) => a + b, 0);
     this.laneKm = this.roads.reduce((a, e) => a + e.L * e.lanes, 0) / 1000;
@@ -101,29 +132,116 @@ export class StreetLife {
     this.padj = new Map();
     this.peds.forEach((e, i) => {
       e.i = i;
-      for (const [n, end] of [[e.a, 0], [e.b, 1]]) {
-        if (!this.padj.has(n)) this.padj.set(n, []);
-        this.padj.get(n).push([i, end]);
-      }
+      for (const [n, end] of [[e.a, 0], [e.b, 1]]) (this.padj.get(n) || this.padj.set(n, []).get(n)).push([i, end]);
     });
     this.pedW = this.peds.map((e) => e.L * e.w);
     this.pedWsum = this.pedW.reduce((a, b) => a + b, 0);
     this.pedKm = this.peds.reduce((a, e) => a + e.L, 0) / 1000;
+    // trams
+    this.tramPaths = (data.trams || []).map((p, i) => {
+      prepPath(p);
+      p.i = i;
+      p.stops = this.tramStops(p);
+      p.nextSpawn = hash(i + 7) * TRAM.headway;
+      return p;
+    });
+    this.buildCrossings();
+    this.trams = [];
+    for (const p of this.tramPaths) { // seed trams already running along each line, if the track is clear
+      for (let s = hash(p.i + 3) * 500 + 60; s < p.L - 40; s += 450 + hash(s) * 300) {
+        if (this.tramClear(p, s)) this.trams.push(this.newTram(p, s));
+      }
+    }
 
     this.cars = [];
     this.people = [];
     this.buildMeshes(scene, data);
-    this.tmp = { x: 0, y: 0, z: 0, dx: 0, dy: 0 };
+    this.tmp2 = { x: 0, y: 0, z: 0 };
+  }
+
+  // level crossings: tram path x road edge, and tram path x tram path (diamonds), angle > 30 degrees
+  buildCrossings() {
+    const segs = (e) => { const out = []; for (let i = 1; i < e.p.length; i++) out.push([e.p[i - 1], e.p[i], e.cum[i - 1]]); return out; };
+    const isect = (a, b, c, d) => {
+      const r = [b[0] - a[0], b[1] - a[1]], q = [d[0] - c[0], d[1] - c[1]];
+      const den = r[0] * q[1] - r[1] * q[0];
+      if (Math.abs(den) < 1e-9) return null;
+      const t = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
+      if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+      const lr = Math.hypot(...r), lq = Math.hypot(...q);
+      const sin = Math.abs(den) / (lr * lq);
+      return sin > 0.5 ? [t * lr, u * lq] : null;
+    };
+    this.roadX = new Map(); // road edge -> [{sR, path, sT}]
+    for (const tp of this.tramPaths) tp.xs = [];
+    for (const tp of this.tramPaths) {
+      const ts = segs(tp);
+      for (const e of this.roads) {
+        for (const [a, b, c0] of ts) for (const [c, d, c1] of segs(e)) {
+          const hit = isect(a, b, c, d);
+          if (!hit) continue;
+          const x = { sR: c1 + hit[1], path: tp.i, sT: c0 + hit[0] };
+          (this.roadX.get(e.i) || this.roadX.set(e.i, []).get(e.i)).push(x);
+          tp.xs.push({ kind: 'road', e: e.i, sR: x.sR, sT: x.sT });
+        }
+      }
+    }
+    // tram diamonds
+    this.diamonds = [];
+    for (let i = 0; i < this.tramPaths.length; i++) for (let j = i + 1; j < this.tramPaths.length; j++) {
+      const A = this.tramPaths[i], B = this.tramPaths[j];
+      for (const [a, b, c0] of segs(A)) for (const [c, d, c1] of segs(B)) {
+        const hit = isect(a, b, c, d);
+        if (!hit) continue;
+        const id = this.diamonds.length;
+        this.diamonds.push({ holder: null });
+        A.xs.push({ kind: 'diamond', id, sT: c0 + hit[0] });
+        B.xs.push({ kind: 'diamond', id, sT: c1 + hit[1] });
+      }
+    }
+    this.nLevel = [...this.roadX.values()].reduce((a, v) => a + v.length, 0);
+  }
+  tramLen() { return TRAM.n * (TRAM.sec + TRAM.gap); }
+
+  // tram stop lines: 14 m before each signalled junction the line passes through
+  tramStops(p) {
+    const stops = [];
+    const q = { x: 0, y: 0, z: 0 };
+    this.ctrls.forEach((c, ci) => {
+      let best = Infinity, bs = 0;
+      for (let s = 0; s < p.L; s += 2) {
+        at(p, s, 0, q);
+        const d = Math.hypot(q.x - c.x, q.y - c.y);
+        if (d < best) { best = d; bs = s; }
+      }
+      if (best < 18 && bs > 20) {
+        const a = at(p, bs - 16, 0, { x: 0, y: 0, z: 0 }), b = at(p, bs - 12, 0, { x: 0, y: 0, z: 0 });
+        stops.push({ s: bs - 14, ctrl: ci, axis: Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) ? 0 : 1 });
+      }
+    });
+    return stops.sort((a, b) => a.s - b.s);
+  }
+  newTram(p, s) { return { p: p.i, s, v: TRAM.v * 0.8 }; }
+  tramClear(p, s) {
+    const q = at(p, s, 0, { x: 0, y: 0, z: 0 }), o = { x: 0, y: 0, z: 0 };
+    for (const tr of this.trams) {
+      const tp = this.tramPaths[tr.p];
+      for (let k = 0; k <= TRAM.n; k++) {
+        at(tp, tr.s - k * (TRAM.sec + TRAM.gap), 0, o);
+        if (Math.hypot(o.x - q.x, o.y - q.y) < 45) return false;
+      }
+    }
+    return true;
   }
 
   // ------------------------------------------------------------------ meshes
   buildMeshes(scene, data) {
     this.group = new THREE.Group();
     scene.add(this.group);
-    const MAXC = 1400, MAXP = 4000;
+    const MAXC = 1400, MAXP = 4000, MAXT = 240;
     const bodyGeo = mergeGeometries([box(1.8, 0.75, 4.4, 0, 0.3, 0), box(1.62, 0.62, 2.3, 0, 1.05, -0.25)]);
     const darkGeo = mergeGeometries([
-      box(1.66, 0.5, 2.2, 0, 1.1, -0.25, 0x1d2329), // glass band
+      box(1.66, 0.5, 2.2, 0, 1.1, -0.25, 0x1d2329),
       box(0.3, 0.6, 0.7, -0.8, 0, 1.3, 0x161616), box(0.3, 0.6, 0.7, 0.8, 0, 1.3, 0x161616),
       box(0.3, 0.6, 0.7, -0.8, 0, -1.35, 0x161616), box(0.3, 0.6, 0.7, 0.8, 0, -1.35, 0x161616),
     ]);
@@ -136,14 +254,21 @@ export class StreetLife {
     this.mHead = new THREE.InstancedMesh(headGeo, this.headMat, MAXC);
     this.mTail = new THREE.InstancedMesh(tailGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), MAXC);
     for (const m of [this.mBody, this.mDark]) { m.castShadow = true; m.receiveShadow = true; }
-    // people: legs+head (vertex colours) and torso (instance colour)
+    // tram section (Warsaw livery: yellow body, red skirt, light roof gear), windows separate for night glow
+    const L = TRAM.sec;
+    const tramGeo = mergeGeometries([box(2.4, 0.9, L, 0, 0.15, 0, 0xc8322b), box(2.4, 1.9, L, 0, 1.05, 0, 0xf2c230),
+      box(2.0, 0.35, L - 0.8, 0, 2.95, 0, 0xd9d6cf)]);
+    this.tramWinMat = std({ color: 0x26323d, roughness: 0.15, metalness: 0.4, emissive: new THREE.Color(1.0, 0.82, 0.55), emissiveIntensity: 0 });
+    this.mTram = new THREE.InstancedMesh(tramGeo, std({ vertexColors: true, roughness: 0.45, metalness: 0.1 }), MAXT);
+    this.mTramWin = new THREE.InstancedMesh(box(2.46, 0.85, L - 1.2, 0, 1.6, 0), this.tramWinMat, MAXT);
+    this.mTram.castShadow = this.mTram.receiveShadow = true;
+    // people
     const legGeo = mergeGeometries([box(0.18, 0.85, 0.22, -0.1, 0, 0, 0x2b3240), box(0.18, 0.85, 0.22, 0.1, 0, 0, 0x2b3240),
       box(0.3, 0.3, 0.3, 0, 1.45, 0, 0xe0b48f), box(0.32, 0.1, 0.32, 0, 1.72, 0, 0x3a2a20)]);
-    const torsoGeo = box(0.46, 0.62, 0.3, 0, 0.85, 0);
     this.mLegs = new THREE.InstancedMesh(legGeo, std({ vertexColors: true, roughness: 0.9, metalness: 0 }), MAXP);
-    this.mTorso = new THREE.InstancedMesh(torsoGeo, std({ color: 0xffffff, roughness: 0.9, metalness: 0 }), MAXP);
+    this.mTorso = new THREE.InstancedMesh(box(0.46, 0.62, 0.3, 0, 0.85, 0), std({ color: 0xffffff, roughness: 0.9, metalness: 0 }), MAXP);
     this.mLegs.castShadow = this.mTorso.castShadow = true;
-    // traffic lights: graphite pole + housing, plus one lit lamp whose colour/height follow the phase
+    // signal heads
     const heads = data.heads || [];
     this.heads = heads;
     const poleGeo = mergeGeometries([box(0.18, 3.3, 0.18, 0, 0, 0, 0x3a3e42), box(0.42, 1.25, 0.36, 0, 3.0, 0, 0x202225)]);
@@ -157,7 +282,7 @@ export class StreetLife {
     });
     this.mPole.count = heads.length;
     this.mPole.castShadow = true;
-    for (const mesh of [this.mBody, this.mDark, this.mHead, this.mTail, this.mLegs, this.mTorso, this.mPole, this.mLamp]) {
+    for (const mesh of [this.mBody, this.mDark, this.mHead, this.mTail, this.mLegs, this.mTorso, this.mPole, this.mLamp, this.mTram, this.mTramWin]) {
       mesh.frustumCulled = false;
       this.group.add(mesh);
     }
@@ -165,47 +290,388 @@ export class StreetLife {
     this.mTail.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXC * 3), 3);
     this.mTorso.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXP * 3), 3);
     this.mLamp.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1, heads.length) * 3), 3);
-    this.MAXC = MAXC; this.MAXP = MAXP;
+    this.MAXC = MAXC; this.MAXP = MAXP; this.MAXT = MAXT;
   }
 
-  // ------------------------------------------------------------------ spawning
+  // ------------------------------------------------------------------ cars: routing
   pickWeighted(w, sum) {
     let r = Math.random() * sum;
     for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) return i; }
     return w.length - 1;
   }
-  laneFree(e, lane, s, gap) {
-    return e.lists[lane].every((c) => Math.abs(c.s - s) > gap);
+  allowedOuts(e) {
+    let outs = (this.outs.get(e.b) || []).filter((j) => {
+      const o = this.roads[j];
+      return turnOf(e, o) !== 2 && !(o.b === e.a && o.w === e.w);
+    });
+    const rs = this.restr.get(`${e.w}:${e.b}`);
+    if (rs) {
+      for (const r of rs) {
+        if (r.type.startsWith('only_')) outs = outs.filter((j) => this.roads[j].w === r.to);
+        else if (r.type.startsWith('no_')) outs = outs.filter((j) => this.roads[j].w !== r.to);
+      }
+    }
+    return outs;
   }
+  chooseNext(e) {
+    const outs = this.allowedOuts(e);
+    if (!outs.length) return -1;
+    const w = outs.map((j) => { const o = this.roads[j], t = turnOf(e, o); return (t === 0 ? 4 : 1) * o.c * (o.L > 6 ? 1 : 0.3); });
+    return outs[this.pickWeighted(w, w.reduce((a, b) => a + b, 0))];
+  }
+  desiredLane(car, e) {
+    if (car.next < 0 || e.lanes === 1) return car.lane;
+    const t = turnOf(e, this.roads[car.next]);
+    if (t === -1) return 0; // lane 0 = leftmost
+    if (t === 1) return e.lanes - 1;
+    return car.lane;
+  }
+  laneGapOK(e, lane, s, car) {
+    const myLen = car ? car.len : 4.6; // my own body extends myLen behind s
+    for (const o of e.lists[lane]) if (o !== car && o.s > s - myLen - 5 && o.s - o.len < s + 7) return false;
+    for (let l = 0; l < e.lanes; l++) for (const o of e.lists[l]) if (o !== car && o.lcTo === lane && Math.abs(o.s - s) < 12) return false;
+    return true;
+  }
+
   spawnCar(fromSource) {
     const ei = fromSource && this.sources.length ? this.sources[(Math.random() * this.sources.length) | 0] : this.pickWeighted(this.roadW, this.roadWsum);
     const e = this.roads[ei];
     const lane = (Math.random() * e.lanes) | 0;
-    const s = fromSource ? 0 : Math.random() * e.L;
-    if (!this.laneFree(e, lane, s, 12)) return;
+    const s = fromSource ? 0 : 10 + Math.random() * Math.max(0, e.L - 20 - BOX_IN - 12);
+    if (s > e.L - BOX_IN - 12 || !this.laneGapOK(e, lane, s, null)) return;
     const bus = e.c >= 2 && Math.random() < 0.06;
     const PAL = ['#f0f0ee', '#e9e9e7', '#1c1c1e', '#2a2c30', '#8e9399', '#b9bcc0', '#5d6670', '#9b2a24', '#24467a', '#3d5a3a', '#c9b48e', '#6e1f2a'];
     const car = {
-      e: ei, lane, s, v: e.v * 0.6, len: bus ? 12 : 4.6, bus,
+      e: ei, lane, s, v: e.v * 0.6, len: bus ? 12 : 4.6, bus, prev: -1, prevOff: 0,
       v0f: 0.85 + Math.random() * 0.25, col: new THREE.Color(bus ? '#f2c230' : PAL[(Math.random() * PAL.length) | 0]),
-      rp: null, rh: 0, brake: 0,
+      off: e.off(lane), brake: 0, wait: 0, boxNode: -1,
     };
     car.next = this.chooseNext(e);
     e.lists[lane].push(car);
     this.cars.push(car);
   }
-  chooseNext(e) {
-    const outs = (this.outs.get(e.b) || []).filter((j) => {
-      const o = this.roads[j];
-      return !(o.b === e.a && Math.abs(o.L - e.L) < 0.5); // no U-turn onto the reverse edge
+
+  // junction box: may this car enter node n now? compatible holders = same approach, parallel approaches,
+  // opposite straight/right flows, or right turns into different roads
+  boxFree(car, e, n) {
+    const holders = this.box.get(n);
+    if (!holders || !holders.size) return true;
+    const myTurn = car.next >= 0 ? turnOf(e, this.roads[car.next]) : 0;
+    for (const h of holders) {
+      if (h === car) continue;
+      if (h.boxFrom === e.i) { // same approach: fine if lanes are ordered like the turns (no crossing paths)
+        const dl = car.lane - h.boxLane, dt = myTurn - h.boxTurn;
+        if (dl === 0) continue; // same lane: plain car-following
+        if (dl * dt < 0) return false; // turn paths would cross
+        if (h.boxTo === car.next && car.next >= 0) { // same exit: fine unless both land in the same lane
+          const n = this.roads[car.next];
+          const tl = (l, t) => (t === -1 ? 0 : t === 1 ? n.lanes - 1 : Math.min(l, n.lanes - 1));
+          if (tl(car.lane, myTurn) === tl(h.boxLane, h.boxTurn)) return false;
+        }
+        continue;
+      }
+      if (h.boxTo === car.next && car.next >= 0) return false; // merging into the same road: one at a time
+      const he = this.roads[h.boxFrom];
+      const dot = he.endD[0] * e.endD[0] + he.endD[1] * e.endD[1];
+      if (dot > 0.75) continue;
+      if (dot < -0.75 && myTurn !== -1 && h.boxTurn !== -1) continue;
+      return false;
+    }
+    return true;
+  }
+  boxEnter(car, e, n) {
+    car.boxNode = n; car.boxFrom = e.i; car.boxTo = car.next; car.boxLane = car.lane; car.boxT = this.t;
+    car.boxTurn = car.next >= 0 ? turnOf(e, this.roads[car.next]) : 0;
+    (this.box.get(n) || this.box.set(n, new Set()).get(n)).add(car);
+  }
+  boxLeave(car) {
+    if (car.boxNode >= 0) { this.box.get(car.boxNode)?.delete(car); car.boxNode = -1; }
+  }
+
+  carObstacle(car, e) {
+    let gap = Infinity, lv = 0, why = 'free';
+    const assertive = car.ghost > 0; // after a long deadlock-type wait: ignore box locks and cross traffic only
+    const lead = (o, g) => { if (g < gap) { gap = g; lv = o.v; why = o.e === car.e ? 'leader' : 'next-edge-car'; } };
+    for (const o of e.lists[car.lane]) if (o !== car && o.s > car.s) lead(o, o.s - o.len - car.s);
+    // cars changing into my lane, and (if I am changing) cars in my target lane
+    for (let l = 0; l < e.lanes; l++) {
+      if (l === car.lane) continue;
+      for (const o of e.lists[l]) {
+        if (o.s <= car.s) continue;
+        if (o.lcTo === car.lane || (car.lcTo === l)) lead(o, o.s - o.len - car.s);
+      }
+    }
+    if (car.next >= 0) { // cars just past the junction in the lane I will take (or changing into it)
+      const n = this.roads[car.next], t = turnOf(e, n);
+      const tl = t === -1 ? 0 : t === 1 ? n.lanes - 1 : Math.min(car.lane, n.lanes - 1);
+      for (let l = 0; l < n.lanes; l++) for (const o of n.lists[l]) {
+        if ((l === tl || o.lcTo === tl) && o.s < 30) lead(o, e.L - car.s + o.s - o.len);
+      }
+    }
+    const sg = e.sig;
+    if (sg && car.s < sg.s + 0.3) {
+      const st = signalState(this.ctrls[sg.ctrl], this.t, sg.axis);
+      const d = sg.s - car.s;
+      const canStop = d > (car.v * car.v) / (2 * IDM.b) + 1;
+      if ((st === 'R' || (st === 'Y' && canStop)) && d < gap) { gap = d; lv = 0; why = 'signal'; }
+    }
+    // don't block the box: only enter the junction if there is room to clear it on the exit road
+    if (CFG.room && !assertive && car.next >= 0 && car.boxNode !== e.b && e.L - car.s < BOX_IN + 15) {
+      const n = this.roads[car.next], t = turnOf(e, n);
+      const nl = t === -1 ? 0 : t === 1 ? n.lanes - 1 : Math.min(car.lane, n.lanes - 1);
+      let room = Infinity;
+      for (const o of n.lists[nl]) if (o.v < 2) room = Math.min(room, o.s - o.len);
+      if (room < car.len + 2 && n.L > car.len + 4) {
+        const d = e.L - BOX_IN - car.s;
+        if (d < gap) { gap = Math.max(d, 0.01); lv = 0; why = 'no-room-exit'; }
+      }
+    }
+    // physical blocker in my path; circular waits are broken after 6 s when the blocker is itself stuck
+    const sameDir = car.block && (car.block.o.geo.fx * car.geo.fx + car.block.o.geo.fy * car.geo.fy) > 0.7;
+    if (CFG.spatial && car.block && (sameDir || !assertive) && !(car.wait > 6 && car.block.o.wait > 3 && !sameDir) && car.block.gap < gap) { gap = Math.max(car.block.gap, 0.01); lv = car.block.o.v * Math.max(0, car.block.o.geo.fx * car.geo.fx + car.block.o.geo.fy * car.geo.fy); why = 'spatial'; }
+    const xs = this.roadX.get(e.i);
+    if (CFG.level && xs) for (const x of xs) { // level crossing ahead: stop if a tram is on it or due within ~4 s
+      const d = x.sR - car.s;
+      if (d < 0 || d > 40) continue;
+      const busy = this.trams.some((tr) => tr.p === x.path && tr.s - this.tramLen() < x.sT + 3 &&
+        (tr.s > x.sT - 2 || (tr.v > 1 && tr.s > x.sT - tr.v * 4)));
+      if (busy && d - 3.5 < gap) { gap = Math.max(d - 3.5, 0.01); lv = 0; why = 'tram-crossing'; }
+      // keep the crossing clear: don't start across unless there is room for my whole car beyond the tracks
+      if (d > 0.5) {
+        let room = Infinity;
+        for (const o of e.lists[car.lane]) if (o !== car && o.s > x.sR && o.v < 2) room = Math.min(room, o.s - o.len - (x.sR + 2.5));
+        if (room < car.len + 1 && d - 3.5 < gap) { gap = Math.max(d - 3.5, 0.01); lv = 0; why = 'keep-crossing-clear'; }
+      }
+    }
+    if (CFG.tramobs && this.tramObs.length) { // yield to any tram body in the next 25 m of my path
+      const P = this.carPoint(car, car.s, { x: 0, y: 0, z: 0 }), F = this.carPoint(car, car.s + 1, { x: 0, y: 0, z: 0 });
+      const fx = F.x - P.x, fy = F.y - P.y;
+      for (const [x, y] of this.tramObs) {
+        const rx = x - P.x, ry = y - P.y;
+        if (Math.abs(rx) > 30 || Math.abs(ry) > 30) continue;
+        const along = rx * fx + ry * fy, lat = Math.abs(rx * fy - ry * fx);
+        if (along > 0 && along < 25 && lat < 2.4 && along - 2 < gap) { gap = Math.max(along - 2, 0.01); lv = 0; why = 'tram'; }
+      }
+    }
+    if (CFG.box && !assertive && car.boxNode !== e.b && car.next >= 0 && e.L - car.s < BOX_IN + 15) {
+      const free = this.boxFree(car, e, e.b) || car.wait > 10; // nudge through after 10 s (prevents deadlock)
+      if (!free) { const d = e.L - BOX_IN - car.s; if (d < gap) { gap = Math.max(d, 0.01); lv = 0; why = 'box-busy'; } }
+    }
+    car.why = assertive && why === 'free' ? 'assertive' : why;
+    return [gap, lv];
+  }
+
+  // ------------------------------------------------------------------ step
+  step(dt, density) {
+    this.t += dt;
+    const targetCars = Math.min(this.MAXC, Math.round(this.laneKm * 9 * density.cars));
+    const targetPeds = Math.min(this.MAXP, Math.round(this.pedKm * 24 * density.peds));
+    for (let k = 0; k < 6 && this.cars.length < targetCars; k++) this.spawnCar(this.cars.length > targetCars * 0.5);
+    for (let k = 0; k < 40 && this.people.length < targetPeds; k++) this.spawnPed();
+    if (this.people.length > targetPeds) this.people.length = targetPeds;
+
+    // tram bodies as obstacles for cars (positions from the previous step)
+    this.tramObs = [];
+    { const q1 = { x: 0, y: 0, z: 0 };
+      for (const tr of this.trams) { const tp = this.tramPaths[tr.p];
+        for (let s0 = 0; s0 <= TRAM.n * (TRAM.sec + TRAM.gap); s0 += 3) { at(tp, tr.s - s0, 0, q1); this.tramObs.push([q1.x, q1.y]); } } }
+    // ---- spatial snapshot of all cars (front point, direction, centre) for physical conflict checks
+    const grid = new Map();
+    const G = 8, key = (x, y) => ((x / G) | 0) * 100003 + ((y / G) | 0);
+    for (const c of this.cars) {
+      const P = this.carPoint(c, c.s, { x: 0, y: 0, z: 0 }), F = this.carPoint(c, c.s + 1, { x: 0, y: 0, z: 0 });
+      const C = this.carPoint(c, c.s - c.len / 2, { x: 0, y: 0, z: 0 });
+      let fx = F.x - P.x, fy = F.y - P.y; const l = Math.hypot(fx, fy) || 1; fx /= l; fy /= l;
+      c.geo = { px: P.x, py: P.y, cx: C.x, cy: C.y, z: P.z, fx, fy };
+      const k = key(C.x, C.y);
+      (grid.get(k) || grid.set(k, []).get(k)).push(c);
+    }
+    this.carGrid = grid; this.gridKey = key; this.G = G;
+    // who physically blocks whom (cone ahead); mutual conflicts resolved by a stable priority
+    this.idSeq = this.idSeq || 1;
+    for (const c of this.cars) { if (!c.id) c.id = this.idSeq++; c.block = null; }
+    for (const c of this.cars) {
+      const g0 = c.geo;
+      let best = Infinity, who = null;
+      const gx = (g0.px / G) | 0, gy = (g0.py / G) | 0;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const o of grid.get((gx + i) * 100003 + (gy + j)) || []) {
+        if (o === c || Math.abs(o.geo.z - g0.z) > 2) continue;
+        const rx = o.geo.cx - g0.px, ry = o.geo.cy - g0.py;
+        const along = rx * g0.fx + ry * g0.fy, lat = Math.abs(rx * g0.fy - ry * g0.fx);
+        const cosd = Math.abs(o.geo.fx * g0.fx + o.geo.fy * g0.fy), sind = Math.sqrt(Math.max(0, 1 - cosd * cosd));
+        const he = (o.len / 2) * cosd + 0.9 * sind, hl = (o.len / 2) * sind + 0.9 * cosd;
+        if (lat < 0.95 + hl && along + he > 0.3 && along - he < 12) {
+          const gap = along - he - 0.6;
+          if (gap < best) { best = gap; who = o; }
+        }
+      }
+      if (who) c.block = { o: who, gap: best };
+    }
+    for (const c of this.cars) { // mutual: both see each other -> the one with the lower id goes first
+      const b = c.block;
+      if (b && b.o.block && b.o.block.o === c) { // mutual: whoever entered the junction first (else lower id) goes
+        const pc = c.boxNode >= 0 ? c.boxT : Infinity, po = b.o.boxNode >= 0 ? b.o.boxT : Infinity;
+        if (pc < po || (pc === po && c.id < b.o.id)) c.block = null;
+      }
+    }
+    // ---- cars
+    const removed = new Set();
+    for (const car of this.cars) {
+      const e = this.roads[car.e];
+      const want = this.desiredLane(car, e);
+      if (want !== car.lane && car.lcTo === undefined && car.s > 4 && e.L - car.s > 15) {
+        const step = want > car.lane ? 1 : -1;
+        if (this.laneGapOK(e, car.lane + step, car.s, car)) car.lcTo = car.lane + step;
+      }
+      if (car.lcTo !== undefined) {
+        const tgt = e.off(car.lcTo);
+        car.off += Math.sign(tgt - car.off) * Math.min(Math.abs(tgt - car.off), 1.4 * dt * Math.max(0.4, Math.min(1, car.v / 5)));
+        if (Math.abs(tgt - car.off) < 0.05) {
+          const lst = e.lists[car.lane]; lst.splice(lst.indexOf(car), 1);
+          car.lane = car.lcTo; car.lcTo = undefined; e.lists[car.lane].push(car);
+        }
+      } else car.off += (e.off(car.lane) - car.off) * Math.min(1, dt * 3);
+
+      let v0 = e.v * car.v0f;
+      if (car.next >= 0 && e.L - car.s < 30) {
+        const t = turnOf(e, this.roads[car.next]);
+        if (t !== 0) v0 = Math.min(v0, t === 1 ? 4.5 : 6);
+      }
+      const [gap, lv] = this.carObstacle(car, e);
+      const ss = IDM.s0 + Math.max(0, car.v * IDM.T + (car.v * (car.v - lv)) / (2 * Math.sqrt(IDM.a * IDM.b)));
+      let acc = IDM.a * (1 - Math.pow(car.v / Math.max(v0, 0.1), 4) - (gap === Infinity ? 0 : (ss / Math.max(gap, 0.1)) ** 2));
+      acc = Math.max(acc, -9);
+      car.brake = acc < -0.8 || car.v < 0.3 ? 1 : 0;
+      car.v = Math.max(0, car.v + acc * dt);
+      car.wait = car.v < 0.3 ? car.wait + dt : 0;
+      if (!(car.ghost > 0) && ((car.wait > 15 && ['spatial', 'box-busy', 'no-room-exit', 'hold-at-line'].includes(car.why)) ||
+          (car.wait > 25 && ['next-edge-car', 'tram-crossing', 'keep-crossing-clear', 'tram'].includes(car.why)))) { car.ghost = 8; car.wait = 0; this.nAssert = (this.nAssert || 0) + 1; }
+      if (car.ghost > 0) { car.ghost -= car.v * dt; if (car.v < 1.5 && gap > 3) car.v = 1.5; }
+      car.s += car.v * dt;
+      if (car.next >= 0 && car.boxNode !== e.b && e.L - car.s < BOX_IN) { this.boxLeave(car); this.boxEnter(car, e, e.b); }
+      if (car.s > e.L) {
+        const lst = e.lists[car.lane];
+        lst.splice(lst.indexOf(car), 1);
+        car.lcTo = undefined;
+        if (car.next < 0 || this.cars.length > targetCars + 4) { this.boxLeave(car); removed.add(car); continue; }
+        {
+          const n0 = this.roads[car.next], t0 = turnOf(e, n0);
+          const l0 = t0 === -1 ? 0 : t0 === 1 ? n0.lanes - 1 : Math.min(car.lane, n0.lanes - 1);
+          if (CFG.hold && n0.lists[l0].some((o) => o.s < car.len + 1.5)) { // target lane start occupied: hold at the line
+            e.lists[car.lane].push(car); car.s = e.L - 0.01; car.v = 0; car.why = 'hold-at-line'; continue;
+          }
+        }
+        car.prev = car.e; car.prevOff = car.off;
+        car.s -= e.L;
+        car.e = car.next;
+        const n = this.roads[car.e];
+        const t = turnOf(e, n);
+        car.lane = t === -1 ? 0 : t === 1 ? n.lanes - 1 : Math.min(car.lane, n.lanes - 1);
+        car.off = n.off(car.lane);
+        n.lists[car.lane].push(car);
+        car.next = this.chooseNext(n);
+        if (n.L < 25 && car.next >= 0) { // too short to change lanes later: take the next turn's lane now if free
+          const wl = this.desiredLane(car, n);
+          if (wl !== car.lane && this.laneGapOK(n, wl, car.s, car)) {
+            n.lists[car.lane].splice(n.lists[car.lane].indexOf(car), 1); car.lane = wl; car.off = n.off(wl); n.lists[wl].push(car);
+          }
+        }
+      }
+      if (car.boxNode >= 0 && car.e !== car.boxFrom && car.s > BOX_OUT) this.boxLeave(car);
+    }
+    if (removed.size) this.cars = this.cars.filter((c) => !removed.has(c));
+
+    // ---- trams
+    for (const p of this.tramPaths) {
+      p.nextSpawn -= dt * density.trams;
+      if (p.nextSpawn <= 0) {
+        const head = TRAM.n * (TRAM.sec + TRAM.gap) + 1;
+        if (this.tramClear(p, head)) { this.trams.push(this.newTram(p, head)); p.nextSpawn = TRAM.headway * (0.7 + 0.6 * Math.random()); }
+        else p.nextSpawn = 5;
+      }
+    }
+    const tq = { x: 0, y: 0, z: 0 }, tq2 = { x: 0, y: 0, z: 0 };
+    const tramPts = [];
+    this.trams.forEach((tr, ti) => {
+      const p = this.tramPaths[tr.p];
+      for (let k = 0; k <= TRAM.n; k++) { at(p, tr.s - k * (TRAM.sec + TRAM.gap), 0, tq); tramPts.push([ti, tq.x, tq.y]); }
     });
-    if (!outs.length) return -1;
-    const w = outs.map((j) => {
-      const o = this.roads[j];
-      const dot = e.endD[0] * o.startD[0] + e.endD[1] * o.startD[1];
-      return (dot > 0.7 ? 4 : dot > -0.3 ? 1 : 0.15) * o.c;
+    this.trams.forEach((tr, ti) => {
+      const p = this.tramPaths[tr.p];
+      at(p, tr.s, 0, tq); at(p, tr.s + 1, 0, tq2);
+      const fdx = tq2.x - tq.x, fdy = tq2.y - tq.y;
+      let gap = Infinity;
+      for (const [oj, x, y] of tramPts) { // any tram body ahead on my track (shared track between lines)
+        if (oj === ti) continue;
+        const rx = x - tq.x, ry = y - tq.y;
+        const along = rx * fdx + ry * fdy, lat = Math.abs(rx * fdy - ry * fdx);
+        // cone widens ahead so a tram converging from a branch is seen before the tracks join
+        if (along > -0.5 && along < 70 && lat < 2.2 + Math.min(along, 40) * 0.12) {
+          if (lat > 2.2 && oj < ti && this.trams[oj].yieldTo === ti) continue; // mutual at a merge: lower index goes
+          if (lat > 2.2) tr.yieldTo = oj;
+          gap = Math.min(gap, along - 1.5);
+        }
+      }
+      if (this.carGrid) { // cars standing on my track ahead
+        const gx = (tq.x / this.G) | 0, gy = (tq.y / this.G) | 0;
+        for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) for (const c of this.carGrid.get((gx + i) * 100003 + (gy + j)) || []) {
+          const rx = c.geo.cx - tq.x, ry = c.geo.cy - tq.y;
+          const along = rx * fdx + ry * fdy, lat = Math.abs(rx * fdy - ry * fdx);
+          if (along > -1 && along < 30 && lat < 2.4) gap = Math.min(gap, along - 2.5);
+        }
+      }
+      for (const x of p.xs) {
+        const d = x.sT - tr.s;
+        if (x.kind === 'road') {
+          if (d < 0 || d > 25) continue;
+          const lst = this.roads[x.e].lists;
+          const occupied = lst.some((l) => l.some((c) => c.s > x.sR - 1.5 && c.s - c.len < x.sR + 1.5));
+          if (occupied) gap = Math.min(gap, d - 4);
+        } else {
+          const D = this.diamonds[x.id];
+          if (D.holder === tr && tr.s - this.tramLen() > x.sT + 2) { D.holder = null; continue; }
+          if (d < 0 || d > 30) continue;
+          if (!D.holder || !this.trams.includes(D.holder)) D.holder = tr;
+          else if (D.holder !== tr) gap = Math.min(gap, d - 6);
+        }
+      }
+      for (const st of p.stops) {
+        if (tr.s > st.s + 0.3 || st.s - tr.s > 80) continue;
+        const sgl = signalState(this.ctrls[st.ctrl], this.t, st.axis);
+        const d = st.s - tr.s;
+        if (sgl === 'R' || (sgl === 'Y' && d > (tr.v * tr.v) / (2 * TRAM.b) + 1)) gap = Math.min(gap, d);
+      }
+      if (gap === Infinity) tr.yieldTo = -1;
+      const ss = 3 + Math.max(0, tr.v * 1.5);
+      let acc = TRAM.a * (1 - (tr.v / TRAM.v) ** 4 - (gap === Infinity ? 0 : (ss / Math.max(gap, 0.1)) ** 2));
+      acc = Math.max(acc, -5);
+      tr.v = Math.max(0, tr.v + acc * dt);
+      tr.s += tr.v * dt;
     });
-    return outs[this.pickWeighted(w, w.reduce((a, b) => a + b, 0))];
+    this.trams = this.trams.filter((tr) => tr.s - TRAM.n * (TRAM.sec + TRAM.gap) < this.tramPaths[tr.p].L);
+
+    // ---- pedestrians
+    for (const pe of this.people) {
+      const e = this.peds[pe.e];
+      if (pe.wait) {
+        if (pedGreen(this.ctrls[e.x.ctrl], this.t, e.x.axis)) pe.wait = false;
+        else continue;
+      }
+      pe.s += pe.v * dt * pe.dir;
+      pe.ph += pe.v * dt * 4.2;
+      if (pe.s < 0 || pe.s > e.L) {
+        const node = pe.s < 0 ? e.a : e.b;
+        const opts = (this.padj.get(node) || []).filter(([j]) => j !== pe.e);
+        if (!opts.length) { pe.dir *= -1; pe.s = Math.min(Math.max(pe.s, 0), e.L); continue; }
+        const w = opts.map(([j]) => this.peds[j].w);
+        const [j, end] = opts[this.pickWeighted(w, w.reduce((a, b) => a + b, 0))];
+        pe.e = j;
+        const n = this.peds[j];
+        pe.dir = end === 0 ? 1 : -1;
+        pe.s = end === 0 ? 0 : n.L;
+        if (n.x && !pedGreen(this.ctrls[n.x.ctrl], this.t, n.x.axis)) pe.wait = true;
+      }
+    }
   }
   spawnPed() {
     const ei = this.pickWeighted(this.pedW, this.pedWsum);
@@ -213,124 +679,47 @@ export class StreetLife {
     const SH = ['#c8553d', '#3d6fa8', '#e8e3d6', '#2f2f33', '#7a9a5b', '#d9a441', '#8b5fa8', '#5a8fa3', '#b03a48', '#f0f0f0', '#45505c', '#c97f5d'];
     this.people.push({
       e: ei, dir: Math.random() < 0.5 ? 1 : -1, s: Math.random() * e.L, v: 1.05 + Math.random() * 0.55,
-      lat: 0.35 + Math.random() * 1.0, ph: Math.random() * 6.28, wait: false,
-      col: new THREE.Color(SH[(Math.random() * SH.length) | 0]), rp: null, rh: 0,
+      lat: 0.35 + Math.random() * 1.0, ph: Math.random() * 6.28, wait: false, col: new THREE.Color(SH[(Math.random() * SH.length) | 0]),
     });
   }
 
-  // ------------------------------------------------------------------ step
-  carGapAhead(car, e) {
-    // nearest obstacle ahead: car in lane, then first car on the next edge, then a red light
-    const list = e.lists[car.lane];
-    let gap = Infinity, lv = 0;
-    for (const o of list) {
-      if (o !== car && o.s > car.s) {
-        const g = o.s - o.len - car.s;
-        if (g < gap) { gap = g; lv = o.v; }
-      }
-    }
-    if (gap === Infinity && car.next >= 0) {
+  // ------------------------------------------------------------------ positions
+  // point on the car's path at arc length s, blended across the junction node into a smooth arc
+  carPoint(car, s, out) {
+    const e = this.roads[car.e];
+    const P = at(e, s, car.off, out);
+    if (s < BLEND && car.prev >= 0) {
+      const pe = this.roads[car.prev];
+      const Q = at(pe, pe.L + s, car.prevOff, this.tmp2);
+      const w = sstep(-BLEND, BLEND, s);
+      P.x = Q.x + (P.x - Q.x) * w; P.y = Q.y + (P.y - Q.y) * w; P.z = Q.z + (P.z - Q.z) * w;
+    } else if (s > e.L - BLEND && car.next >= 0) {
       const n = this.roads[car.next];
-      const nl = Math.min(car.lane, n.lanes - 1);
-      let minS = Infinity, mv = 0, ml = 0;
-      for (const o of n.lists[nl]) if (o.s < minS) { minS = o.s; mv = o.v; ml = o.len; }
-      if (minS < Infinity) { gap = e.L - car.s + minS - ml; lv = mv; }
+      const t = turnOf(e, n);
+      const nl = t === -1 ? 0 : t === 1 ? n.lanes - 1 : Math.min(car.lane, n.lanes - 1);
+      const Q = at(n, s - e.L, n.off(nl), this.tmp2);
+      const w = sstep(-BLEND, BLEND, s - e.L);
+      P.x += (Q.x - P.x) * w; P.y += (Q.y - P.y) * w; P.z += (Q.z - P.z) * w;
     }
-    const sg = e.sig;
-    if (sg && car.s < sg.s + 0.3) {
-      const st = signalState(this.ctrls[sg.ctrl], this.t, sg.axis);
-      const d = sg.s - car.s;
-      const canStop = d > (car.v * car.v) / (2 * IDM.b) + 1;
-      if (st === 'R' || (st === 'Y' && canStop)) {
-        if (d < gap) { gap = d; lv = 0; }
-      }
-    }
-    return [gap, lv];
+    return P;
   }
 
-  step(dt, density) {
-    this.t += dt;
-    // population control
-    const targetCars = Math.min(this.MAXC, Math.round(this.laneKm * 12 * density.cars));
-    const targetPeds = Math.min(this.MAXP, Math.round(this.pedKm * 24 * density.peds));
-    for (let k = 0; k < 6 && this.cars.length < targetCars; k++) this.spawnCar(this.cars.length > targetCars * 0.5);
-    for (let k = 0; k < 40 && this.people.length < targetPeds; k++) this.spawnPed();
-    if (this.people.length > targetPeds) this.people.length = targetPeds;
-
-    // cars
-    const removed = new Set();
-    for (const car of this.cars) {
-      const e = this.roads[car.e];
-      let v0 = e.v * car.v0f;
-      if (car.next >= 0 && e.L - car.s < 25) {
-        const n = this.roads[car.next];
-        const dot = e.endD[0] * n.startD[0] + e.endD[1] * n.startD[1];
-        if (dot < 0.7) v0 = Math.min(v0, dot < 0 ? 4.5 : 7); // slow down for turns
-      }
-      const [gap, lv] = this.carGapAhead(car, e);
-      const ss = IDM.s0 + Math.max(0, car.v * IDM.T + (car.v * (car.v - lv)) / (2 * Math.sqrt(IDM.a * IDM.b)));
-      let acc = IDM.a * (1 - Math.pow(car.v / Math.max(v0, 0.1), 4) - (gap === Infinity ? 0 : (ss / Math.max(gap, 0.1)) ** 2));
-      acc = Math.max(acc, -8);
-      car.brake = acc < -0.8 || car.v < 0.3 ? 1 : 0;
-      car.v = Math.max(0, car.v + acc * dt);
-      car.s += car.v * dt;
-      if (car.s > e.L) {
-        const lst = e.lists[car.lane];
-        lst.splice(lst.indexOf(car), 1);
-        if (car.next < 0 || this.cars.length > targetCars + 4) { removed.add(car); continue; }
-        car.s -= e.L;
-        car.e = car.next;
-        const n = this.roads[car.e];
-        car.lane = Math.min(car.lane, n.lanes - 1);
-        if (n.lanes > 1 && Math.random() < 0.3) car.lane = (Math.random() * n.lanes) | 0;
-        n.lists[car.lane].push(car);
-        car.next = this.chooseNext(n);
-      }
-    }
-    if (removed.size) this.cars = this.cars.filter((c) => !removed.has(c));
-
-    // pedestrians
-    for (const p of this.people) {
-      const e = this.peds[p.e];
-      if (p.wait) {
-        if (pedGreen(this.ctrls[e.x.ctrl], this.t, e.x.axis)) p.wait = false;
-        else continue;
-      }
-      p.s += p.v * dt * p.dir;
-      p.ph += p.v * dt * 4.2;
-      if (p.s < 0 || p.s > e.L) {
-        const node = p.s < 0 ? e.a : e.b;
-        const opts = (this.padj.get(node) || []).filter(([j]) => j !== p.e);
-        if (!opts.length) { p.dir *= -1; p.s = Math.min(Math.max(p.s, 0), e.L); continue; }
-        const w = opts.map(([j]) => this.peds[j].w * (this.peds[j].x ? 1.2 : 1));
-        const [j, end] = opts[this.pickWeighted(w, w.reduce((a, b) => a + b, 0))];
-        p.e = j;
-        const n = this.peds[j];
-        p.dir = end === 0 ? 1 : -1;
-        p.s = end === 0 ? 0 : n.L;
-        if (n.x && !pedGreen(this.ctrls[n.x.ctrl], this.t, n.x.axis)) p.wait = true; // wait at the kerb
-      }
-    }
-  }
-
-  // ------------------------------------------------------------------ render
   render(dt, night) {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     const Y = new THREE.Vector3(0, 1, 0);
-    const t = this.tmp;
-    const k = 1 - Math.exp(-dt * 10);
+    const A = { x: 0, y: 0, z: 0 }, B = { x: 0, y: 0, z: 0 };
     const tailOff = new THREE.Color(0.55, 0.06, 0.05), tailOn = new THREE.Color(2.2, 0.15, 0.1);
     this.cars.forEach((c, i) => {
-      const e = this.roads[c.e];
-      sample(e, c.s - c.len / 2, t);
-      const off = e.two ? (c.lane + 0.5) * LANE_W : (c.lane + 0.5 - e.lanes / 2) * LANE_W;
-      const x = t.x - t.dy * off, y = t.y + t.dx * off;
-      const h = Math.atan2(t.dx, t.dy);
-      if (!c.rp || Math.hypot(c.rp.x - x, c.rp.z - y) > 15) { c.rp = new THREE.Vector3(x, t.z, y); c.rh = h; }
-      c.rp.lerp(pos.set(x, t.z, y), k);
-      let dh = h - c.rh; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
-      c.rh += dh * k;
-      q.setFromAxisAngle(Y, c.rh);
+      // front and rear axle points both on the blended path -> body follows the curve like a real car
+      const wb = c.len - 1.2;
+      this.carPoint(c, c.s, A);
+      const fx = A.x, fy = A.y, fz = A.z;
+      this.carPoint(c, c.s - wb, B);
+      const h = Math.atan2(fx - B.x, fy - B.y);
+      c.rp = c.rp || new THREE.Vector3();
+      c.rp.set((fx + B.x) / 2, Math.min(fz, B.z), (fy + B.y) / 2);
+      c.rh = h;
+      q.setFromAxisAngle(Y, h);
       sc.set(1, c.bus ? 1.75 : 1, c.bus ? c.len / 4.4 : 1);
       m.compose(c.rp, q, sc);
       this.mBody.setMatrixAt(i, m); this.mDark.setMatrixAt(i, m); this.mHead.setMatrixAt(i, m); this.mTail.setMatrixAt(i, m);
@@ -343,14 +732,34 @@ export class StreetLife {
     this.mBody.instanceColor.needsUpdate = this.mTail.instanceColor.needsUpdate = true;
     this.headMat.color.setRGB(0.85 + 2.2 * night, 0.82 + 2.0 * night, 0.72 + 1.6 * night);
 
+    // trams: both ends of each section lie on the track, so articulation follows curves
+    let ti = 0;
+    this.tramSections = [];
+    for (const tr of this.trams) {
+      const p = this.tramPaths[tr.p];
+      for (let k = 0; k < TRAM.n; k++) {
+        const s0 = tr.s - k * (TRAM.sec + TRAM.gap);
+        at(p, s0, 0, A); at(p, s0 - TRAM.sec, 0, B);
+        q.setFromAxisAngle(Y, Math.atan2(A.x - B.x, A.y - B.y));
+        m.compose(pos.set((A.x + B.x) / 2, (A.z + B.z) / 2 + 0.05, (A.y + B.y) / 2), q, sc.set(1, 1, 1));
+        this.tramSections.push([tr, pos.x, pos.z, Math.atan2(A.x - B.x, A.y - B.y)]);
+        if (ti < this.MAXT) { this.mTram.setMatrixAt(ti, m); this.mTramWin.setMatrixAt(ti, m); ti++; }
+      }
+    }
+    this.mTram.count = this.mTramWin.count = ti;
+    this.mTram.instanceMatrix.needsUpdate = this.mTramWin.instanceMatrix.needsUpdate = true;
+    this.tramWinMat.emissiveIntensity = night * 1.6;
+
+    const k = 1 - Math.exp(-dt * 10);
     this.people.forEach((p, i) => {
       const e = this.peds[p.e];
-      sample(e, p.s, t);
-      const dx = t.dx * p.dir, dy = t.dy * p.dir;
-      const x = t.x - dy * p.lat, y = t.y + dx * p.lat;
+      at(e, p.s, 0, A);
+      at(e, p.s + 0.5 * p.dir, 0, B);
+      let dx = B.x - A.x, dy = B.y - A.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      const x = A.x - dy * p.lat, y = A.y + dx * p.lat;
       const h = Math.atan2(dx, dy);
-      if (!p.rp || Math.hypot(p.rp.x - x, p.rp.z - y) > 6) { p.rp = new THREE.Vector3(x, t.z, y); p.rh = h; }
-      p.rp.lerp(pos.set(x, t.z, y), k);
+      if (!p.rp || Math.hypot(p.rp.x - x, p.rp.z - y) > 6) { p.rp = new THREE.Vector3(x, A.z, y); p.rh = h; }
+      p.rp.lerp(pos.set(x, A.z, y), k);
       let dh = h - p.rh; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
       p.rh += dh * k;
       q.setFromAxisAngle(Y, p.rh);
@@ -363,14 +772,11 @@ export class StreetLife {
     this.mLegs.count = this.mTorso.count = this.people.length;
     this.mLegs.instanceMatrix.needsUpdate = this.mTorso.instanceMatrix.needsUpdate = this.mTorso.instanceColor.needsUpdate = true;
 
-    // signal lamps: red top, amber middle, green bottom
     const LAMP = { R: [2.2, 0.12, 0.08, 3.95], Y: [2.2, 1.3, 0.1, 3.6], G: [0.1, 2.0, 0.6, 3.25] };
-    this.heads.forEach(([x, z0, y0, rot, ctrl, axis], i) => {
-      const st = signalState(this.ctrls[ctrl], this.t, axis);
-      const [r, g, b, hy] = LAMP[st];
+    this.heads.forEach(([x, row, gz, rot, ctrl, axis], i) => {
+      const [r, g, b, hy] = LAMP[signalState(this.ctrls[ctrl], this.t, axis)];
       q.setFromAxisAngle(Y, rot + Math.PI);
-      const fx = Math.sin(rot + Math.PI) * 0.19, fz = Math.cos(rot + Math.PI) * 0.19;
-      m.compose(pos.set(x + fx, y0 + hy, z0 + fz), q, sc.set(1, 1, 1));
+      m.compose(pos.set(x + Math.sin(rot + Math.PI) * 0.19, gz + hy, row + Math.cos(rot + Math.PI) * 0.19), q, sc.set(1, 1, 1));
       this.mLamp.setMatrixAt(i, m);
       this.mLamp.instanceColor.setXYZ(i, r, g, b);
     });
@@ -380,13 +786,13 @@ export class StreetLife {
 
   update(dt, hour, night) {
     dt = Math.min(dt, 0.1);
-    // time-of-day density: night trough ~03:00, rush hours; people peak in the afternoon/evening
     const hh = ((hour % 24) + 24) % 24;
     const bell = (c, w) => Math.exp(-(((hh - c) / w) ** 2));
     const cars = Math.min(1, 0.18 + 0.55 * bell(8, 2.2) + 0.5 * bell(17, 2.6) + 0.45 * bell(13, 5));
     const peds = Math.min(1, 0.08 + 0.4 * bell(8.5, 1.8) + 0.85 * bell(16, 4.5) + 0.25 * bell(21, 2));
+    const trams = hh > 0.5 && hh < 5 ? 0 : 1; // night break in tram service
     const sub = dt > 0.05 ? 2 : 1;
-    for (let i = 0; i < sub; i++) this.step(dt / sub, { cars, peds });
+    for (let i = 0; i < sub; i++) this.step(dt / sub, { cars, peds, trams });
     this.render(dt, night);
   }
 }

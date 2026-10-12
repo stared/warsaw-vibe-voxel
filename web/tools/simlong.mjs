@@ -11,7 +11,7 @@ for (let i = 0; i < 8; i++) {
     L.cars.forEach((c) => { c.stopT = c.v < 0.3 ? (c.stopT || 0) + 15 : 0; });
     const stuck = L.cars.filter((c) => c.stopT >= 60).length;
     const fps = L._fps;
-    return { t: Math.round(L.t), cars: L.cars.length, meanV: +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2), stopped: v.filter((x) => x < 0.3).length, stuck60s: stuck, people: L.people.length, waiting: L.people.filter((p) => p.wait).length };
+    return { t: Math.round(L.t), cars: L.cars.length, meanV: +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2), stopped: v.filter((x) => x < 0.3).length, stuck60s: stuck, people: L.people.length, assertive: L.nAssert || 0, trams: L.trams.length, waiting: L.people.filter((p) => p.wait).length };
   })));
 }
 await browser.close();

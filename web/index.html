@@ -13,26 +13,11 @@
   <div id="labels"></div>
   <div id="loading"><div class="spinner"></div><div id="loading-text">Loading…</div></div>
   <header id="title">
-    <h1>Warszawa <em>Śródmieście</em></h1>
+    <h1>Warszawa · Śródmieście</h1>
     <p id="stats">—</p>
   </header>
-  <nav id="panel">
-    <div class="row presets">
-      <button data-preset="golden" class="on">Golden hour</button>
-      <button data-preset="midday">Midday</button>
-      <button data-preset="night">Night</button>
-    </div>
-    <div class="row slider"><input id="hour" type="range" min="4.5" max="23.5" step="0.05" value="19" /><span id="hour-label">19:00</span></div>
-    <div class="row views" id="views"></div>
-    <div class="row toggles">
-      <label><input type="checkbox" id="t-labels" checked /> Labels</label>
-      <label><input type="checkbox" id="t-tilt" checked /> Tilt-shift</label>
-      <label><input type="checkbox" id="t-trams" checked /> Trams</label>
-      <label><input type="checkbox" id="t-life" checked /> Traffic &amp; people</label>
-    </div>
-    <div class="row hint">Drag to orbit · right-drag to pan · scroll zooms to cursor · <b>WASD</b>/arrows move · <b>Q/E</b> down/up · <b>Shift</b> fast
-    </div>
-  </nav>
+  <div id="help" hidden></div>
+  <div id="mode"></div>
   <footer id="sources"></footer>
   <script type="module" src="/src/main.js"></script>
 </body>

@@ -884,7 +884,12 @@ meta = dict(W=W, D=D, H=Hm, base=BASE, center=[CX, CY], theta_deg=math.degrees(T
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))
 json.dump(meta, open(OUT / "meta.json", "w"))
 import traffic
-json.dump(traffic.build(g, nd_mean, note), open(OUT / "traffic.json", "w"), separators=(",", ":"))
+# QA aid: drivable-surface mask (1 = carriageway/road area, 2 = tram bed) for web/tools/qa.mjs
+qa = np.zeros((D, W), np.uint8)
+qa[is_road] = 1
+qa[np.isin(gcol, [C["trambed"], C["rail"]])] = 2
+qa.tofile(OUT / "qa_roadmask.bin")
+json.dump(traffic.build(g, nd_mean, note, qa), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel

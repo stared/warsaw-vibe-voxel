@@ -4,9 +4,10 @@ import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect,
 import { N8AOPostPass } from 'n8ao';
 import { makePaletteTexture, makeVoxelMaterial } from './voxelMaterial.js';
 import { Sky } from './sky.js';
-import { Trams } from './trams.js';
 import { Fountains } from './fountains.js';
 import { StreetLife } from './sim.js';
+import { Nav, VoxelWorld } from './nav.js';
+import GUI from 'lil-gui';
 import './style.css';
 
 const $ = (s) => document.querySelector(s);
@@ -31,46 +32,10 @@ controls.minDistance = 4;
 controls.maxDistance = 4000;
 controls.screenSpacePanning = false;
 controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
+controls.zoomSpeed = 1.4;
 
-// WASD / arrows move over the ground relative to where the camera looks; Q/E (or PgDn/PgUp) lower/raise;
-// Shift = fast. Speed scales with height so it works both at street level and over the whole map.
-const keys = new Set();
-const KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r',
-  KeyQ: 'd', PageDown: 'd', KeyE: 'u', PageUp: 'u' };
-addEventListener('keydown', (e) => {
-  if (e.target.closest && e.target.closest('input, textarea') && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const k = KEYMAP[e.code];
-  if (!k) return;
-  keys.add(k);
-  if (e.shiftKey) keys.add('fast'); else keys.delete('fast');
-  fly = null;
-  e.preventDefault();
-});
-addEventListener('keyup', (e) => { keys.delete(KEYMAP[e.code]); if (e.key === 'Shift') keys.delete('fast'); });
-addEventListener('blur', () => keys.clear());
-let lastMove = performance.now();
-function keyMove(now) {
-  const dt = Math.min(0.1, (now - lastMove) / 1000);
-  lastMove = now;
-  if (!keys.size) return;
-  const fwd = new THREE.Vector3().subVectors(controls.target, camera.position).setY(0);
-  if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
-  fwd.normalize();
-  const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
-  const h = Math.max(4, camera.position.y - 15);
-  const speed = (keys.has('fast') ? 3 : 1) * Math.min(400, 12 + h * 0.9) * dt;
-  const d = new THREE.Vector3();
-  if (keys.has('f')) d.add(fwd);
-  if (keys.has('b')) d.sub(fwd);
-  if (keys.has('r')) d.add(right);
-  if (keys.has('l')) d.sub(right);
-  if (d.lengthSq()) d.normalize().multiplyScalar(speed);
-  if (keys.has('u')) d.y += speed * 0.7;
-  if (keys.has('d')) d.y -= Math.min(speed * 0.7, camera.position.y - 2);
-  camera.position.add(d);
-  controls.target.add(d);
-}
+const nav = new Nav({ camera, controls, dom: renderer.domElement, flyTo: (v) => flyTo(v), onMode: (m) => onMode(m) });
+nav.cancelFly = () => { fly = null; };
 
 async function loadData() {
   status('Loading voxels…');
@@ -178,7 +143,8 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 let state = { hour: 18.9, night: 0 };
-let trams = null, fountains = null, life = null, lastT = performance.now();
+let fountains = null, life = null, lastT = performance.now();
+let world = null;
 let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3();
 
 function applyTime(hour) {
@@ -209,17 +175,21 @@ function applyTime(hour) {
   sun.shadow.normalBias = Math.min(3, Math.max(0.5, 0.3 / Math.max(dir.y, 0.05)));
   updateShadowCam(dir);
   if (uniforms) { uniforms.uNight.value = night; uniforms.uDeep.value = deep; }
-  if (bloom) bloom.intensity = lerp(0.15, 0.9, night);
+  if (bloom) bloom.intensity = lerp(0.15, 0.9, night) * P.bloom;
   renderer.toneMappingExposure = 1;
   scene.fog = new THREE.Fog(sky.horizon.clone(), 2500, 7000);
-  // environment for reflections
-  if (envRT) envRT.dispose();
-  envRT = pmrem.fromScene(sky.envScene(), 0, 1, 10000);
-  scene.environment = envRT.texture;
+  // environment for reflections (regenerated only when the sky has visibly changed, so time-lapse stays cheap)
+  if (!envRT || Math.abs(hour - (state.envHour ?? -99)) > 0.08) {
+    if (envRT) envRT.dispose();
+    envRT = pmrem.fromScene(sky.envScene(), 0, 1, 10000);
+    scene.environment = envRT.texture;
+    state.envHour = hour;
+  }
   scene.environmentIntensity = lerp(0.38, lerp(0.55, 0.3, deep), night); // glass reflects the blue sky
-  $('#hour').value = hour;
-  $('#hour-label').textContent = `${String(Math.floor(hour) % 24).padStart(2, '0')}:${String(Math.round((hour % 1) * 60) % 60).padStart(2, '0')}`;
+  P.hour = hour;
+  hourCtl?.name(`time  ${hhmm(hour)}`).updateDisplay();
 }
+const hhmm = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60) % 60).padStart(2, '0')}`;
 
 function updateShadowCam(dir) {
   if (bbox.isEmpty()) return;
@@ -239,35 +209,52 @@ function updateShadowCam(dir) {
 }
 
 // ------------------------------------------------------------------ labels
+// Map-style pins: a dot on the building top, a hairline stem, the name above with a halo (no boxes).
+// Hidden when another building is in the way (voxel ray test) or when it would collide with a more important label.
 const labelEls = [];
+const STEM = 20;
 function makeLabels(meta) {
   const host = $('#labels');
-  for (const l of meta.labels) {
+  meta.labels.forEach((l, i) => {
     const el = document.createElement('div');
-    el.className = l.highlight ? 'label hl' : 'label';
-    el.innerHTML = `<b>${l.name}</b>${l.note ? `<span>${l.note}</span>` : ''}`;
+    el.className = 'label' + (l.highlight ? ' hl' : '') + (i < 6 ? ' major' : '');
+    el.innerHTML = `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${l.name}</b>${l.note ? `<span>${l.note}</span>` : ''}</div>`;
     host.appendChild(el);
-    labelEls.push({ el, p: new THREE.Vector3(l.x + 0.5, l.z + 3, l.y + 0.5) });
-  }
+    // footprint radius of the labelled building, so a ray hitting the building itself doesn't count as occlusion
+    const g = world.groundAt(l.x, l.y), R = world.extent(l.x, l.y, g + Math.max(6, (l.z - g) * 0.4)) + 6;
+    labelEls.push({ el, txt: el.querySelector('.txt'), p: new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), R, occluded: false });
+  });
 }
+let labelFrame = 0;
 function updateLabels() {
-  if (!$('#t-labels').checked) { $('#labels').style.display = 'none'; return; }
-  $('#labels').style.display = '';
-  const v = new THREE.Vector3();
+  const host = $('#labels');
+  host.style.display = P.labels ? '' : 'none';
+  if (!P.labels) return;
+  const v = new THREE.Vector3(), dir = new THREE.Vector3();
   const placed = [];
-  // labels arrive in priority order; skip any that would overlap one already shown
+  // occlusion is checked a few labels per frame (voxel DDA from the camera)
+  if (world) for (let k = 0; k < 4 && labelEls.length; k++) {
+    const L = labelEls[labelFrame++ % labelEls.length];
+    dir.subVectors(L.p, camera.position);
+    const dist = dir.length();
+    dir.divideScalar(dist);
+    // hidden only by something else: a hit on the labelled building itself (e.g. its wall seen from below) doesn't count
+    const t = world.raycast(camera.position, dir, dist);
+    const hx = camera.position.x + dir.x * t - L.p.x, hz = camera.position.z + dir.z * t - L.p.z;
+    L.occluded = t < dist - 3 && hx * hx + hz * hz > L.R * L.R;
+  }
   for (const L of labelEls) {
     v.copy(L.p).project(camera);
-    let vis = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
+    let vis = !L.occluded && v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
     const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
     if (vis) {
-      if (!L.w) { L.w = L.el.offsetWidth || 160; L.h = L.el.offsetHeight || 20; }
-      const r = { x0: x - 6, x1: x - 6 + L.w, y0: y - 26, y1: y - 26 + L.h };
-      vis = r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && !placed.some((q) => r.x0 < q.x1 + 4 && r.x1 + 4 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
+      if (!L.w) { L.w = L.txt.offsetWidth || 160; L.h = L.txt.offsetHeight || 30; }
+      const r = { x0: x - 4, x1: x + L.w, y0: y - STEM - L.h, y1: y + 4 };
+      vis = r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && !placed.some((q) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
       if (vis) placed.push(r);
     }
-    L.el.style.visibility = vis ? 'visible' : 'hidden';
-    if (vis) L.el.style.transform = `translate(${x}px, ${y}px)`;
+    L.el.classList.toggle('off', !vis);
+    if (vis) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
 }
 
@@ -300,14 +287,79 @@ addEventListener('resize', () => {
   composer.setSize(innerWidth, innerHeight);
 });
 
-// ------------------------------------------------------------------ UI
-const PRESETS = { golden: 17.7, midday: 13.0, night: 20.95 }; // night = blue hour, like the reference photos
-document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('[data-preset]').forEach((x) => x.classList.toggle('on', x === b));
-  animateTo(PRESETS[b.dataset.preset]);
-}));
-$('#hour').addEventListener('input', (e) => { document.querySelectorAll('[data-preset]').forEach((x) => x.classList.remove('on')); applyTime(+e.target.value); });
-$('#t-tilt').addEventListener('change', (e) => { tiltPass.enabled = e.target.checked; });
+// ------------------------------------------------------------------ UI (lil-gui)
+const PRESETS = { morning: 7.5, midday: 13.0, 'golden hour': 17.7, 'blue hour': 20.95, night: 23.0 };
+const RATES = { off: 0, '1 min/s': 1 / 60, '10 min/s': 1 / 6, '1 h/s': 1 };
+const P = {
+  hour: 18.9, preset: 'golden hour', rate: 0,
+  labels: true, life: true, fountains: true, tilt: true,
+  fov: 28, bloom: 1, ao: 2.2, saturation: 0.12, contrast: 0.06,
+  speed: 1, look: 1,
+  walk: () => nav.setMode(nav.mode === 'walk' ? 'orbit' : 'walk'),
+  help: () => toggleHelp(),
+};
+const gui = new GUI({ title: 'Warszawa voxel', width: 268 });
+const fTime = gui.addFolder('Time');
+const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = ''; presetCtl.updateDisplay(); applyTime(h); });
+const presetCtl = fTime.add(P, 'preset', Object.keys(PRESETS)).name('preset').onChange((k) => animateTo(PRESETS[k]));
+fTime.add(P, 'rate', RATES).name('time-lapse');
+const fView = gui.addFolder('Camera');
+const viewCtls = [];
+fView.add(P, 'walk').name('walk at street level (G)');
+fView.add(P, 'fov', 15, 75, 1).name('field of view').onChange((f) => { camera.fov = f; camera.updateProjectionMatrix(); });
+fView.add(P, 'speed', 0.25, 4, 0.05).name('move speed');
+fView.add(P, 'look', 0.3, 3, 0.05).name('look sensitivity').onChange((s) => { nav.lookSens = s; });
+fView.add(P, 'help').name('mouse & keys… (H)');
+const fPlaces = gui.addFolder('Places');
+const fLayers = gui.addFolder('Layers');
+fLayers.add(P, 'labels').name('labels (L)');
+fLayers.add(P, 'life').name('traffic, trams, people').onChange((v) => { if (life) life.group.visible = v; });
+fLayers.add(P, 'fountains').onChange((v) => { if (fountains?.group) fountains.mesh.visible = v; });
+fLayers.add(P, 'tilt').name('tilt-shift (high up)');
+const fLook = gui.addFolder('Rendering').close();
+fLook.add(P, 'bloom', 0, 3, 0.05).name('bloom ×');
+fLook.add(P, 'ao', 0, 5, 0.1).name('ambient occlusion').onChange((v) => { n8.configuration.intensity = v; });
+fLook.add(P, 'saturation', -0.5, 0.6, 0.01).onChange((v) => { hueSat.saturation = v; });
+fLook.add(P, 'contrast', -0.3, 0.4, 0.01).onChange((v) => { bc.contrast = v; });
+if (innerWidth < 700) gui.close();
+
+const HELP = [
+  ['Mouse', ''],
+  ['left drag', 'orbit around the focus'],
+  ['right drag', 'look around (turn in place)'],
+  ['shift / middle drag', 'pan'],
+  ['wheel', 'zoom towards cursor'],
+  ['double-click', 'fly to that spot'],
+  ['Keys', ''],
+  ['W A S D', 'move  (Shift = fast)'],
+  ['← →', 'turn'],
+  ['↑ ↓', 'look up / down'],
+  ['Shift + arrows', 'orbit around the focus'],
+  ['Q  E', 'down / up'],
+  ['G', 'walk at street level  (Esc leaves)'],
+  ['1 – 9', 'places'],
+  ['[  ]', 'time −/+ 15 min'],
+  ['L  H', 'labels · this help'],
+];
+$('#help').innerHTML = `<table>${HELP.map(([k, v]) => v ? `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>` : `<tr class="h"><td colspan="2">${k}</td></tr>`).join('')}</table>`;
+function toggleHelp(show) {
+  const h = $('#help');
+  h.hidden = show === undefined ? !h.hidden : !show;
+  try { localStorage.setItem('helpSeen', '1'); } catch { /* storage unavailable */ }
+}
+function onMode(m) {
+  document.body.classList.toggle('walking', m === 'walk');
+  $('#mode').textContent = m === 'walk' ? 'Walking · mouse looks · WASD · Shift runs · Esc leaves' : '';
+}
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('.lil-gui input'))) return;
+  if (e.code === 'KeyG') P.walk();
+  else if (e.code === 'KeyH' || e.key === '?') toggleHelp();
+  else if (e.code === 'KeyL') { P.labels = !P.labels; gui.controllersRecursive().forEach((c) => c.updateDisplay()); }
+  else if (e.code === 'BracketLeft' || e.code === 'BracketRight') { anim = null; applyTime(Math.min(23.5, Math.max(4.5, state.hour + (e.code === 'BracketLeft' ? -0.25 : 0.25)))); }
+  else if (/^Digit[1-9]$/.test(e.code) && viewCtls[+e.code.slice(5) - 1]) viewCtls[+e.code.slice(5) - 1]();
+  else if (e.code === 'Escape' && !$('#help').hidden) toggleHelp(false);
+});
 let anim = null;
 function animateTo(h) {
   const from = state.hour, t0 = performance.now();
@@ -346,23 +398,20 @@ function flyTo(v) {
   scene.add(group);
   bbox.setFromObject(group);
   bbox.getCenter(center);
-  makeLabels(meta);
   VIEWS = meta.views;
-  const vhost = $('#views');
-  for (const [k, v] of Object.entries(VIEWS)) {
-    const b = document.createElement('button');
-    b.textContent = v.label;
-    b.addEventListener('click', () => flyTo(v));
-    vhost.appendChild(b);
-  }
-  trams = new Trams(scene, meta.trams || []);
+  world = nav.world = new VoxelWorld(meta, data.counts, data.runs, data.ground);
+  makeLabels(meta);
+  Object.values(VIEWS).forEach((v, i) => {
+    const go = () => { if (nav.mode === 'walk') nav.setMode('orbit'); flyTo(v); };
+    viewCtls.push(go);
+    fPlaces.add({ go }, 'go').name(`${i < 9 ? `${i + 1} · ` : ''}${v.label}`);
+  });
   fountains = new Fountains(scene, meta.jets || []);
   fetch('data/traffic.json').then((r) => r.json()).then((td) => {
     life = new StreetLife(scene, td);
     window.__life = life;
-    $('#t-life').addEventListener('change', (e) => { life.group.visible = e.target.checked; });
+    life.group.visible = P.life;
   });
-  $('#t-trams').addEventListener('change', (e) => { trams.group.visible = e.target.checked; });
   $('#stats').textContent = `${meta.W}×${meta.D} m · 1 m voxels · ${(tris / 1e6).toFixed(1)} M tris`;
   $('#sources').textContent = `LiDAR + orthophoto: GUGiK 2025 · OSM ${meta.sources.osm.slice(0, 10)}`;
   const v = VIEWS[new URLSearchParams(location.search).get('view') || 'overview'] || VIEWS.overview;
@@ -370,10 +419,13 @@ function flyTo(v) {
   controls.target.set(...v.target);
   camera.updateProjectionMatrix();
   const qh = new URLSearchParams(location.search).get('hour');
-  applyTime(qh ? +qh : PRESETS.golden);
+  applyTime(qh ? +qh : PRESETS['golden hour']);
+  P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || '';
   const qs = new URLSearchParams(location.search);
-  if (qs.get('tilt') === '0') { tiltPass.enabled = false; $('#t-tilt').checked = false; }
-  if (qs.get('ui') === '0') document.body.classList.add('noui');
+  if (qs.get('tilt') === '0') P.tilt = false;
+  if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
+  else { let seen = null; try { seen = localStorage.getItem('helpSeen'); } catch { /* storage unavailable */ } if (!seen) toggleHelp(true); }
+  gui.controllersRecursive().forEach((c) => c.updateDisplay());
   if (qs.get('cam')) { const c = qs.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
   $('#loading').classList.add('hidden');
   window.__ready = true;
@@ -383,20 +435,20 @@ const t0clock = performance.now();
 renderer.setAnimationLoop((now) => {
   if (anim) anim(now);
   if (fly) fly(now);
-  keyMove(now);
-  controls.update();
+  const dtf = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (P.rate && !anim) applyTime(state.hour + P.rate * dtf > 23.5 ? 4.5 : state.hour + P.rate * dtf);
+  nav.update(dtf);
+  if (nav.mode !== 'walk') { controls.update(); nav.clamp(); }
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - 15;
-  tiltPass.enabled = $('#t-tilt').checked && camH > 60;
+  tiltPass.enabled = P.tilt && camH > 60;
   tilt.focusArea = 0.7 + 0.3 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250)));
   const tsec = (performance.now() - t0clock) / 1000;
   if (uniforms) uniforms.uTime.value = tsec;
-  if (trams) trams.update(tsec, state.night);
   if (fountains) fountains.update(tsec, state.night);
-  const dtf = (now - lastT) / 1000; lastT = now;
   if (life && life.group.visible) life.update(dtf, state.hour, state.night);
   sky.mesh.position.copy(camera.position);
   composer.render();
   updateLabels();
 });
-window.__three = { camera, controls, applyTime, flyTo, scene, renderer, sun, bbox, center };
+window.__three = { camera, controls, applyTime, flyTo, nav, gui, P, scene, renderer, sun, bbox, center };
