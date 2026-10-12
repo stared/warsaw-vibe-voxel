@@ -30,8 +30,46 @@ controls.minDistance = 4;
 controls.maxDistance = 4000;
 controls.screenSpacePanning = false;
 controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
-controls.listenToKeyEvents(window); // arrow keys pan
-controls.keyPanSpeed = 25;
+
+// WASD / arrows move over the ground relative to where the camera looks; Q/E (or PgDn/PgUp) lower/raise;
+// Shift = fast. Speed scales with height so it works both at street level and over the whole map.
+const keys = new Set();
+const KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r',
+  KeyQ: 'd', PageDown: 'd', KeyE: 'u', PageUp: 'u' };
+addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, textarea') && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = KEYMAP[e.code];
+  if (!k) return;
+  keys.add(k);
+  if (e.shiftKey) keys.add('fast'); else keys.delete('fast');
+  fly = null;
+  e.preventDefault();
+});
+addEventListener('keyup', (e) => { keys.delete(KEYMAP[e.code]); if (e.key === 'Shift') keys.delete('fast'); });
+addEventListener('blur', () => keys.clear());
+let lastMove = performance.now();
+function keyMove(now) {
+  const dt = Math.min(0.1, (now - lastMove) / 1000);
+  lastMove = now;
+  if (!keys.size) return;
+  const fwd = new THREE.Vector3().subVectors(controls.target, camera.position).setY(0);
+  if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
+  fwd.normalize();
+  const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+  const h = Math.max(4, camera.position.y - 15);
+  const speed = (keys.has('fast') ? 3 : 1) * Math.min(400, 12 + h * 0.9) * dt;
+  const d = new THREE.Vector3();
+  if (keys.has('f')) d.add(fwd);
+  if (keys.has('b')) d.sub(fwd);
+  if (keys.has('r')) d.add(right);
+  if (keys.has('l')) d.sub(right);
+  if (d.lengthSq()) d.normalize().multiplyScalar(speed);
+  if (keys.has('u')) d.y += speed * 0.7;
+  if (keys.has('d')) d.y -= Math.min(speed * 0.7, camera.position.y - 2);
+  camera.position.add(d);
+  controls.target.add(d);
+}
 
 async function loadData() {
   status('Loading voxels…');
@@ -335,6 +373,7 @@ const t0clock = performance.now();
 renderer.setAnimationLoop((now) => {
   if (anim) anim(now);
   if (fly) fly(now);
+  keyMove(now);
   controls.update();
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - 15;
