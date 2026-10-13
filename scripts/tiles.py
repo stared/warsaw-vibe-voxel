@@ -43,6 +43,11 @@ def downsample(vol, s, keep_ids=()):
                     v = layer[:, :, dy, :, dx]
                     col = np.where((col == 0) & (v != 0), v, col)
         res = np.where(occ >= need, col, 0)
+        # a thin surface (ground or roof in the block's bottom layer) is too sparse to keep its own block, which
+        # left the block below showing what lies under it (brown soil along the plazas): that block wears it instead
+        up = np.zeros_like(col)
+        up[:-1] = np.where(res[1:] == 0, col[1:], 0)
+        res = np.where((res != 0) & (up != 0), up, res)
         if len(keep_ids):
             lamp = np.isin(blk, keep_ids)
             lv = blk.max((1, 3, 5), where=lamp, initial=0)  # the lamp's palette id where the block has one
