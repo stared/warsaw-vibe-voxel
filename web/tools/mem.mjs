@@ -22,7 +22,7 @@ const tour = [['overview', null], ['pkin', null], ['station', null], ['skyline',
 const out = [];
 for (const [v] of tour) {
   await page.evaluate((v) => { const T = window.__three; const V = window.__views?.[v]; }, v);
-  await page.keyboard.press(`Digit${{ overview: 1, pkin: 2, station: 6, skyline: 7, vistula: 8, stadium: 9 }[v]}`); await page.waitForTimeout(4000);
+  await page.keyboard.press(`Digit${{ overview: 1, pkin: 2, station: 6, skyline: 7, vistula: 8, stadium: 9 }[v]}`); await page.waitForTimeout(+(process.env.WAIT || 4000));
   const p = await probe();
   const f = await page.evaluate(async () => { const ts = []; let l = performance.now(); for (let k = 0; k < 40; k++) { await new Promise(requestAnimationFrame); const n = performance.now(); ts.push(n - l); l = n; } ts.sort((a, b) => a - b); return +ts[20].toFixed(1); });
   out.push({ view: v, ...p, frameMs: f, rssMB: await rss() });

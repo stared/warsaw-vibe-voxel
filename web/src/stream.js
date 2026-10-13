@@ -27,13 +27,11 @@ export class TileStreamer {
     this.inflight = 0;
     this.tris = 0;
     this.version = 0;  // bumps when column data changes (for caches)
-    const nW = Math.min(Math.max(2, (navigator.hardwareConcurrency || 4) >> 2), 3); // a few: each worker keeps its own heap
-    this.workers = Array.from({ length: nW }, () => {
-      const w = new Worker(new URL('./mesher.worker.js', import.meta.url), { type: 'module' });
-      w.busy = 0;
-      w.onmessage = (e) => this.onNode(e.data, w);
-      return w;
-    });
+    // workers exist while there is work: up to 4 while streaming (a 1 m tile meshes in ~80 ms), retired after 4 s idle
+    // down to one, so a settled view doesn't keep several worker heaps alive (each ~35 MB)
+    this.maxW = Math.min(Math.max(2, ((navigator.hardwareConcurrency || 4) >> 1) - 1), 4);
+    this.workers = [];
+    this.spawn();
     this.world = new StreamWorld(this);
   }
   key(s, tx, ty) { return `${s}/${tx}_${ty}`; }
@@ -62,8 +60,20 @@ export class TileStreamer {
     if (prio >= 1e8) n.pinned = performance.now() + 15000; // asked for explicitly (preload / ensure): don't drop it
     return n.ready;
   }
+  spawn() {
+    const w = new Worker(new URL('./mesher.worker.js', import.meta.url), { type: 'module' });
+    w.busy = 0; w.idle = performance.now();
+    w.onmessage = (e) => this.onNode(e.data, w);
+    this.workers.push(w);
+    return w;
+  }
+  retire() {
+    const now = performance.now();
+    for (const w of [...this.workers]) if (this.workers.length > 1 && w.busy === 0 && now - w.idle > 4000) { w.terminate(); this.workers.splice(this.workers.indexOf(w), 1); }
+  }
   pump() {
     this.queue.sort((a, b) => b.prio - a.prio);
+    while (this.queue.length > this.workers.length * 2 && this.workers.length < this.maxW) this.spawn();
     while (this.queue.length && this.inflight < this.workers.length * 2) {
       const n = this.queue.shift();
       if (n.state !== 'queued') continue;
@@ -76,7 +86,7 @@ export class TileStreamer {
     }
   }
   onNode(m, w) {
-    w.busy--; this.inflight--;
+    w.busy--; this.inflight--; w.idle = performance.now();
     const n = this.nodes.get(m.key);
     if (!n) { this.pump(); return; }
     if (m.type === 'error') { console.warn(m.error); n.state = 'ready'; n.empty = true; n.resolve(); this.pump(); return; }
@@ -108,6 +118,7 @@ export class TileStreamer {
       this.version++;
     }
     n.state = 'ready';
+    if (m.ms) (this.timing ||= []).push([n.s, ...m.ms]);
     n.resolve();
     this.dirty = true;
     this.pump();
@@ -154,6 +165,7 @@ export class TileStreamer {
   update(camera) {
     const now = performance.now();
     if (!this.dirty && now - (this._t || 0) < 150) return;
+    this.retire();
     this._t = now; this.dirty = false;
     const want = this.pick(camera);
     const wanted = new Map();

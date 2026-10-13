@@ -7,6 +7,7 @@ self.onmessage = async (e) => {
   const m = e.data;
   if (m.type !== 'node') return;
   try {
+    const t0 = performance.now();
     const res = await fetch(m.url);
     if (!res.ok) throw new Error(`${res.status} ${m.url}`);
     const buf = await new Response(res.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
@@ -14,7 +15,9 @@ self.onmessage = async (e) => {
     const counts = new Uint16Array(buf, 0, n2);
     const ground = new Uint8Array(buf, n2 * 2, n2);
     const runs = new Uint16Array(buf.slice(n2 * 3)); // (N+2)^2 is even, so the runs start 2-byte aligned
+    const t1 = performance.now();
     const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs);
+    out.ms = [Math.round(t1 - t0), Math.round(performance.now() - t1)]; // fetch+unzip, mesh
     const transfer = [out.pos.buffer, out.attr.buffer, out.pal.buffer, out.idx.buffer];
     let data = null;
     if (m.keep) { // the column data stays with the viewer for collisions / ray casts

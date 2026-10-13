@@ -173,32 +173,39 @@ export class StreetLife {
       const sin = Math.abs(den) / (lr * lq);
       return sin > 0.5 ? [t * lr, u * lq] : null;
     };
+    // segments bucketed in 32 m cells: test each tram segment only against nearby ones (all-pairs took ~10 s on the
+    // 4 x 3 km map)
+    const G = 32, cells = (a, b) => { const out = [];
+      for (let gx = Math.floor(Math.min(a[0], b[0]) / G); gx <= Math.floor(Math.max(a[0], b[0]) / G); gx++)
+        for (let gy = Math.floor(Math.min(a[1], b[1]) / G); gy <= Math.floor(Math.max(a[1], b[1]) / G); gy++) out.push(gx * 100003 + gy);
+      return out; };
+    const bucket = (items) => { const m = new Map(); for (const it of items) for (const k of cells(it[0], it[1])) (m.get(k) || m.set(k, []).get(k)).push(it); return m; };
+    const near = (m, a, b, f) => { const seen = new Set(); for (const k of cells(a, b)) for (const it of m.get(k) || []) if (!seen.has(it)) { seen.add(it); f(it); } };
     this.roadX = new Map(); // road edge -> [{sR, path, sT}]
     for (const tp of this.tramPaths) tp.xs = [];
+    const roadSegs = bucket(this.roads.flatMap((e) => segs(e).map((sg) => [...sg, e])));
     for (const tp of this.tramPaths) {
-      const ts = segs(tp);
-      for (const e of this.roads) {
-        for (const [a, b, c0] of ts) for (const [c, d, c1] of segs(e)) {
-          const hit = isect(a, b, c, d);
-          if (!hit) continue;
-          const x = { sR: c1 + hit[1], path: tp.i, sT: c0 + hit[0] };
-          (this.roadX.get(e.i) || this.roadX.set(e.i, []).get(e.i)).push(x);
-          tp.xs.push({ kind: 'road', e: e.i, sR: x.sR, sT: x.sT });
-        }
-      }
+      for (const [a, b, c0] of segs(tp)) near(roadSegs, a, b, ([c, d, c1, e]) => {
+        const hit = isect(a, b, c, d);
+        if (!hit) return;
+        const x = { sR: c1 + hit[1], path: tp.i, sT: c0 + hit[0] };
+        (this.roadX.get(e.i) || this.roadX.set(e.i, []).get(e.i)).push(x);
+        tp.xs.push({ kind: 'road', e: e.i, sR: x.sR, sT: x.sT });
+      });
     }
     // tram diamonds
     this.diamonds = [];
-    for (let i = 0; i < this.tramPaths.length; i++) for (let j = i + 1; j < this.tramPaths.length; j++) {
-      const A = this.tramPaths[i], B = this.tramPaths[j];
-      for (const [a, b, c0] of segs(A)) for (const [c, d, c1] of segs(B)) {
+    const tramSegs = bucket(this.tramPaths.flatMap((tp) => segs(tp).map((sg) => [...sg, tp])));
+    for (const A of this.tramPaths) {
+      for (const [a, b, c0] of segs(A)) near(tramSegs, a, b, ([c, d, c1, B]) => {
+        if (B.i <= A.i) return; // each pair once, as before
         const hit = isect(a, b, c, d);
-        if (!hit) continue;
+        if (!hit) return;
         const id = this.diamonds.length;
         this.diamonds.push({ holder: null });
         A.xs.push({ kind: 'diamond', id, sT: c0 + hit[0] });
         B.xs.push({ kind: 'diamond', id, sT: c1 + hit[1] });
-      }
+      });
     }
     this.nLevel = [...this.roadX.values()].reduce((a, v) => a + v.length, 0);
   }
