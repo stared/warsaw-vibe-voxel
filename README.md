@@ -21,14 +21,17 @@ cell of the coarser level would span more than ~3 px (`?err=` to experiment), wi
 you walk or ride. Tiles are meshed in workers; a parent stays on screen until its children are ready, so there are
 no holes; hidden tiles are dropped beyond 150 MB. The traffic simulation runs within ~900 m of the camera.
 
-Measured on the old 1.5 km map vs this 4 × 3 km one (`tools/mem.mjs`, `tools/bench.mjs`, headless Chrome, M-series Mac):
+Measured on the old 1.5 km map vs this 4 × 3 km one (`tools/mem.mjs`, `tools/bench.mjs`, `tools/jank.mjs`,
+`tools/longtasks.mjs`; headless Chrome on an M-series Mac, same six views):
 
 | | 1.5 km, all in memory | 4 × 3 km, streamed |
 |---|---|---|
-| JS heap | ~280 MB | 80–130 MB |
-| total process memory | 1.84–2.28 GB | 1.77–1.99 GB |
-| triangles on screen | 5.0 M | 2.6–5.4 M |
+| total process memory | 1.84–2.28 GB | 1.87–2.07 GB |
+| JS heap | ~280 MB | 90–230 MB |
+| triangles on screen | 5.0 M | 3.1–6.2 M |
 | CPU at 60 fps | 52% of a core | 52% of a core |
+| frame time while flying between views, p99 | 16.8 ms | 16.8 ms |
+| first view fully loaded | 3.8 s | 2.7 s |
 
 Blind A/B on 16 views of the old area: judges couldn't tell the two apart (7 vs 9, p = 0.8).
 
@@ -76,7 +79,9 @@ GUGiK sheet ids come from the orthophoto index WFS (`PZGIK/ORTO/WFS/Skorowidze`)
 - Windows are procedural, generated in the shader from floor height and material. They are not real window positions.
 - OSM maps 44 of the 81 elms reported on Złota, and only those 44 are drawn.
 - OSM maps almost no lamps on the Vistula bridges; they get one every 32 m on each kerb (inferred, like Złota's).
-- Most Świętokrzyski's mast comes from the LiDAR; the cable stays are not drawn.
+- Most Świętokrzyski's mast comes from the LiDAR; its 48 stays are drawn from the published layout (semi-fan, 12 per
+  side per plane), not measured.
+- The map ends a block east of PGE Narodowy (Targowa, Ząbkowska are outside).
 - The 51 parked cars are frozen from the moment of the 2025 LiDAR flight. The trams are animated on the real OSM track geometry; their positions are not real.
 
 ## Curating a building (scripts/overrides.json)
