@@ -86,6 +86,9 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 let envRT = null;
 
 const LAT = 52.23 * Math.PI / 180, DECL = 8 * Math.PI / 180; // late August
+let theta = 0; // the grid is rotated (scripts/aoi.py): compass bearings turn by theta in scene coordinates
+// unit vector toward azimuth az (from north, clockwise) at elevation el, in scene axes (x east-ish, z south-ish)
+const sky3 = (az, el) => { const a = az + theta; return new THREE.Vector3(Math.sin(a) * Math.cos(el), Math.sin(el), -Math.cos(a) * Math.cos(el)); };
 function sunAt(hour) {
   const H = (hour - 12.6) * 15 * Math.PI / 180; // solar noon ~12:36 CEST
   const el = Math.asin(Math.sin(LAT) * Math.sin(DECL) + Math.cos(LAT) * Math.cos(DECL) * Math.cos(H));
@@ -113,7 +116,7 @@ function applyTime(hour) {
   const dir = new THREE.Vector3();
   if (elDeg > -2) {
     const e = Math.max(el, 2.5 * Math.PI / 180);
-    dir.set(Math.sin(az) * Math.cos(e), Math.sin(e), -Math.cos(az) * Math.cos(e));
+    dir.copy(sky3(az, e));
   } else dir.set(0.45, 0.75, 0.5).normalize();
   const sunCol = new THREE.Color().setRGB(1, lerp(0.97, 0.66, golden), lerp(0.92, 0.42, golden));
   const moonCol = new THREE.Color(0x9fb4ff);
@@ -123,7 +126,7 @@ function applyTime(hour) {
   hemi.color.set(0xbfd6ff).lerp(new THREE.Color(0xffc49a), golden * 0.5).lerp(new THREE.Color(0x4a64b0), night);
   hemi.groundColor.set(0x6b5a48).lerp(new THREE.Color(0x3a2a30), night);
   hemi.intensity = lerp(0.3, lerp(0.95, 0.6, deep), night);
-  const trueSun = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+  const trueSun = sky3(az, el);
   sky.set(elDeg, dir, golden, night, trueSun, deep);
   sun.shadow.normalBias = Math.min(3, Math.max(0.5, 0.3 / Math.max(dir.y, 0.05)));
   updateShadowCam(dir);
@@ -539,7 +542,7 @@ function flyTo(v) {
   nav.streamer = streamer;
   status('Loading the city…');
   await streamer.preload();
-  const th = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
+  const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
     // the search button starts a fresh query (people's taps appended to the last one)
