@@ -315,7 +315,8 @@ export class Nav {
       const c = this.camera.position, t = opts.at || this.controls.target;
       // land at the street spot nearest to where we look (the focus), not on a roof
       // the focus is a bridge deck (search for a bridge, the walker dropped on one): stand on the deck itself
-      const deck = !opts.exact && this.world.deckAt(t.x, t.z);
+      // only when aimed at a bridge (search for one, the walker dropped on its deck): roof terraces are 'decks' too
+      const deck = !opts.exact && opts.deckOK && this.world.deckAt(t.x, t.z);
       if (deck) { opts = { ...opts, exact: true, at: new THREE.Vector3(t.x, deck, t.z) }; }
       const spot = (opts.exact && [Math.floor(opts.at ? opts.at.x : t.x), Math.floor(opts.at ? opts.at.z : t.z)]) || this.openSpot(t.x, t.z) || this.findStreet(c.x, c.z);
       if (!spot) return;
@@ -459,18 +460,24 @@ export class Nav {
   openSpot(x0, r0) {
     const w = this.world, o = new THREE.Vector3(), dir = new THREE.Vector3(), to = new THREE.Vector3();
     // the landmark = the tallest column near the focus (PKiN's tower, not the roof of a wing you happened to look at)
-    let lx = Math.floor(x0), lr = Math.floor(r0), top = w.top(lx, lr);
+    let lx = Math.floor(x0), lr = Math.floor(r0), top = w.topSolid(lx, lr);
     for (let dr = -30; dr <= 30; dr += 3) for (let dx = -30; dx <= 30; dx += 3) {
-      const t = w.top(Math.floor(x0 + dx), Math.floor(r0 + dr));
+      const t = w.topSolid(Math.floor(x0 + dx), Math.floor(r0 + dr)); // trees are not landmarks
       if (t > top) { top = t; lx = Math.floor(x0 + dx); lr = Math.floor(r0 + dr); }
     }
     const H = top - w.groundAt(lx, lr), building = H > 8;
     const ideal = THREE.MathUtils.clamp(H * 0.7, 30, 160);
+    const net = this.walkNet();
     for (const R of building ? [ideal + 60, ideal + 140] : [40, 90]) {
       const st = R > 60 ? 4 : 2;
       let best = null, bs = -Infinity;
-      for (let dr = -R; dr <= R; dr += st) for (let dx = -R; dx <= R; dx += st) {
-        const x = Math.floor((building ? lx : x0) + dx), r = Math.floor((building ? lr : r0) + dr), d = Math.hypot(dx, dr);
+      const cx0 = building ? lx : x0, cr0 = building ? lr : r0;
+      // candidates: points on the public walking network (sidewalks, crossings, squares, park paths -- from OSM via
+      // the street simulation), which keeps us out of courtyards and stadium bowls at any street angle; a plain grid
+      // when the network isn't loaded yet
+      const cand = net ? net(cx0, cr0, R) : (function* () { for (let dr = -R; dr <= R; dr += st) for (let dx = -R; dx <= R; dx += st) yield [cx0 + dx, cr0 + dr]; })();
+      for (const [px, pr] of cand) {
+        const x = Math.floor(px), r = Math.floor(pr), d = Math.hypot(px - cx0, pr - cr0);
         if (d > R || !w.inside(x, r)) continue;
         const g = w.groundAt(x, r);
         if (w.blocked(x, r, g, g + 40) || w.blocked(x + 1, r, g, g + 3) || w.blocked(x - 1, r, g, g + 3) || w.blocked(x, r + 1, g, g + 3) || w.blocked(x, r - 1, g, g + 3)) continue;
@@ -478,8 +485,8 @@ export class Nav {
         let open = 0, long = 0;
         for (let k = 0; k < 8; k++) { dir.set(Math.cos(k * Math.PI / 4), 0, Math.sin(k * Math.PI / 4)); const t = w.raycast(o, dir, 130); open += Math.min(40, t); if (t >= 120) long++; }
         open /= 8;
-        // a courtyard or a stadium bowl (however big) has no long view out; a street (both ways) or a square does
-        if (open < 12 || long < 2) continue;
+        // off the network, a courtyard or a stadium bowl has no long view out; a street (both ways) or a square does
+        if (open < (net ? 8 : 12) || (!net && long < 2)) continue;
         let sc;
         if (building) {
           // the upper part (2/3 up) must be in sight: nothing in the way well before we reach the landmark
@@ -496,6 +503,34 @@ export class Nav {
     this._landmark = null;
     return this.findStreet(x0, r0);
   }
+  // points every ~3 m along the pedestrian network (life.peds), bucketed by 64 m cells: (x, r, R) -> iterable of [x, r]
+  walkNet() {
+    if (!this.life) return null;
+    if (!this._net) {
+      const grid = new Map(), key = (x, r) => ((x / 64) | 0) * 100003 + ((r / 64) | 0);
+      for (const e of this.life.peds) {
+        const P = e.p;
+        for (let i = 1; i < P.length; i++) {
+          const [ax, ay, az] = P[i - 1], [bx, by] = P[i], L = Math.hypot(bx - ax, by - ay);
+          for (let t = 0; t < L; t += 3) {
+            const x = ax + (bx - ax) * t / L, r = ay + (by - ay) * t / L;
+            const k = key(x, r);
+            (grid.get(k) || grid.set(k, []).get(k)).push([x, r, az]);
+          }
+        }
+      }
+      this._net = (x0, r0, R) => {
+        const out = [];
+        for (let gx = Math.floor((x0 - R) / 64); gx <= Math.floor((x0 + R) / 64); gx++)
+          for (let gy = Math.floor((r0 - R) / 64); gy <= Math.floor((r0 + R) / 64); gy++) for (const p of grid.get(gx * 100003 + gy) || []) {
+            if (Math.abs(p[2] - this.world.groundAt(p[0], p[1])) <= 2) out.push(p); // not on a bridge deck or a footbridge
+          }
+        return out;
+      };
+    }
+    return this._net;
+  }
+
   // if a wall is right in front of the new spot, step back (keeping the view) so there is something to see
   backOff(spot, f) {
     const w = this.world, h = new THREE.Vector3(f.x, 0, f.z).normalize(), P = this.walkPos;
@@ -503,7 +538,7 @@ export class Nav {
     let bx = P.x, bz = P.z, bt = ahead(P.x, P.z);
     for (let k = 1; k <= 14 && bt < 12; k++) {
       const x = P.x - h.x * k, z = P.z - h.z * k, g = w.groundAt(x, z);
-      if (w.blocked(x, z, g, g + 3)) continue; // a lamp post or a bollard: look past it
+      if (w.blocked(x, z, g, g + 12)) continue; // a lamp post, a bollard or a low tree crown (not at eye height): look past it
       const t = ahead(x, z);
       if (t > bt) { bt = t; bx = x; bz = z; }
     }

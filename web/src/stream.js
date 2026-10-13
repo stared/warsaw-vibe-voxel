@@ -249,6 +249,8 @@ export class StreamWorld {
     this.st = streamer;
     this.W = streamer.meta.W; this.D = streamer.meta.D;
     this._c = null; this._ck = -1; // last node hit (cache)
+    this.leaf = new Uint8Array(4096); // palette ids of foliage (material 3), so a tree is never taken for a landmark
+    streamer.meta.palette.forEach((e, i) => { if (e[3] === 3) this.leaf[i] = 1; });
   }
   inside(x, r) { return x >= 0 && r >= 0 && x < this.W && r < this.D; }
   // finest loaded node data for cell (x, r)
@@ -288,6 +290,15 @@ export class StreamWorld {
     const c = this.col(n, x, r), k = n.off[c + 1] - 1;
     if (k < n.off[c]) return n.ground[c];
     return (n.runs[k * 3] + n.runs[k * 3 + 1]) * n.s;
+  }
+  // top of the column ignoring foliage (a building's or a structure's height; ground under a tree)
+  topSolid(x, r) {
+    if (!this.inside(x, r)) return 0;
+    const n = this.node(x, r);
+    if (!n) return 0;
+    const c = this.col(n, x, r), R = n.runs;
+    for (let k = n.off[c + 1] - 1; k >= n.off[c]; k--) if (!this.leaf[R[k * 3 + 2]]) return (R[k * 3] + R[k * 3 + 1]) * n.s;
+    return n.ground[c];
   }
   extent(x0, r0, minTop, cap = 40000) {
     x0 = Math.floor(x0); r0 = Math.floor(r0);

@@ -81,7 +81,7 @@ export class Hud {
       if (nav.mode !== 'orbit') { nav.flyUp(); return; }
       if (!d.moved) { nav.setMode('walk'); return; }
       const hit = nav.world && nav.hitAt(e.clientX, e.clientY);
-      if (hit) nav.setMode('walk', { at: hit, facing: nav.camera.getWorldDirection(hit.clone()).setY(0).normalize() });
+      if (hit) nav.setMode('walk', { at: hit, facing: nav.camera.getWorldDirection(hit.clone()).setY(0).normalize(), deckOK: hit.axis === 1 && Math.abs(hit.y - (nav.world.deckAt(hit.x, hit.z) ?? -99)) < 1.5 });
     });
 
     nav.onHover = (ag, x, y) => {

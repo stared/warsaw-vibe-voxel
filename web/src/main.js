@@ -191,7 +191,7 @@ function makeLabels(meta) {
     // a label is a link: click it to fly to the building (or, at street level, walk to it)
     el.querySelector('.txt').addEventListener('click', () => {
       const v = Object.values(VIEWS).find((w) => w.label === l.name.split(' ·')[0]);
-      if (v && nav.mode === 'orbit') { pinPlace(null); flyTo(v); } else goPlace(l.x, l.y, 60, null);
+      if (v && nav.mode === 'orbit') { pinPlace(null); flyTo(v); } else goPlace(l.x, l.y, 60, null, l.name);
     });
     // footprint radius of the labelled building, so a ray hitting the building itself doesn't count as occlusion
     const g = l.g ?? 0, R = (l.R ?? 30) + 6; // footprint radius, computed offline (scripts/voxelize.py)
@@ -454,12 +454,12 @@ function animateTo(h) {
 }
 let VIEWS = {};
 // frame a searched place from the current compass direction, ~30° down; pin it with a temporary label
-function goPlace(x, y, size, pin) {
+function goPlace(x, y, size, pin, placeName) {
   const g = world.groundAt(x, y), top = world.top(Math.floor(x), Math.floor(y));
   const h = Math.max(0, top - g);
   if (nav.mode !== 'orbit') { // at street level: walk over there, facing it
     pinPlace(pin && { ...pin, x, y, z: Math.max(top, g + 2) });
-    nav.setMode('walk', { at: new THREE.Vector3(x + 0.5, g, y + 0.5) });
+    nav.setMode('walk', { at: new THREE.Vector3(x + 0.5, g, y + 0.5), deckOK: /^(Most|Kładka|Wiadukt)\b/.test(pin?.name || placeName || '') });
     return;
   }
   const t = new THREE.Vector3(x + 0.5, g + Math.min(h * 0.5, 60), y + 0.5);
@@ -523,7 +523,7 @@ function flyTo(v) {
     viewCtls.push(go);
     items.push({ name: v.label, kind: `viewpoint · ${i + 1}`, featured: true, go });
   });
-  for (const l of meta.labels) items.push({ name: l.name, alt: `${l.alt || ''} ${l.note}`, kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R || 20) * 1.4), null) });
+  for (const l of meta.labels) items.push({ name: l.name, alt: `${l.alt || ''} ${l.note}`, kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R || 20) * 1.4), null, l.name) });
   fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
     for (const [name, kind, x, y, size, alt] of places) items.push({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) });
     search.setItems(items);
