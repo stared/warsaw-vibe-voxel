@@ -1,5 +1,5 @@
 {
-  "_doc": "Per-building curation applied on top of LiDAR+OSM. Keyed by OSM element id (way/relation) or by name. Fields: wall/roof {colour, material}; zones: facade split along the footprint's long axis (from/to are fractions 0..1, measured from end 'origin': west|east|north|south); crown: facade band at the top {height, colour, material, sign_colour, tip: only the first fraction of the long axis from the origin end}; min_part_height: apply only to parts taller than this; label/note; sources. Materials: wall, glass, concrete, metal, pkin, bronze_grid, sign.",
+  "_doc": "Per-building curation applied on top of LiDAR+OSM. Keyed by OSM element id (way/relation) or by name. Fields: wall/roof {colour, material}; zones: facade split along the footprint's long axis (from/to are fractions 0..1, measured from end 'origin': west|east|north|south); crown: facade band at the top {height, colour, material, sign_colour, tip: only the first fraction of the long axis from the origin end}; min_part_height: apply only to parts taller than this; label/note; sources. Materials: wall, glass, concrete, metal, pkin, bronze_grid, sign. Areas (any OSM area id, e.g. a stadium): stripes {colours, width (m along the perimeter), material, min_height} paint the walls of every building part inside it in vertical bands by angle around the area's centre.",
   "buildings": {
     "306124863": {
       "name": "Astoria Premium Offices (Brokla 2, formerly Przeskok 2)",
@@ -73,6 +73,35 @@
       },
       "sources": [
         "visual_ref.md: spire is a white steel lattice"
+      ]
+    },
+    "Centrum Nauki Kopernik": {
+      "name": "Centrum Nauki Kopernik (Copernicus Science Centre, RAr-2, 2010)",
+      "wall": {
+        "colour": "#8b8174",
+        "material": "concrete"
+      },
+      "_note": "earth-toned glass-fibre-reinforced concrete panels, windows set into the 'cracks'; ~800 m2 roof garden (ortho decides the roof)",
+      "sources": [
+        "https://bip.kopernik.org.pl/images/KonkursNaNajem/Załącznik_nr._2_do_Regulaminu__stan_faktyczny_.docx",
+        "https://inzynierbudownictwa.pl/warszawa-prezentacja-projektu-centrum-nauki-kopernik-2/"
+      ]
+    },
+    "435894154": {
+      "name": "PGE Narodowy (leisure=stadium area; the stands and facade are building parts inside it)",
+      "stripes": {
+        "colours": [
+          "#c4363a",
+          "#d9dbdd"
+        ],
+        "width": 3,
+        "material": "metal",
+        "min_height": 15
+      },
+      "_note": "facade in the national colours, red and silver/white panels round the bowl, carried by the 72 roof columns",
+      "sources": [
+        "https://worldconstructionnetwork.com/projects/national-stadium-warsaw-poland",
+        "https://www.inyourpocket.com/warsaw/pge-narodowy_119075v"
       ]
     }
   }

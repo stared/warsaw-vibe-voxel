@@ -6,3 +6,4 @@ sh scripts/fetch_osm.sh
 sh scripts/fetch_gugik.sh
 PYTHONPATH=scripts uv run python scripts/prep.py
 PYTHONPATH=scripts uv run python scripts/voxelize.py
+PYTHONPATH=scripts uv run python scripts/places.py

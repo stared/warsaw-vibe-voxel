@@ -17,10 +17,9 @@ export function makePaletteTexture(palette) {
   return tex;
 }
 
-export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
+export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
   const uniforms = {
     uPalette: { value: paletteTex },
-    uGround: { value: groundTex },
     uLampMap: { value: lampTex },
     uSize: { value: new THREE.Vector2(W, D) },
     uNight: { value: 0 },
@@ -37,6 +36,7 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
         varying vec3 vVox;
         varying vec3 vN;
         varying float vAO;
+        varying float vGz;
         flat varying int vPal;
         vec3 normalFromIdx(float i){
           // data axes: 0=x(east),1=y(south),2=z(up) -> three: x, z, y
@@ -49,13 +49,13 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
         }`)
       .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalFromIdx(vattr.x);`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vPal = int(vpal + 0.5);`);
+        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5);`);
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform sampler2D uPalette; uniform sampler2D uGround; uniform sampler2D uLampMap;
+        uniform sampler2D uPalette; uniform sampler2D uLampMap;
         uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime;
-        varying vec3 vVox; varying vec3 vN; varying float vAO; flat varying int vPal;
+        varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
         vec3 gEmissive; float gRough; float gMetal;
@@ -71,7 +71,7 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
         vec3 base = pow(pe.rgb, vec3(2.2));
         int m = int(pe.a * 255.0 + 0.5);
         vec3 cell = floor(vVox - vN * 0.5 + 1e-3);
-        float gz = texture2D(uGround, (cell.xz + 0.5) / uSize).r;
+        float gz = vGz; // ground level of this face's column (baked per vertex by the mesher; was a whole-map texture)
         float lvl = cell.y - gz;                 // voxel level above local ground
         bool vert = abs(vN.y) < 0.5;
         float u = abs(vN.x) > 0.5 ? cell.z : cell.x;      // along the facade
@@ -186,7 +186,9 @@ export function makeVoxelMaterial({ paletteTex, groundTex, lampTex, W, D }) {
           float hgt = vVox.y - gz;
           float fall = clamp(1.0 - hgt / 16.0, 0.0, 1.0);
           float up = (m == ${MAT.LEAF}) ? (vN.y < -0.5 ? 2.6 : 1.7) : 1.0; // canopies glow from below
-          gEmissive += col * lm * fall * uNight * 2.2 * up;
+          // water doesn't take the light as a lit surface: it reflects it, a dimmer warm sheen (bridge and boulevard lamps)
+          if (m == ${MAT.WATER}) gEmissive += lm * vec3(1.0, 0.72, 0.42) * fall * uNight * 0.45;
+          else gEmissive += col * lm * fall * uNight * 2.2 * up;
         }
         diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
       `)

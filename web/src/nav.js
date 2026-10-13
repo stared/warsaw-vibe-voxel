@@ -1,88 +1,5 @@
 import * as THREE from 'three';
 
-// Queries on the column-run voxel data. Data coords: x east, row south, z up; three.js: (x, z, row).
-export class VoxelWorld {
-  constructor(meta, counts, runs, ground) {
-    this.W = meta.W; this.D = meta.D; this.counts = counts; this.runs = runs; this.ground = ground;
-    const n = this.W * this.D;
-    this.off = new Uint32Array(n + 1);
-    for (let i = 0; i < n; i++) this.off[i + 1] = this.off[i] + counts[i];
-  }
-  inside(x, r) { return x >= 0 && r >= 0 && x < this.W && r < this.D; }
-  groundAt(x, r) { x = Math.floor(x); r = Math.floor(r); return this.inside(x, r) ? this.ground[r * this.W + x] : 0; }
-  solid(x, r, z) {
-    if (!this.inside(x, r)) return z < 0;
-    const c = r * this.W + x;
-    if (z < this.ground[c]) return true;
-    const R = this.runs;
-    for (let k = this.off[c], e = this.off[c + 1]; k < e; k++) {
-      const z0 = R[k * 3];
-      if (z < z0) return false;
-      if (z < z0 + R[k * 3 + 1]) return true;
-    }
-    return false;
-  }
-  top(x, r) {
-    if (!this.inside(x, r)) return 0;
-    const c = r * this.W + x, n = this.counts[c];
-    if (!n) return this.ground[c];
-    const k = (this.off[c] + n - 1) * 3;
-    return this.runs[k] + this.runs[k + 1];
-  }
-  // horizontal extent of the tall structure under (x, r): flood over neighbouring columns at least `minTop` high
-  extent(x0, r0, minTop, cap = 40000) {
-    x0 = Math.floor(x0); r0 = Math.floor(r0);
-    const seen = new Set([r0 * this.W + x0]), q = [[x0, r0]];
-    let R = 0;
-    while (q.length && seen.size < cap) {
-      const [x, r] = q.pop();
-      R = Math.max(R, Math.hypot(x - x0, r - r0));
-      for (const [dx, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = x + dx, nr = r + dr, k = nr * this.W + nx;
-        if (!seen.has(k) && this.inside(nx, nr) && this.top(nx, nr) >= minTop) { seen.add(k); q.push([nx, nr]); }
-      }
-    }
-    return R;
-  }
-  // highest surface at or below `top` in a column (where something standing at height <= top would rest)
-  support(x, r, top) {
-    x = Math.floor(x); r = Math.floor(r);
-    if (!this.inside(x, r)) return 0;
-    const c = r * this.W + x, R = this.runs;
-    let s = this.ground[c];
-    for (let k = this.off[c], e = this.off[c + 1]; k < e; k++) {
-      const t = R[k * 3] + R[k * 3 + 1];
-      if (t <= top && t > s) s = t;
-    }
-    return s;
-  }
-  // any solid voxel with level in [z0, z1)
-  blocked(x, r, z0, z1) {
-    x = Math.floor(x); r = Math.floor(r);
-    for (let z = Math.floor(z0); z < z1; z++) if (this.solid(x, r, z)) return true;
-    return false;
-  }
-  // voxel DDA; returns the distance to the first solid voxel, or Infinity
-  raycast(o, d, maxDist = 4000) {
-    let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
-    const sx = Math.sign(d.x), sy = Math.sign(d.y), sz = Math.sign(d.z);
-    const tdx = sx ? Math.abs(1 / d.x) : Infinity, tdy = sy ? Math.abs(1 / d.y) : Infinity, tdz = sz ? Math.abs(1 / d.z) : Infinity;
-    let tx = sx ? ((sx > 0 ? x + 1 - o.x : o.x - x) * tdx) : Infinity;
-    let ty = sy ? ((sy > 0 ? y + 1 - o.y : o.y - y) * tdy) : Infinity;
-    let tz = sz ? ((sz > 0 ? z + 1 - o.z : o.z - z) * tdz) : Infinity;
-    let t = 0;
-    for (let i = 0; i < 20000 && t < maxDist; i++) {
-      if (y < 0) { this.hitAxis = 1; return t; }
-      if (y < 400 && this.solid(x, z, y)) return t;
-      if (y > 400 && sy >= 0) return Infinity;
-      if (tx < ty && tx < tz) { t = tx; x += sx; tx += tdx; this.hitAxis = 0; }
-      else if (ty < tz) { t = ty; y += sy; ty += tdy; this.hitAxis = 1; }
-      else { t = tz; z += sz; tz += tdz; this.hitAxis = 2; }
-    }
-    return Infinity;
-  }
-}
-
 // Camera navigation, three modes, one gesture language (mouse, trackpad and touch alike):
 //   orbit (fly-over): drag moves the map · right-drag (or Shift/Ctrl-drag, two fingers) rotates & tilts · wheel/pinch zooms
 //                     at the cursor · double-click flies there · click a tram, car or person to ride along
@@ -371,8 +288,25 @@ export class Nav {
     this.flyTo({ pos: pos.toArray(), target: tgt.toArray() });
   }
 
+  // where full 1 m detail must be loaded (streaming): where you stand, ride, or are about to land
+  focusPoints() {
+    const pts = [];
+    if (this.mode === 'walk' && this.walkPos) pts.push(this.walkPos);
+    else if (this.mode !== 'orbit') pts.push(this.camera.position);
+    else if (this.world && this.camera.position.y - this.world.groundAt(this.camera.position.x, this.camera.position.z) < 90) pts.push(this.camera.position);
+    if (this._pending) pts.push(this._pending);
+    return pts;
+  }
+
   setMode(m, opts = {}) {
     if (m === this.mode && !opts.at) return;
+    // street level needs the full-detail tiles around the landing spot: fetch them first (usually already there)
+    if (m === 'walk' && this.streamer && !opts._ready) {
+      const t = opts.at || this.controls.target;
+      this._pending = new THREE.Vector3(t.x, 0, t.z);
+      this.streamer.ensure(t.x, t.z, 200).then(() => { this._pending = null; this.setMode('walk', { ...opts, _ready: true }); });
+      return;
+    }
     const prev = this.mode;
     this.marker.visible = false;
     if (this.life && m !== 'ride') this.life.keep = null;

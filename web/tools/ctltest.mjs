@@ -32,7 +32,7 @@ if (tp) {
 }
 if ((await st()).mode !== 'orbit') { await page.keyboard.press('Escape'); await page.waitForTimeout(2200); }
 await log('esc -> sky'); await shot('5b-sky');
-await page.evaluate(() => window.__three.flyTo({ pos: [520, 160, 1240], target: [560, 18, 1080], ms: 10 })); await page.waitForTimeout(500);
+await page.evaluate(() => window.__three.flyTo({ pos: [520, 182, 1720], target: [560, 40, 1560], ms: 10 })); await page.waitForTimeout(500);
 await page.keyboard.press('KeyG'); await page.waitForTimeout(1800);
 await log('walk'); await shot('6-walk');
 await page.mouse.move(640, 600); await page.waitForTimeout(300);

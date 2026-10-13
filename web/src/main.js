@@ -6,7 +6,8 @@ import { makePaletteTexture, makeVoxelMaterial } from './voxelMaterial.js';
 import { Sky } from './sky.js';
 import { Fountains } from './fountains.js';
 import { StreetLife } from './sim.js';
-import { Nav, VoxelWorld } from './nav.js';
+import { Nav } from './nav.js';
+import { TileStreamer } from './stream.js';
 import { PlaceSearch } from './search.js';
 import { Hud } from './hud.js';
 import GUI from 'lil-gui';
@@ -41,20 +42,12 @@ const nav = new Nav({ camera, controls, scene, dom: renderer.domElement, flyTo: 
 nav.cancelFly = () => { fly = null; };
 
 async function loadData() {
-  status('Loading voxels…');
-  const [meta, groundBuf, vox] = await Promise.all([
-    fetch('data/meta.json').then((r) => r.json()),
-    fetch('data/ground.bin').then((r) => r.arrayBuffer()),
-    fetch('data/voxels.vxl').then((r) => new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()),
-  ]);
-  const N = meta.W * meta.D;
-  const counts = new Uint16Array(vox, 0, N);
-  const runs = new Uint16Array(vox, N * 2);
-  return { meta, ground: new Uint16Array(groundBuf), counts, runs };
+  status('Loading the city…');
+  return { meta: await fetch('data/meta.json').then((r) => r.json()) };
 }
 
 function makeLampMap(meta) {
-  const s = 2; // px per metre
+  const s = 0.5; // px per metre: lamp pools are ~40 m wide; 2 m texels look the same and the 4 x 3 km map fits in 12 MB
   const cv = document.createElement('canvas');
   cv.width = meta.W * s; cv.height = meta.D * s;
   const ctx = cv.getContext('2d');
@@ -72,51 +65,8 @@ function makeLampMap(meta) {
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.NoColorSpace;
+  tex.flipY = false; // canvas row 0 = grid row 0 (with the default flip every pool was mirrored across the map)
   return tex;
-}
-
-function buildMeshes(data, material) {
-  const { meta, counts, runs } = data;
-  const CS = 128; // big chunks: ~150 meshes instead of ~2200 -> draw calls (CPU) dominate far more than the culled triangles
-  const jobs = [];
-  for (let y0 = 0; y0 < meta.D; y0 += CS) for (let x0 = 0; x0 < meta.W; x0 += CS) jobs.push({ x0, y0 });
-  const nW = Math.min(navigator.hardwareConcurrency || 4, 8);
-  const group = new THREE.Group();
-  let done = 0, tris = 0;
-  return new Promise((resolve) => {
-    let next = 0;
-    for (let w = 0; w < nW; w++) {
-      const worker = new Worker(new URL('./mesher.worker.js', import.meta.url), { type: 'module' });
-      worker.postMessage({ type: 'init', W: meta.W, D: meta.D, counts, runs });
-      const feed = () => {
-        if (next < jobs.length) {
-          const j = jobs[next];
-          worker.postMessage({ type: 'chunk', id: next++, x0: j.x0, y0: j.y0, cs: CS });
-        } else worker.terminate();
-      };
-      worker.onmessage = (e) => {
-        const m = e.data;
-        if (m.type === 'ready') { feed(); return; }
-        if (m.pos.length) {
-          const geo = new THREE.BufferGeometry();
-          geo.setAttribute('position', new THREE.BufferAttribute(m.pos, 3));
-          geo.setAttribute('vattr', new THREE.BufferAttribute(m.attr, 4));
-          geo.setAttribute('vpal', new THREE.BufferAttribute(m.pal, 1));
-          geo.setIndex(new THREE.BufferAttribute(m.idx, 1));
-          geo.computeBoundingBox();
-          geo.computeBoundingSphere();
-          const mesh = new THREE.Mesh(geo, material);
-          mesh.castShadow = mesh.receiveShadow = true;
-          group.add(mesh);
-          tris += m.idx.length / 3;
-        }
-        done++;
-        status(`Meshing ${done}/${jobs.length} chunks · ${(tris / 1e6).toFixed(2)} M triangles`);
-        if (done === jobs.length) resolve({ group, tris });
-        feed();
-      };
-    }
-  });
 }
 
 // ------------------------------------------------------------------ lighting / time of day
@@ -148,7 +98,7 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 let state = { hour: 18.9, night: 0 };
 let fountains = null, life = null, lastT = performance.now();
 let world = null;
-let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3();
+let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3(), streamer = null;
 
 function applyTime(hour) {
   state.hour = hour;
@@ -194,19 +144,32 @@ function applyTime(hour) {
 }
 const hhmm = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60) % 60).padStart(2, '0')}`;
 
-function updateShadowCam(dir) {
+// The shadow map covers the part of the city in view, not all 4 x 3 km: a square around the focus that grows with
+// camera distance (600 m at street level -> sharper than before; the whole map from far away, where a texel
+// is still smaller than a pixel). Snapped to whole texels in light space so shadows don't shimmer as you move.
+let lightDir = new THREE.Vector3(0, 1, 0), shadowKey = '';
+function updateShadowCam(dir) { lightDir.copy(dir); shadowKey = ''; }
+function fitShadow() {
   if (bbox.isEmpty()) return;
-  sun.target.position.copy(center);
-  sun.position.copy(center).addScaledVector(dir, 2000);
-  sun.updateMatrixWorld();
-  const view = new THREE.Matrix4().lookAt(sun.position, center, new THREE.Vector3(0, 1, 0));
-  const inv = view.clone().invert();
+  const f = nav.mode === 'orbit' ? controls.target : camera.position;
+  const dist = camera.position.distanceTo(controls.target) + Math.max(0, camera.position.y - (bbox.min.y + 80));
+  const R = THREE.MathUtils.clamp(dist * 1.15, 300, Math.max(bbox.max.x, bbox.max.z) * 0.75);
+  const cam = sun.shadow.camera, texel = (2 * R) / sun.shadow.mapSize.x;
+  const key = `${Math.round(f.x / (texel * 8))},${Math.round(f.z / (texel * 8))},${R.toFixed(0)},${lightDir.x.toFixed(4)},${lightDir.y.toFixed(4)}`;
+  if (key === shadowKey) return;
+  shadowKey = key;
+  const c = new THREE.Vector3(f.x, 0, f.z);
+  sun.target.position.copy(c);
+  sun.position.copy(c).addScaledVector(lightDir, 2500);
+  sun.updateMatrixWorld(); sun.target.updateMatrixWorld();
+  const view = new THREE.Matrix4().lookAt(sun.position, c, new THREE.Vector3(0, 1, 0)), inv = view.clone().invert();
   const pts = [];
-  for (const x of [bbox.min.x, bbox.max.x]) for (const y of [bbox.min.y, bbox.max.y]) for (const z of [bbox.min.z, bbox.max.z]) pts.push(new THREE.Vector3(x, y, z).sub(sun.position).applyMatrix4(inv));
+  for (const x of [f.x - R, f.x + R]) for (const z of [f.z - R, f.z + R]) for (const y of [0, bbox.max.y]) pts.push(new THREE.Vector3(x, y, z).sub(sun.position).applyMatrix4(inv));
   const b = new THREE.Box3().setFromPoints(pts);
-  const cam = sun.shadow.camera;
-  cam.left = b.min.x; cam.right = b.max.x; cam.bottom = b.min.y; cam.top = b.max.y;
-  cam.near = Math.max(1, -b.max.z - 10); cam.far = -b.min.z + 10;
+  const sn = (v) => Math.floor(v / texel) * texel; // whole-texel snapping
+  cam.left = sn(b.min.x); cam.right = sn(b.min.x) + Math.ceil((b.max.x - b.min.x) / texel) * texel;
+  cam.bottom = sn(b.min.y); cam.top = sn(b.min.y) + Math.ceil((b.max.y - b.min.y) / texel) * texel;
+  cam.near = Math.max(1, -b.max.z - 700); cam.far = -b.min.z + 10; // 700 m toward the sun: towers outside still cast in
   cam.updateProjectionMatrix();
   sun.shadow.needsUpdate = true;
 }
@@ -230,7 +193,7 @@ function makeLabels(meta) {
       if (v && nav.mode === 'orbit') { pinPlace(null); flyTo(v); } else goPlace(l.x, l.y, 60, null);
     });
     // footprint radius of the labelled building, so a ray hitting the building itself doesn't count as occlusion
-    const g = world.groundAt(l.x, l.y), R = world.extent(l.x, l.y, g + Math.max(6, (l.z - g) * 0.4)) + 6;
+    const g = l.g ?? 0, R = (l.R ?? 30) + 6; // footprint radius, computed offline (scripts/voxelize.py)
     let edge = null;
     if (l.highlight) {
       edge = document.createElement('div');
@@ -532,19 +495,18 @@ function flyTo(v) {
   const data = await loadData();
   const { meta } = data;
   const paletteTex = makePaletteTexture(meta.palette);
-  const gf = new Float32Array(data.ground.length);
-  for (let i = 0; i < gf.length; i++) gf[i] = data.ground[i];
-  const groundTex = new THREE.DataTexture(gf, meta.W, meta.D, THREE.RedFormat, THREE.FloatType);
-  groundTex.magFilter = groundTex.minFilter = THREE.NearestFilter;
-  groundTex.needsUpdate = true;
-  const material = makeVoxelMaterial({ paletteTex, groundTex, lampTex: makeLampMap(meta), W: meta.W, D: meta.D });
+  const material = makeVoxelMaterial({ paletteTex, lampTex: makeLampMap(meta), W: meta.W, D: meta.D });
   uniforms = material.userData.uniforms;
-  const { group, tris } = await buildMeshes(data, material);
-  scene.add(group);
-  bbox.setFromObject(group);
+  // the city streams in as a quadtree of tiles (stream.js): coarse everywhere at once, finer near the camera
+  streamer = new TileStreamer({ meta, material, scene });
+  window.__streamer = streamer;
+  bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(meta.W, meta.H, meta.D));
   bbox.getCenter(center);
   VIEWS = meta.views;
-  world = nav.world = new VoxelWorld(meta, data.counts, data.runs, data.ground);
+  world = nav.world = streamer.world;
+  nav.streamer = streamer;
+  status('Loading the city…');
+  await streamer.preload();
   const th = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
@@ -568,7 +530,8 @@ function flyTo(v) {
     window.__life = life;
     life.group.visible = P.life;
   });
-  $('#stats').textContent = `${meta.W}×${meta.D} m · 1 m voxels · ${(tris / 1e6).toFixed(1)} M tris`;
+  const statsEl = $('#stats');
+  setInterval(() => { statsEl.textContent = `${(meta.W / 1000).toFixed(2)} × ${(meta.D / 1000).toFixed(2)} km · 1 m voxels · ${(streamer.tris / 1e6).toFixed(1)} M tris on screen`; }, 1000);
   $('#sources').innerHTML = `LiDAR, orthophoto: GUGiK 2025<br>map data © OpenStreetMap contributors, ${meta.sources.osm.slice(0, 10)}`;
   const v = VIEWS[new URLSearchParams(location.search).get('view') || 'overview'] || VIEWS.overview;
   camera.position.set(...v.pos);
@@ -596,14 +559,16 @@ renderer.setAnimationLoop((now) => {
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   hud?.update();
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
-  const camH = camera.position.y - 15;
+  const camH = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3; // height above the street (was absolute: the map's base moved with the Vistula)
   tiltPass.enabled = P.tilt && camH > 60;
   tilt.focusArea = 0.8 + 0.2 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250)));
   const tsec = (performance.now() - t0clock) / 1000;
   if (uniforms) uniforms.uTime.value = tsec;
   if (fountains) fountains.update(tsec, state.night);
-  if (life && life.group.visible) life.update(dtf, state.hour, state.night);
+  if (life && life.group.visible) life.update(dtf, state.hour, state.night, nav.mode === 'orbit' ? controls.target : camera.position);
   sky.mesh.position.copy(camera.position);
+  if (streamer) { streamer.focus = nav.focusPoints(); streamer.update(camera); }
+  fitShadow();
   composer.render();
   updateLabels();
 });

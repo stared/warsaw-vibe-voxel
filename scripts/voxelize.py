@@ -227,7 +227,12 @@ HW = {"motorway": 20, "trunk": 14, "primary": 12, "secondary": 10, "tertiary": 8
 ROADS = {"motorway", "trunk", "primary", "secondary", "tertiary", "unclassified", "residential", "service",
          "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link", "living_street"}
 
-foot_shapes, road_shapes = [], []
+def on_bridge(t):
+    return t.get("bridge") not in (None, "no") or t.get("man_made") == "bridge"
+
+
+foot_shapes, road_shapes, bridge_shapes = [], [], []  # bridge ways are painted on the deck, not on the river below
+bridge_roads = []  # (line, width) of carriageways on bridges, for the inferred deck lamps
 for oid, t, line in osm.lines:
     hw = t.get("highway")
     if hw == "construction":
@@ -243,6 +248,12 @@ for oid, t, line in osm.lines:
     if w <= 0:
         continue
     poly = line.buffer(w / 2, cap_style="flat" if base in ROADS else "round")
+    if on_bridge(t):
+        key = SURF.get(t.get("surface"), "asphalt") if (hw in ROADS or base in ROADS) else ("cycle" if hw == "cycleway" else SURF.get(t.get("surface"), "paving"))
+        bridge_shapes.append((poly, C[key], int(parse_len(t.get("layer")) or 1)))
+        if (hw in ROADS or base in ROADS) and line.length > 60:
+            bridge_roads.append((line, w))
+        continue
     if hw in ROADS or base in ROADS:
         road_shapes.append((poly, C[SURF.get(t.get("surface"), "asphalt")]))
     elif hw == "cycleway":
@@ -280,6 +291,9 @@ for oid, t, line in osm.lines_with("railway"):
     if t["railway"] == "subway":
         continue
     tram = t["railway"] == "tram"
+    if on_bridge(t):
+        bridge_shapes.append((line.buffer(1.4 if tram else 1.9, cap_style="flat"), C["trambed" if tram else "ballast"], int(parse_len(t.get("layer")) or 1)))
+        continue
     rail_beds.append((line.buffer(1.4 if tram else 1.9, cap_style="flat"), C["trambed" if tram else "ballast"]))
     for off in (-0.72, 0.72):
         try:
@@ -784,18 +798,65 @@ for oid, t, p in osm.nodes_with("man_made", ("flagpole",)):
         hgt = int(parse_len(t.get("height")) or 9)
         vol[g[r, c]:g[r, c] + hgt, r, c] = C["fence"]
 
-# bridges / decks over the rail cut (DTM drops below them)
-for oid, typ, t, geom in osm.areas_with("man_made", ("bridge",)):
-    rr, cc = cells_of(geom)
-    k = ~bmask[rr, cc] & (nd_mean[rr, cc] > 2)
-    rr, cc = rr[k], cc[k]
-    if len(rr) == 0:
-        continue
-    zt_ = g[rr, cc] + np.round(nd_mean[rr, cc]).astype(int)
+# bridges / decks: over the rail cut (DTM drops below them) and the Vistula. The deck follows the bridge ways
+# (bridge=yes roads, paths, tracks buffered to their width; man_made=bridge areas only near them), at the height of
+# the lowest LiDAR return in a 5 x 5 neighbourhood -- the road surface, not the cars or the cable stays above it.
+# Its top takes the colour of the way on it (asphalt, pavement, cycle lane, tram bed).
+deck_col = np.zeros((D, W), np.uint16)
+bridge_area = np.zeros((D, W), np.uint16)
+burn(bridge_area, [(geom, 1) for oid, typ, t, geom in osm.areas_with("man_made", ("bridge",))])
+for layer in sorted({l for _, _, l in bridge_shapes}):  # upper decks win
+    burn(deck_col, [(p_, c_) for p_, c_, l in sorted(bridge_shapes, key=lambda x: -x[0].area) if l == layer])
+near_way = ndimage.binary_dilation(deck_col > 0, iterations=3)
+deck_col = np.where((deck_col == 0) & (bridge_area > 0) & near_way, C["deck"], deck_col)
+deck = (deck_col > 0) & ~bmask & (nd_mean > 2)
+deck_h = ndimage.minimum_filter(np.where(deck, nd_mean, 1e4), size=5)
+deck_h = np.where(deck & (deck_h < 1e3), deck_h, 0)
+rr, cc = np.nonzero(deck)
+if len(rr):
+    zt_ = g[rr, cc] + np.round(np.clip(deck_h[rr, cc], 2, None)).astype(int)
     for dz in (1, 2):
         vol[zt_ - dz, rr, cc] = C["deck"]
-    vol[zt_ - 1, rr, cc] = gcol[rr, cc]
-    note("bridge deck", oid, t.get("name"), len(rr), "cells")
+    vol[zt_ - 1, rr, cc] = deck_col[rr, cc]
+note("bridge deck cells:", int(deck.sum()))
+# bridge pylons (Most Świętokrzyski's ~90 m mast): compact LiDAR blobs far above the deck inside a bridge
+pyl = (bridge_area > 0) & (nd_max > np.where(deck_h > 0, deck_h, nd_mean) + 45) & ~bmask  # the stays fan out low; only the mast stands this high
+pyl = ndimage.binary_opening(pyl, iterations=2)  # the cable-stay fan is a thin sheet in the LiDAR; the mast is thick
+lab_, n_ = ndimage.label(pyl)
+n_pyl = 0
+for i_, sl in enumerate(ndimage.find_objects(lab_), 1):
+    m_ = lab_[sl] == i_
+    if m_.sum() < 6 or max(m_.shape) > 25:  # a mast is compact; a long sheet is the cable fan
+        continue
+    for r_, c_ in zip(*np.nonzero(m_)):
+        r_, c_ = r_ + sl[0].start, c_ + sl[1].start
+        z0_, z1_ = int(g[r_, c_]), int(g[r_, c_] + round(float(nd_max[r_, c_])))
+        vol[z0_:z1_, r_, c_] = np.where(vol[z0_:z1_, r_, c_] == 0, C["fence"], vol[z0_:z1_, r_, c_])
+    n_pyl += 1
+note("bridge pylons from LiDAR:", n_pyl)
+# lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they
+# are lit -- put one every 32 m on each kerb of the deck, as for Złota, unless OSM has a lamp within 12 m
+n_bl = 0
+for line, w in bridge_roads:
+    for k_, dist in enumerate(np.arange(10, line.length - 6, 32.0)):
+        p = line.interpolate(dist)
+        q_ = line.interpolate(min(dist + 1, line.length))
+        tx, ty = q_.x - p.x, q_.y - p.y
+        tl = max(np.hypot(tx, ty), 1e-6)
+        for side in (-1, 1):
+            off = side * (w / 2 + 0.4)
+            c, r = int(p.x - ty / tl * off), int(p.y + tx / tl * off)
+            if not (0 <= c < W and 0 <= r < D) or not deck[r, c]:
+                continue
+            if len(lamp_xy) and np.min(np.hypot(lamp_xy[:, 0] - c, lamp_xy[:, 1] - r)) < 12:
+                continue
+            z0 = int(g[r, c] + round(float(deck_h[r, c])))
+            vol[z0:z0 + 8, r, c] = np.where(vol[z0:z0 + 8, r, c] == 0, C["pole"], vol[z0:z0 + 8, r, c])
+            vol[z0 + 8, r, c] = C["lamp"]
+            lamps.append((c, r, int(z0 + 8)))
+            lamp_xy = np.vstack([lamp_xy, [c, r]])
+            n_bl += 1
+note("inferred lamps on bridge decks (OSM has almost none):", n_bl)
 
 # ---------------------------------------------------------------- vehicles frozen from the 2025 LiDAR + ortho
 # only parked cars stay frozen; cars caught mid-carriageway by the 2025 flight are replaced by the live simulation
@@ -835,34 +896,33 @@ note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 
 # ---------------------------------------------------------------- curated landmark details
 landmarks.apply_zones(vol, g, feats, pal, bmask, note)
+landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
 leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
+
+# label footprint radius (the viewer hides a label only when something *else* is in the way; a ray hitting the
+# labelled building itself doesn't count) -- computed here because the viewer streams and has no whole-city voxels
+abs_top = g + np.where(bmask, topi, 0)
+for l in labels:
+    r, c = int(l["y"]), int(l["x"])
+    gg = int(g[min(max(r, 0), D - 1), min(max(c, 0), W - 1)])
+    l["g"] = gg
+    thr = gg + max(6, (l["z"] - gg) * 0.4)
+    r0, r1, c0, c1 = max(r - 220, 0), min(r + 221, D), max(c - 220, 0), min(c + 221, W)
+    lab_, _ = ndimage.label(abs_top[r0:r1, c0:c1] >= thr)
+    k = lab_[r - r0, c - c0] if (0 <= r - r0 < lab_.shape[0] and 0 <= c - c0 < lab_.shape[1]) else 0
+    if k:
+        rr_, cc_ = np.nonzero(lab_ == k)
+        l["R"] = round(float(np.hypot(rr_ + r0 - r, cc_ + c0 - c).max()), 1)
+    else:
+        l["R"] = 0.0
 
 # ---------------------------------------------------------------- export
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
 vol = vol[:Hm]
 note("final height", Hm, "palette", len(pal.entries))
-cols = vol.reshape(Hm, -1).T  # (N, H) - each column bottom->top (row-major: row*W + col)
-N = cols.shape[0]
-b = np.zeros((N, Hm + 1), bool)
-b[:, 0] = True
-b[:, 1:Hm] = cols[:, 1:] != cols[:, :-1]
-b[:, Hm] = True
-fi = np.flatnonzero(b)
-ci, zi = fi // (Hm + 1), fi % (Hm + 1)
-same = ci[:-1] == ci[1:]
-s_ci, s_z0, s_z1 = ci[:-1][same], zi[:-1][same], zi[1:][same]
-val = cols[s_ci, s_z0]
-k = val != 0
-s_ci, s_z0, s_z1, val = s_ci[k], s_z0[k], s_z1[k], val[k]
-counts = np.bincount(s_ci, minlength=N)
-assert counts.max() < 65536
-runs = np.stack([s_z0, s_z1 - s_z0, val], 1).astype(np.uint16)
-blob = counts.astype(np.uint16).tobytes() + runs.tobytes()
-with gzip.open(OUT / "voxels.vxl", "wb", compresslevel=9) as fh:
-    fh.write(blob)
-note("runs", len(runs), "max per column", int(counts.max()), "bytes", len(blob))
-g.astype(np.uint16).tofile(OUT / "ground.bin")
+import tiles
+tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP})
 # tram routes for the animated trams: merged open-air tram tracks, sampled every metre with ground z
 from shapely.ops import linemerge
 tram_lines = linemerge([l for oid, t, l in osm.lines_with("railway", ("tram",)) if not tunnelish(t)])
@@ -878,7 +938,7 @@ for ln in sorted(tram_lines, key=lambda l: -l.length):
         path.append([round(p.x, 1), round(p.y, 1), int(g[r, c])])
     trams.append(path)
 note("tram paths:", len(trams), "total km", round(sum(len(p) for p in trams) * 2 / 1000, 2))
-meta = dict(W=W, D=D, H=Hm, base=BASE, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets,
+meta = dict(W=W, D=D, H=Hm, base=BASE, tiles=tile_info, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets,
             palette=[list(e) for e in pal.entries], lamps=lamps, labels=labels, views=views,
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))
@@ -888,7 +948,8 @@ import traffic
 qa = np.zeros((D, W), np.uint8)
 qa[is_road] = 1
 qa[np.isin(gcol, [C["trambed"], C["rail"]])] = 2
-qa.tofile(OUT / "qa_roadmask.bin")
+with gzip.open(OUT / "qa_roadmask.bin.gz", "wb", compresslevel=9) as fh:  # mostly zeros: 12 MB -> ~0.3 MB
+    fh.write(qa.tobytes())
 json.dump(traffic.build(g, nd_mean, note, qa), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 

@@ -314,8 +314,28 @@ export class StreetLife {
     }
     return outs;
   }
+  // Only the part of the city around the camera is simulated (the map is 4 x 3 km; the old 1.5 km map had about
+  // as many agents as this circle). Roads leaving it are exits, roads entering it are sources; agents left outside
+  // when the camera moves on are removed. Trams are few and run everywhere.
+  setActive(x, z, R) {
+    const near = (e) => { const P = e.p, n = P.length; for (const q of [P[0], P[n >> 1], P[n - 1]]) if ((q[0] - x) ** 2 + (q[1] - z) ** 2 < R * R) return true; return false; };
+    this.roadOn = this.roads.map(near);
+    this.pedOn = this.peds.map(near);
+    this.roadW = this.roads.map((e, i) => (this.roadOn[i] ? e.L * e.lanes * e.c : 0));
+    this.roadWsum = this.roadW.reduce((a, b) => a + b, 0) || 1;
+    this.laneKm = this.roads.reduce((a, e, i) => a + (this.roadOn[i] ? e.L * e.lanes : 0), 0) / 1000;
+    this.sources = this.roads.filter((e, i) => this.roadOn[i] && e.L > 15 && !(this.ins.get(e.a) || []).some((j) => this.roadOn[j])).map((e) => e.i);
+    this.pedW = this.peds.map((e, i) => (this.pedOn[i] ? e.L * e.w : 0));
+    this.pedWsum = this.pedW.reduce((a, b) => a + b, 0) || 1;
+    this.pedKm = this.peds.reduce((a, e, i) => a + (this.pedOn[i] ? e.L : 0), 0) / 1000;
+    const out = this.cars.filter((c) => !this.roadOn[c.e] && c !== this.keep);
+    for (const c of out) { const l = this.roads[c.e].lists[c.lane]; l.splice(l.indexOf(c), 1); this.boxLeave(c); }
+    if (out.length) { const o = new Set(out); this.cars = this.cars.filter((c) => !o.has(c)); }
+    this.people = this.people.filter((p) => this.pedOn[p.e] || p === this.keep);
+    this.active = { x, z, R };
+  }
   chooseNext(e) {
-    const outs = this.allowedOuts(e);
+    const outs = this.allowedOuts(e).filter((j) => !this.roadOn || this.roadOn[j]); // none left: an exit
     if (!outs.length) return -1;
     const w = outs.map((j) => { const o = this.roads[j], t = turnOf(e, o); return (t === 0 ? 4 : 1) * o.c * (o.L > 6 ? 1 : 0.3); });
     return outs[this.pickWeighted(w, w.reduce((a, b) => a + b, 0))];
@@ -453,7 +473,8 @@ export class StreetLife {
     if (CFG.tramobs && !onX && this.tramObs.length) { // yield to any tram body in the next 25 m of my path
       const P = this.carPoint(car, car.s, { x: 0, y: 0, z: 0 }), F = this.carPoint(car, car.s + 1, { x: 0, y: 0, z: 0 });
       const fx = F.x - P.x, fy = F.y - P.y;
-      for (const [x, y, tro] of this.tramObs) {
+      const gx = (P.x / 32) | 0, gy = (P.y / 32) | 0;
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const [x, y, tro] of this.tramGrid.get((gx + i) * 100003 + (gy + j)) || []) {
         const rx = x - P.x, ry = y - P.y;
         if (Math.abs(rx) > 30 || Math.abs(ry) > 30) continue;
         const along = rx * fx + ry * fy, lat = Math.abs(rx * fy - ry * fx);
@@ -506,10 +527,18 @@ export class StreetLife {
     }
 
     // tram bodies as obstacles for cars (positions from the previous step)
+    // trams far from the active area just run along their track (no signals, no cars to yield to): cheap, and the
+    // city still has moving trams when you look across it
+    const A = this.active;
+    { const q0 = { x: 0, y: 0, z: 0 };
+      for (const tr of this.trams) { at(this.tramPaths[tr.p], tr.s, 0, q0); tr.near = !A || (q0.x - A.x) ** 2 + (q0.y - A.z) ** 2 < (A.R + 200) ** 2; } }
     this.tramObs = [];
     { const q1 = { x: 0, y: 0, z: 0 };
-      for (const tr of this.trams) { const tp = this.tramPaths[tr.p];
+      for (const tr of this.trams) { if (!tr.near) continue; const tp = this.tramPaths[tr.p];
         for (let s0 = 0; s0 <= TRAM.n * (TRAM.sec + TRAM.gap); s0 += 3) { at(tp, tr.s - s0, 0, q1); this.tramObs.push([q1.x, q1.y, tr]); } } }
+    // bucket the tram body points in 32 m cells: each car looks only at the cells around it
+    this.tramGrid = new Map();
+    for (const o of this.tramObs) { const k = ((o[0] / 32) | 0) * 100003 + ((o[1] / 32) | 0); (this.tramGrid.get(k) || this.tramGrid.set(k, []).get(k)).push(o); }
     // ---- spatial snapshot of all cars (front point, direction, centre) for physical conflict checks
     const grid = new Map();
     const G = 8, key = (x, y) => ((x / G) | 0) * 100003 + ((y / G) | 0);
@@ -634,10 +663,12 @@ export class StreetLife {
     const tq = { x: 0, y: 0, z: 0 }, tq2 = { x: 0, y: 0, z: 0 };
     const tramPts = [];
     this.trams.forEach((tr, ti) => {
+      if (!tr.near) return;
       const p = this.tramPaths[tr.p];
       for (let k = 0; k <= TRAM.n; k++) { at(p, tr.s - k * (TRAM.sec + TRAM.gap), 0, tq); tramPts.push([ti, tq.x, tq.y]); }
     });
     this.trams.forEach((tr, ti) => {
+      if (!tr.near) { tr.v += (TRAM.v * 0.8 - tr.v) * Math.min(1, dt * 0.5); tr.ds = tr.v * dt; tr.s += tr.ds; tr.why = 'free'; return; }
       const p = this.tramPaths[tr.p];
       at(p, tr.s, 0, tq); at(p, tr.s + 1, 0, tq2);
       const fdx = tq2.x - tq.x, fdy = tq2.y - tq.y;
@@ -706,7 +737,7 @@ export class StreetLife {
       pe.ph += pe.v * dt * 4.2;
       if (pe.s < 0 || pe.s > e.L) {
         const node = pe.s < 0 ? e.a : e.b;
-        const opts = (this.padj.get(node) || []).filter(([j]) => j !== pe.e);
+        const opts = (this.padj.get(node) || []).filter(([j]) => j !== pe.e && (!this.pedOn || this.pedOn[j]));
         if (!opts.length) { pe.dir *= -1; pe.s = Math.min(Math.max(pe.s, 0), e.L); continue; }
         const w = opts.map(([j]) => this.peds[j].w);
         const [j, end] = opts[this.pickWeighted(w, w.reduce((a, b) => a + b, 0))];
@@ -886,8 +917,12 @@ export class StreetLife {
     return { kind, obj: best, label };
   }
 
-  update(dt, hour, night) {
+  update(dt, hour, night, focus) {
     dt = Math.min(dt, 0.1);
+    if (focus) {
+      const A = this.active, R = 900;
+      if (!A || (A.x - focus.x) ** 2 + (A.z - focus.z) ** 2 > 120 * 120) this.setActive(focus.x, focus.z, R);
+    }
     const hh = ((hour % 24) + 24) % 24;
     const bell = (c, w) => Math.exp(-(((hh - c) / w) ** 2));
     const cars = Math.min(1, 0.18 + 0.55 * bell(8, 2.2) + 0.5 * bell(17, 2.6) + 0.45 * bell(13, 5));

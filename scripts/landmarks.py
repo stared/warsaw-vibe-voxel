@@ -31,6 +31,22 @@ LABELS = {
     "Central Point": ("Central Point", "2022", "top"),
     "Ilmet": ("Ilmet", "1997 · to be rebuilt as Warsaw One", "top"),
     "The Westin Warsaw": ("The Westin", "2003", "top"),
+    # the 3.9 x 3.1 km map: Powiśle, the Vistula, Praga, Ogród Saski, Śródmieście Południowe
+    "PGE Narodowy": ("PGE Narodowy", "National Stadium · 2011", "top"),
+    "Centrum Nauki Kopernik": ("Centrum Nauki Kopernik", "Copernicus Science Centre · 2010", "center"),
+    "Most Świętokrzyski": ("Most Świętokrzyski", "cable-stayed bridge · 2000", "top"),
+    "Most Księcia Józefa Poniatowskiego": ("Most Poniatowskiego", "1914 · rebuilt 1946", "center"),
+    "Ogród Saski": ("Ogród Saski", "Saxon Garden · 1727", "center"),
+    "Odbudowa Pałacu Saskiego": ("Pałac Saski", "reconstruction site", "center"),
+    "Teatr Wielki": ("Teatr Wielki", "Grand Theatre · National Opera", "center"),
+    "Zachęta": ("Zachęta", "National Gallery of Art · 1900", "center"),
+    "Politechnika Warszawska": ("Politechnika Warszawska", "Warsaw University of Technology", "center"),
+    "Sejm RP": ("Sejm", "Polish Parliament", "center"),
+    "Hala Koszyki": ("Hala Koszyki", "market hall · 1909", "center"),
+    "Biblioteka Uniwersytecka": ("BUW", "University Library · roof garden · 1999", "center"),
+    "Elektrownia Powiśle": ("Elektrownia Powiśle", "power station, now shops · 2020", "center"),
+    "Stadion Miejski Legii Warszawa": ("Stadion Legii", "Legia Warsaw · 2011", "center"),
+    "Plac Konstytucji": ("Plac Konstytucji", "MDM · 1952", "center"),
 }
 # places without a single OSM polygon (EPSG:2180 x, y)
 EXTRA_LABELS = [("Zielona Złota", "street greening · opened Aug 2026", 637420, 487015)]
@@ -72,6 +88,37 @@ def wall_override(f, pal):
         return pal((198, 212, 216), M_GLASS)  # canopy glass, see roof_override
     o = override_for(f)
     return _style(pal, o["wall"]) if o and "wall" in o else None
+
+
+def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
+    """overrides.json areas with "stripes": vertical bands of colour by angle around the area's centre on every
+    building column inside it, from 3 m up to (not including) the roof voxel -- e.g. PGE Narodowy's red and silver
+    facade. Whole columns, because the LiDAR bowl rises above the OSM part heights."""
+    for oid, o in OVERRIDES.items():
+        st = o.get("stripes")
+        if not st or not oid.isdigit():
+            continue
+        geom = next((gm for i, typ, t, gm in osm.areas if str(i) == oid), None)
+        if geom is None:
+            continue
+        cx, cy = geom.centroid.x, geom.centroid.y
+        R = math.sqrt(geom.area / math.pi)
+        cols = [pal(_hex(c), MAT_IDS[st.get("material", "wall")]) for c in st["colours"]]
+        rr, cc = cells_of(geom)
+        k_ = bmask[rr, cc]
+        n = 0
+        for r, c in zip(rr[k_], cc[k_]):
+            nz = np.nonzero(vol[:, r, c])[0]
+            if not len(nz):
+                continue
+            z0, z1 = int(g[r, c]) + 3, int(nz[-1])
+            if z1 <= z0:
+                continue
+            k = int((math.atan2(r + 0.5 - cy, c + 0.5 - cx) + math.pi) * R / st.get("width", 3)) % len(cols)
+            col = vol[z0:z1, r, c]
+            vol[z0:z1, r, c] = np.where(col != 0, cols[k], 0)
+            n += 1
+        note("stripes:", o.get("name", oid)[:40], n, "columns")
 
 
 def apply_zones(vol, g, feats, pal, bmask, note):
@@ -300,6 +347,14 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
     st = at("Warszawa Centralna", 15)
     views["station"] = dict(label="Centralna", target=st, pos=add(st, (300, 120, 40)))
     views["skyline"] = dict(label="Skyline", target=[pk[0], 130, pk[2]], pos=add([pk[0], 130, pk[2]], (1150, -10, 520)))
+    if "Centrum Nauki Kopernik" in found and "Most Świętokrzyski" in found:
+        k, b = at("Centrum Nauki Kopernik"), at("Most Świętokrzyski")
+        mid = [(k[0] + b[0]) / 2, g[int(k[2]), int(k[0])] + 6.0, (k[2] + b[2]) / 2]
+        views["vistula"] = dict(label="Vistula", target=mid, pos=add(mid, (-180, 260, 520)))
+    if "PGE Narodowy" in found:
+        st = at("PGE Narodowy")
+        tgt = [st[0], g[int(st[2]), int(st[0])] + 20.0, st[2]]
+        views["stadium"] = dict(label="PGE Narodowy", target=tgt, pos=add(tgt, (-420, 190, 260)))
     return views
 
 

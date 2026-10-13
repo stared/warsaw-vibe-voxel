@@ -8,7 +8,7 @@ const bcdp = await browser.newBrowserCDPSession();
 const cdp = await page.context().newCDPSession(page);
 await cdp.send('Performance.enable');
 const load = async (q) => {
-  await page.goto(`http://localhost:5173/?${q}`);
+  await page.goto(`http://localhost:5173/?${q}${process.env.Q ? '&' + process.env.Q : ''}`);
   await page.waitForFunction(() => window.__ready === true && window.__life, null, { timeout: 180000 });
   await page.waitForTimeout(2500);
 };

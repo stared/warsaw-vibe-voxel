@@ -1,15 +1,36 @@
 # Warszawa Śródmieście in voxels
 
-A 1500 × 1500 m diorama of central Warsaw at 1 m voxels, centred on the PKiN spire and rotated 21.5° to the Palace axes (so walls and the street grid are not staircased), in the style of MagicaVoxel renders (ephtracy). It covers:
-- the Palace of Culture and Science (PKiN)
-- Złota 44, Złote Tarasy and the newly greened Złota
+A 3950 × 3150 m diorama of central Warsaw at 1 m voxels, anchored on the PKiN spire and rotated 21.5° to the Palace axes (so walls and the street grid are not staircased), in the style of MagicaVoxel renders (ephtracy). It covers:
+- the Palace of Culture and Science (PKiN), Złota 44, Złote Tarasy and the newly greened Złota
 - Warszawa Centralna station and the Rondo ONZ towers
+- Powiśle and the Vistula: Centrum Nauki Kopernik, Most Świętokrzyski and Most Poniatowskiego, the boulevards
+- Praga's bank with PGE Narodowy
+- north to Ogród Saski and Teatr Wielki, south past Trasa Łazienkowska (Politechnika, Plac Konstytucji, Sejm, Most Łazienkowski)
 
 Golden hour, midday and night are presets on a time-of-day slider.
 
 ```sh
 cd web && pnpm install && pnpm dev     # http://localhost:5173  (?view=pkin&hour=22.6&tilt=0&ui=0)
 ```
+
+## Streaming (web/src/stream.js)
+
+The city is a quadtree of tiles (`web/public/data/tiles/{1,2,4,8}/x_y.bin`, ~15 MB gzipped in all): 128 × 128 cells
+of 1, 2, 4 or 8 m. The viewer loads the whole map at 8 m up front (0.3 MB), then refines what is in view until a
+cell of the coarser level would span more than ~3 px (`?err=` to experiment), with full 1 m detail around wherever
+you walk or ride. Tiles are meshed in workers; a parent stays on screen until its children are ready, so there are
+no holes; hidden tiles are dropped beyond 150 MB. The traffic simulation runs within ~900 m of the camera.
+
+Measured on the old 1.5 km map vs this 4 × 3 km one (`tools/mem.mjs`, `tools/bench.mjs`, headless Chrome, M-series Mac):
+
+| | 1.5 km, all in memory | 4 × 3 km, streamed |
+|---|---|---|
+| JS heap | ~280 MB | 80–130 MB |
+| total process memory | 1.84–2.28 GB | 1.77–1.99 GB |
+| triangles on screen | 5.0 M | 2.6–5.4 M |
+| CPU at 60 fps | 52% of a core | 52% of a core |
+
+Blind A/B on 16 views of the old area: judges couldn't tell the two apart (7 vs 9, p = 0.8).
 
 ## How the data is fused (scripts/)
 
@@ -44,12 +65,18 @@ Curated details are in `scripts/landmarks.py`:
 ## Rebuild the data
 
 ```sh
-sh scripts/build_data.sh      # ~5 GB of GUGiK downloads on first run (cached in data/raw), then ~15 s
+sh scripts/build_data.sh      # ~11 GB of GUGiK downloads on first run (cached in data/raw), then ~6 min, ~26 GB RAM peak
 ```
+
+OSM comes from the daily Geofabrik extract for Mazowieckie, cut to the AOI by `scripts/osm_pbf.py` into the same JSON
+as Overpass `out geom(bbox)` (the 4 × 3 km query is too heavy for the public Overpass servers; `OVERPASS=1` uses them).
+GUGiK sheet ids come from the orthophoto index WFS (`PZGIK/ORTO/WFS/Skorowidze`).
 
 ## Known limits
 - Windows are procedural, generated in the shader from floor height and material. They are not real window positions.
 - OSM maps 44 of the 81 elms reported on Złota, and only those 44 are drawn.
+- OSM maps almost no lamps on the Vistula bridges; they get one every 32 m on each kerb (inferred, like Złota's).
+- Most Świętokrzyski's mast comes from the LiDAR; the cable stays are not drawn.
 - The 51 parked cars are frozen from the moment of the 2025 LiDAR flight. The trams are animated on the real OSM track geometry; their positions are not real.
 
 ## Curating a building (scripts/overrides.json)

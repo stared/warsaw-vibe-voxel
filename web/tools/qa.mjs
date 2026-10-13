@@ -14,8 +14,8 @@ await page.waitForFunction(() => window.__ready === true && window.__life, null,
 
 // install the probe: runs every animation frame inside the page
 await page.evaluate(async () => {
-  const mask = new Uint8Array(await (await fetch('data/qa_roadmask.bin')).arrayBuffer());
-  const W = 1500;
+  const mask = new Uint8Array(await new Response((await fetch('data/qa_roadmask.bin.gz')).body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  const W = (await (await fetch('data/meta.json')).json()).W;
   const Q = (window.__qa = { frames: 0, ev: {}, samples: {}, last: new Map(), lastT: new Map() });
   const bump = (k, sample) => { Q.ev[k] = (Q.ev[k] || 0) + 1; if (sample && (!Q.samples[k] || Q.samples[k].length < 12)) (Q.samples[k] ||= []).push(sample); };
   const onRoad = (x, z) => { const v = mask[Math.floor(z) * W + Math.floor(x)]; return v; };
