@@ -609,8 +609,11 @@ export class Nav {
     if (d.lengthSq()) d.normalize().multiplyScalar(speed);
     if (K.has('up')) d.y += speed * 0.7;
     if (K.has('down')) d.y -= speed * 0.7;
-    if (d.lengthSq()) { cam.position.add(d); ctl.target.add(d); }
-    if (cam.position.y > gnd + 1800) { const k = gnd + 1800 - cam.position.y; cam.position.y += k; ctl.target.y += k; } // no flying off into the fog
+    if (d.lengthSq()) {
+      cam.position.add(d); ctl.target.add(d);
+      // no flying off into the fog with Q/E (only for key flight: views and zoom may legitimately be higher)
+      if (cam.position.y > gnd + 3600) { const k = gnd + 3600 - cam.position.y; cam.position.y += k; ctl.target.y += k; }
+    }
   }
 
   // keep the orbit camera above the terrain (called after controls.update)

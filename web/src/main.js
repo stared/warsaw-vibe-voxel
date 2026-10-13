@@ -566,7 +566,9 @@ renderer.setAnimationLoop((now) => {
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3; // height above the street (was absolute: the map's base moved with the Vistula)
   tiltPass.enabled = P.tilt && camH > 60;
-  tilt.focusArea = 0.8 + 0.2 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250)));
+  // ...and over the whole map (3+ km up) it would blur most of the city: widen the band again up there
+  tilt.focusArea = 0.8 + 0.2 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250))) + 0.2 * Math.min(1, Math.max(0, (camH - 1200) / 1500));
+  if (scene.fog) { const d = camera.position.distanceTo(controls.target); scene.fog.near = Math.max(2500, d * 1.05); scene.fog.far = scene.fog.near + 4500; } // haze beyond what you look at
   const tsec = (performance.now() - t0clock) / 1000;
   if (uniforms) uniforms.uTime.value = tsec;
   if (fountains) fountains.update(tsec, state.night);

@@ -384,10 +384,10 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
         st = at("PGE Narodowy")
         tgt = [st[0], g[int(st[2]), int(st[0])] + 20.0, st[2]]
         views["stadium"] = dict(label="PGE Narodowy", target=tgt, pos=add(tgt, (-420, 190, 260)))
-    # the whole map: from the south-west, high, PKiN left of centre and the river with the stadium on the right
+    # the whole map, steep from the south: PKiN and the towers on the left, the river, Kopernik and PGE Narodowy right
     H_, W_ = g.shape
-    mid = [W_ * 0.55, float(np.median(g)) + 10, H_ * 0.45]
-    views["city"] = dict(label="Whole map", target=mid, pos=add(mid, (-1100, 2100, 2300)))
+    mid = [W_ * 0.56, float(np.median(g)) + 10, H_ * 0.4]
+    views["city"] = dict(label="Whole map", target=mid, pos=add(mid, (0, 3500, 2100)))
     return views
 
 
