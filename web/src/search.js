@@ -8,12 +8,13 @@ export class PlaceSearch {
     this.max = max;
     this.el = document.createElement('div');
     this.el.className = 'search';
-    this.el.innerHTML = `<input type="text" spellcheck="false" autocomplete="off" placeholder="${placeholder}"><ol></ol>`;
+    this.el.innerHTML = `<div class="box"><input type="text" spellcheck="false" autocomplete="off" placeholder="${placeholder}"><button class="x" title="Clear">✕</button></div><ol></ol>`;
     host.appendChild(this.el);
     this.input = this.el.querySelector('input');
     this.list = this.el.querySelector('ol');
     this.sel = 0;
     this.input.addEventListener('input', () => { this.sel = 0; this.render(); });
+    this.el.querySelector('.x').addEventListener('click', () => { this.input.value = ''; this.sel = 0; this.input.focus(); this.render(); });
     this.input.addEventListener('focus', () => this.render());
     this.input.addEventListener('blur', () => setTimeout(() => { this.list.innerHTML = ''; }, 150));
     this.input.addEventListener('keydown', (e) => {
@@ -35,20 +36,22 @@ export class PlaceSearch {
   find(q) {
     q = fold(q.trim());
     if (!q) return this.items.filter((it) => it.featured).slice(0, this.max);
-    const out = [];
+    // every word must appear, in any order ("central station" finds "Warszawa Centralna · main railway station")
+    const words = q.split(/\s+/), out = [];
     for (const it of this.items) {
-      const i = it.key.indexOf(q);
-      if (i < 0) continue;
-      const word = i === 0 || it.key[i - 1] === ' ';
-      out.push([(i === 0 ? 0 : word ? 1 : 2) * 1e5 + it.order, it]);
+      if (!words.every((w) => it.key.includes(w))) continue;
+      const i = it.key.indexOf(q), j = it.key.indexOf(words[0]);
+      const rank = i === 0 ? 0 : i > 0 && it.key[i - 1] === ' ' ? 1 : j === 0 ? 2 : 3;
+      out.push([rank * 1e5 + it.order, it]);
     }
     return out.sort((a, b) => a[0] - b[0]).slice(0, this.max).map((r) => r[1]);
   }
 
   render() {
     this.hits = this.find(this.input.value);
+    if (!this.hits.length && this.input.value.trim()) { this.list.innerHTML = '<li class="none">no places match — try a street or building name</li>'; return; }
     this.list.innerHTML = this.hits.map((it, i) =>
-      `<li class="${i === this.sel ? 'sel' : ''}" data-i="${i}"><span>${it.name}</span><em>${it.kind}</em></li>`).join('');
+      `<li class="${i === this.sel ? 'sel' : ''}" data-i="${i}"><span>${it.name}</span><em>${it.kind === "yes" ? "" : it.kind}</em></li>`).join('');
     this.list.querySelectorAll('li').forEach((li) => li.addEventListener('mousedown', (e) => { e.preventDefault(); this.pick(this.hits[+li.dataset.i]); }));
   }
 
@@ -57,5 +60,6 @@ export class PlaceSearch {
     this.list.innerHTML = '';
     this.input.blur();
     it.go();
+    this.onPick?.(it);
   }
 }

@@ -8,6 +8,7 @@ import { Fountains } from './fountains.js';
 import { StreetLife } from './sim.js';
 import { Nav, VoxelWorld } from './nav.js';
 import { PlaceSearch } from './search.js';
+import { Hud } from './hud.js';
 import GUI from 'lil-gui';
 import './style.css';
 
@@ -27,15 +28,16 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 9000);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI * 0.495; // allow near-horizontal street-level views
+controls.dampingFactor = 0.16; // short glide after letting go, not a drift
+if (matchMedia('(pointer: coarse)').matches) controls.panSpeed = 1.6; // a finger drag should move the map about as far as the finger
+controls.rotateSpeed = 0.3;    // calm: a long drag turns a quarter round and tilts gently (play-testers found it twitchy)
 controls.minDistance = 4;
-controls.maxDistance = 4000;
+controls.maxDistance = 2600; // whole district in view, but no flinging into the void
 controls.screenSpacePanning = false;
 controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
-controls.zoomSpeed = 1.4;
+controls.zoomSpeed = 2.0; // a scroll notch moves noticeably; trackpad pinch is tamed separately below
 
-const nav = new Nav({ camera, controls, dom: renderer.domElement, flyTo: (v) => flyTo(v), onMode: (m) => onMode(m) });
+const nav = new Nav({ camera, controls, scene, dom: renderer.domElement, flyTo: (v) => flyTo(v), onMode: (m, r) => onMode(m, r) });
 nav.cancelFly = () => { fly = null; };
 
 async function loadData() {
@@ -75,7 +77,7 @@ function makeLampMap(meta) {
 
 function buildMeshes(data, material) {
   const { meta, counts, runs } = data;
-  const CS = 32;
+  const CS = 128; // big chunks: ~150 meshes instead of ~2200 -> draw calls (CPU) dominate far more than the culled triangles
   const jobs = [];
   for (let y0 = 0; y0 < meta.D; y0 += CS) for (let x0 = 0; x0 < meta.W; x0 += CS) jobs.push({ x0, y0 });
   const nW = Math.min(navigator.hardwareConcurrency || 4, 8);
@@ -214,7 +216,7 @@ function updateShadowCam(dir) {
 // Hidden when another building is in the way (voxel ray test) or when it would collide with a more important label.
 const labelEls = [];
 const STEM = 20;
-document.fonts?.ready.then(() => { for (const L of labelEls) L.w = 0; });
+document.fonts?.ready.then(() => { for (const L of labelEls) L.w = L.ew = 0; });
 function makeLabels(meta) {
   const host = $('#labels');
   meta.labels.forEach((l, i) => {
@@ -222,6 +224,11 @@ function makeLabels(meta) {
     el.className = 'label' + (l.highlight ? ' hl' : '') + (i < 6 ? ' major' : '');
     el.innerHTML = `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${l.name}</b>${l.note ? `<span>${l.note}</span>` : ''}</div>`;
     host.appendChild(el);
+    // a label is a link: click it to fly to the building (or, at street level, walk to it)
+    el.querySelector('.txt').addEventListener('click', () => {
+      const v = Object.values(VIEWS).find((w) => w.label === l.name.split(' ·')[0]);
+      if (v && nav.mode === 'orbit') { pinPlace(null); flyTo(v); } else goPlace(l.x, l.y, 60, null);
+    });
     // footprint radius of the labelled building, so a ray hitting the building itself doesn't count as occlusion
     const g = world.groundAt(l.x, l.y), R = world.extent(l.x, l.y, g + Math.max(6, (l.z - g) * 0.4)) + 6;
     let edge = null;
@@ -236,6 +243,9 @@ function makeLabels(meta) {
   });
 }
 let labelFrame = 0;
+// panel rect is cached (reading it every frame forces a layout); refreshed whenever the panel or window changes size
+let panelRect = null;
+const measurePanel = () => { panelRect = gui.domElement.getBoundingClientRect(); };
 function updateLabels() {
   const host = $('#labels');
   host.style.display = P.labels ? '' : 'none';
@@ -253,8 +263,10 @@ function updateLabels() {
     L.occluded = t < dist - 3 && hx * hx + hz * hz > L.R * L.R;
   }
   // the panel is an obstacle like any placed label
-  const pr = gui.domElement.getBoundingClientRect();
+  if (!panelRect) measurePanel();
+  const pr = panelRect;
   const placed = gui._hidden ? [] : [{ x0: pr.left - 8, x1: pr.right, y0: pr.top, y1: pr.bottom + 8 }];
+  if (hud) placed.push(...hud.rects); // and so are the on-screen buttons
   const free = (r) => r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && r.y1 <= innerHeight - 4 &&
     !placed.some((q) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
   const TOP = 8;
@@ -301,14 +313,16 @@ function updateLabels() {
       if (show) {
         let dx = x - innerWidth / 2, dy = y - innerHeight / 2;
         if (!inFront) { dx = -dx; dy = -dy; }
-        const ew = L.edge.offsetWidth || 90, ax = innerWidth / 2 - 14, ay = innerHeight / 2 - 18;
+        const dm = Math.hypot(L.p.x - camera.position.x, L.p.z - camera.position.z);
+        const dist = dm > 950 ? `${(dm / 1000).toFixed(1)} km` : `${Math.round(dm / 10) * 10} m`;
+        if (dist !== L.dist) { L.edge.querySelector('small').textContent = L.dist = dist; L.ew = 0; }
+        if (!L.ew) L.ew = L.edge.offsetWidth; // re-measured only when its text changed (0 while still hidden -> retry)
+        const ew = L.ew || 90, ax = innerWidth / 2 - 14, ay = innerHeight / 2 - 18;
         const k = Math.min(ax / Math.max(Math.abs(dx), 1e-3), ay / Math.max(Math.abs(dy), 1e-3));
         let ex = innerWidth / 2 + dx * k, ey = innerHeight / 2 + dy * k;
         if (inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight) { ex = x; ey = y; } // on screen but crowded out
         ex = Math.min(Math.max(ex, 14), innerWidth - ew - 4); ey = Math.min(Math.max(ey, 14), innerHeight - 14);
         if (!gui._hidden && ex + ew > pr.left - 8 && ey < pr.bottom + 20) { if (ex > innerWidth / 2) ex = pr.left - ew - 8; else ey = pr.bottom + 24; } // keep clear of the panel
-        const dm = Math.hypot(L.p.x - camera.position.x, L.p.z - camera.position.z);
-        L.edge.querySelector('small').textContent = dm > 950 ? `${(dm / 1000).toFixed(1)} km` : `${Math.round(dm / 10) * 10} m`;
         L.edge.style.transform = `translate(${ex.toFixed(0)}px, ${ey.toFixed(0)}px)`;
         L.edge.querySelector('i').style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;
       }
@@ -338,11 +352,20 @@ composer.addPass(new EffectPass(camera, bloom));
 composer.addPass(tiltPass);
 composer.addPass(new EffectPass(camera, tone, hueSat, bc, vignette, new SMAAEffect()));
 
+// trackpad pinch arrives as Ctrl+wheel, which OrbitControls amplifies 10x (a small pinch flew kilometres);
+// re-send it as a plain wheel at ~3x so a pinch and a two-finger scroll zoom at a steady, similar pace
+renderer.domElement.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey || !e.isTrusted || nav.mode !== 'orbit') return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaY: e.deltaY * 3, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, bubbles: true, cancelable: true }));
+}, { capture: true, passive: false });
+
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
+  panelRect = null;
 });
 
 // ------------------------------------------------------------------ UI: one dat.gui-style panel holds everything
@@ -357,14 +380,26 @@ const P = {
 };
 const gui = new GUI({ title: 'Warszawa · Śródmieście', width: 290 });
 gui.domElement.classList.add('panel');
+new ResizeObserver(() => { panelRect = null; }).observe(gui.domElement);
 const fTime = gui.addFolder('Time');
 const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = 'custom'; presetCtl.updateDisplay(); applyTime(h); });
-hourCtl.updateDisplay = function () { this.$input.value = hhmm(this.getValue()); const t = (this.getValue() - 4.5) / 19; this.$fill.style.setProperty('width', `${t * 100}%`); return this; };
+hourCtl.updateDisplay = function () { if (document.activeElement !== this.$input) this.$input.value = hhmm(this.getValue()); const t = (this.getValue() - 4.5) / 19; this.$fill.style.setProperty('width', `${t * 100}%`); return this; };
+hourCtl.domElement.classList.add('time'); // wider slider: a whole day in ~95 px was too twitchy to find dusk
+// typed times ("18:05", "18.5", "18") are read when you press Enter or leave the field; lil-gui parsed every keystroke and snapped to 04:30
+const commitTime = () => {
+  const m = hourCtl.$input.value.trim().match(/^(\d{1,2})(?:\s*[:h]\s*(\d{1,2})|[.,](\d+))?$/);
+  if (m) hourCtl.setValue(Math.min(23.5, Math.max(4.5, +m[1] + (m[2] ? +m[2] / 60 : m[3] ? +('0.' + m[3]) : 0))));
+  hourCtl.updateDisplay();
+};
+for (const ev of ['input', 'change', 'blur']) hourCtl.$input.addEventListener(ev, (e) => { e.stopImmediatePropagation(); if (ev !== 'input') commitTime(); }, true);
+hourCtl.$input.addEventListener('keydown', (e) => { e.stopImmediatePropagation(); e.stopPropagation(); if (e.key === 'Enter') hourCtl.$input.blur(); }, true);
 const presetCtl = fTime.add(P, 'preset', [...Object.keys(PRESETS), 'custom']).name('light').onChange((k) => { if (k in PRESETS) animateTo(PRESETS[k]); });
 fTime.add(P, 'rate', RATES).name('animate day');
 const fGo = gui.addFolder('Go to');
 const search = new PlaceSearch(fGo.$children);
-const streetCtl = fGo.add(P, 'street').name('street level').onChange((v) => nav.setMode(v ? 'walk' : 'orbit'));
+search.onPick = () => { if (innerWidth < 600) gui.close(); }; // phone: get the panel out of the way of where we fly
+renderer.domElement.addEventListener('pointerdown', () => { if (innerWidth < 600 && !gui._closed) gui.close(); }); // phone: tapping the map puts the panel away
+const streetCtl = fGo.add(P, 'street').name('street level').onChange((v) => { if (v) nav.setMode('walk'); else nav.flyUp(); });
 const kbd = (el, k) => { el.querySelector(':scope > kbd')?.remove(); const b = document.createElement('kbd'); b.textContent = k; el.appendChild(b); };
 const fShow = gui.addFolder('Show').close();
 fShow.add(P, 'labels').name('labels');
@@ -375,17 +410,19 @@ const fCam = gui.addFolder('Camera').close();
 fCam.add(P, 'fov', 15, 75, 1).name('field of view').onChange((f) => { camera.fov = f; camera.updateProjectionMatrix(); });
 fCam.add(P, 'speed', 0.25, 4, 0.05).name('move speed');
 fCam.add(P, 'look', 0.3, 3, 0.05).name('look speed').onChange((s) => { nav.lookSens = s; });
+fCam.add(nav, 'gameLook').name('game-style look'); // drag turns your head (as in games) instead of moving the picture
 const fLook = gui.addFolder('Render').close();
 fLook.add(P, 'bloom', 0, 3, 0.05);
 fLook.add(P, 'ao', 0, 5, 0.1).name('occlusion').onChange((v) => { n8.configuration.intensity = v; });
 fLook.add(P, 'saturation', -0.5, 0.6, 0.01).onChange((v) => { hueSat.saturation = v; });
 fLook.add(P, 'contrast', -0.3, 0.4, 0.01).onChange((v) => { bc.contrast = v; });
-const fKeys = gui.addFolder('Mouse & keys');
+const fKeys = gui.addFolder('Mouse & keys').close(); // the HUD bar carries the essentials
 kbd(fKeys.$title, 'H');
 const HELP = [
-  ['drag', 'turn around the centre'], ['right drag', 'look around'], ['shift drag', 'slide'], ['scroll', 'zoom to cursor'], ['double-click', 'fly there'],
-  ['W A S D', 'move  (shift: faster)'], ['←  →', 'turn'], ['↑  ↓', 'look up · down'], ['Q  E', 'lower · higher'],
-  ['G', 'street level · Esc leaves'], ['/', 'search'], ['1 – 7', 'views (listed in search)'], ['[  ]', 'time −/+ 15 min'], ['L', 'labels'],
+  ['drag', 'move the map'], ['right / shift drag', 'rotate & tilt'], ['scroll · pinch', 'zoom to cursor'], ['double-click', 'fly there'],
+  ['click a tram, car, person', 'ride along'], ['🚶 button', 'street view (drag it onto a street)'],
+  ['street: drag', 'look around'], ['street: click', 'walk there'], ['W A S D', 'move  (shift: faster) · Space jump'],
+  ['G · Esc', 'street level · back up'], ['/', 'search'], ['1 – 7', 'views'], ['[  ]', 'time −/+ 15 min'], ['L', 'labels'],
 ];
 const help = document.createElement('div');
 help.className = 'help';
@@ -401,13 +438,39 @@ if (innerWidth < 600) gui.close();
 function toggleHelp(show) {
   fKeys.openAnimated(show === undefined ? fKeys._closed : show);
 }
-function onMode(m) {
-  document.body.classList.toggle('walking', m === 'walk');
-  P.street = m === 'walk'; streetCtl.updateDisplay();
+function onMode(m, ride) {
+  document.body.classList.toggle('walking', m !== 'orbit');
+  P.street = m !== 'orbit'; streetCtl.updateDisplay();
+  hud?.set(m, ride);
+  if (m !== 'orbit' && innerWidth < 1200) gui.close(); // the street and the ride need the whole screen
 }
+// keep the focus over the city: zooming out at a grazing angle must not slide the view off the edge of the map
+function keepInside() {
+  if (bbox.isEmpty()) return;
+  const t = controls.target, m = 60;
+  const cx = Math.min(Math.max(t.x, bbox.min.x + m), bbox.max.x - m), cz = Math.min(Math.max(t.z, bbox.min.z + m), bbox.max.z - m);
+  if (cx !== t.x || cz !== t.z) { const d = new THREE.Vector3(cx - t.x, 0, cz - t.z); t.add(d); camera.position.add(d); }
+}
+function zoomBy(f) {
+  const off = camera.position.clone().sub(controls.target);
+  const L = THREE.MathUtils.clamp(off.length() * f, controls.minDistance, controls.maxDistance);
+  flyTo({ pos: controls.target.clone().add(off.setLength(L)).toArray(), target: controls.target.toArray(), ms: 600 });
+}
+// turn the bird's-eye view so north is up (orbit about the focus)
+function northUp() {
+  if (nav.mode !== 'orbit') { nav.walkLook(nav.heading(), 0); return; }
+  const off = camera.position.clone().sub(controls.target), a = nav.heading();
+  const t0 = performance.now(), p0 = off.clone();
+  fly = (now) => {
+    const t = Math.min(1, (now - t0) / 700), e = t * t * (3 - 2 * t);
+    camera.position.copy(controls.target).add(p0.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), a * e));
+    if (t >= 1) fly = null;
+  };
+}
+let hud = null;
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('.lil-gui input'))) return;
-  if (e.code === 'KeyG') nav.setMode(nav.mode === 'walk' ? 'orbit' : 'walk');
+  if (e.code === 'KeyG') { if (nav.mode === 'orbit') nav.setMode('walk'); else nav.flyUp(); }
   else if (e.key === '/') { search.input.focus(); e.preventDefault(); }
   else if (e.code === 'KeyH' || e.key === '?') toggleHelp();
   else if (e.code === 'KeyL') { P.labels = !P.labels; gui.controllersRecursive().forEach((c) => c.updateDisplay()); }
@@ -427,11 +490,15 @@ function animateTo(h) {
 let VIEWS = {};
 // frame a searched place from the current compass direction, ~30° down; pin it with a temporary label
 function goPlace(x, y, size, pin) {
-  if (nav.mode === 'walk') nav.setMode('orbit');
   const g = world.groundAt(x, y), top = world.top(Math.floor(x), Math.floor(y));
   const h = Math.max(0, top - g);
+  if (nav.mode !== 'orbit') { // at street level: walk over there, facing it
+    pinPlace(pin && { ...pin, x, y, z: Math.max(top, g + 2) });
+    nav.setMode('walk', { at: new THREE.Vector3(x + 0.5, g, y + 0.5) });
+    return;
+  }
   const t = new THREE.Vector3(x + 0.5, g + Math.min(h * 0.5, 60), y + 0.5);
-  const dist = Math.min(700, Math.max(70, size * 1.4 + h * 1.6));
+  const dist = Math.min(800, Math.max(170, size * 1.6 + h * 1.8)); // far enough to see what and where it is
   const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z), el = 0.52;
   const pos = t.clone().add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(dist));
   pinPlace(pin && { ...pin, x, y, z: Math.max(top, g + 2) });
@@ -453,7 +520,7 @@ function flyTo(v) {
   const p0 = camera.position.clone(), t0v = controls.target.clone(), t0 = performance.now();
   const p1 = new THREE.Vector3(...v.pos), t1 = new THREE.Vector3(...v.target);
   fly = (now) => {
-    const t = Math.min(1, (now - t0) / 1600), e = t * t * (3 - 2 * t);
+    const t = Math.min(1, (now - t0) / (v.ms || 1600)), e = t * t * (3 - 2 * t);
     camera.position.lerpVectors(p0, p1, e);
     controls.target.lerpVectors(t0v, t1, e);
     if (t >= 1) fly = null;
@@ -478,12 +545,16 @@ function flyTo(v) {
   bbox.getCenter(center);
   VIEWS = meta.views;
   world = nav.world = new VoxelWorld(meta, data.counts, data.runs, data.ground);
+  const th = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
+  nav.north.set(Math.sin(th), 0, -Math.cos(th));
+  hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
+    onSearch: () => { gui.open(); fGo.open(); search.input.focus(); }, onHome: () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(VIEWS.overview); } });
   makeLabels(meta);
   const items = [];
   Object.values(VIEWS).forEach((v, i) => {
-    const go = () => { if (nav.mode === 'walk') nav.setMode('orbit'); pinPlace(null); flyTo(v); };
+    const go = () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(v); };
     viewCtls.push(go);
-    items.push({ name: v.label, kind: `view ${i + 1}`, featured: true, go });
+    items.push({ name: v.label, kind: `viewpoint · ${i + 1}`, featured: true, go });
   });
   for (const l of meta.labels) items.push({ name: l.name, alt: l.note, kind: 'landmark', go: () => goPlace(l.x, l.y, 40, null) });
   fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
@@ -493,7 +564,7 @@ function flyTo(v) {
   search.setItems(items);
   fountains = new Fountains(scene, meta.jets || []);
   fetch('data/traffic.json').then((r) => r.json()).then((td) => {
-    life = new StreetLife(scene, td);
+    life = nav.life = new StreetLife(scene, td);
     window.__life = life;
     life.group.visible = P.life;
   });
@@ -522,7 +593,8 @@ renderer.setAnimationLoop((now) => {
   const dtf = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   if (P.rate && !anim) applyTime(state.hour + P.rate * dtf > 23.5 ? 4.5 : state.hour + P.rate * dtf);
   nav.update(dtf);
-  if (nav.mode !== 'walk') { controls.update(); nav.clamp(); }
+  if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
+  hud?.update();
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - 15;
   tiltPass.enabled = P.tilt && camH > 60;

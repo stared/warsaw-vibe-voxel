@@ -17,6 +17,7 @@ const LANE_W = 3.0;
 const IDM = { a: 1.4, b: 2.2, s0: 2.2, T: 1.2 };
 const BLEND = 7; // m either side of a junction node over which lane offsets are blended into an arc
 const BOX_IN = 7, BOX_OUT = 9; // junction lock zone: last/first metres of incoming/outgoing edges
+const STEP = 1 / 30; // fixed sim tick; render() interpolates cars/trams between the last two ticks (and extrapolates people), so motion stays smooth at any fps
 const TRAM = { sec: 10.5, gap: 0.6, n: 3, v: 11, a: 1.0, b: 1.6, headway: 300 };
 
 // rule switches (for diagnosis: ?sim=nobox,nospatial,...)
@@ -498,7 +499,11 @@ export class StreetLife {
     const targetPeds = Math.min(this.MAXP, Math.round(this.pedKm * 24 * density.peds));
     for (let k = 0; k < 6 && this.cars.length < targetCars; k++) this.spawnCar(this.cars.length > targetCars * 0.5);
     for (let k = 0; k < 40 && this.people.length < targetPeds; k++) this.spawnPed();
-    if (this.people.length > targetPeds) this.people.length = targetPeds;
+    if (this.people.length > targetPeds) {
+      const i = this.people.indexOf(this.keep); // the person someone is riding along with stays in the crowd
+      if (i >= targetPeds) [this.people[0], this.people[i]] = [this.people[i], this.people[0]];
+      this.people.length = targetPeds;
+    }
 
     // tram bodies as obstacles for cars (positions from the previous step)
     this.tramObs = [];
@@ -548,6 +553,8 @@ export class StreetLife {
     const removed = new Set();
     for (const car of this.cars) {
       const e = this.roads[car.e];
+      const s0 = car.s, off0 = car.off, e0 = car.e;
+      car.ds = car.dOff = 0;
       const want = this.desiredLane(car, e);
       if (want !== car.lane && car.lcTo === undefined && car.s > 4 && e.L - car.s > 15) {
         const step = want > car.lane ? 1 : -1;
@@ -589,7 +596,7 @@ export class StreetLife {
           const l0 = t0 === -1 ? 0 : t0 === 1 ? n0.lanes - 1 : Math.min(car.lane, n0.lanes - 1);
           const hb = n0.lists[l0].find((o) => o.s < car.len + 1.5);
           if (CFG.hold && hb && !(car.ignore === hb && car.ignoreT > this.t)) { // target lane start occupied: hold at the line
-            e.lists[car.lane].push(car); car.s = e.L - 0.01; car.v = 0; car.why = 'hold-at-line'; car.by = n0.lists[l0].find((o) => o.s < car.len + 1.5); continue;
+            e.lists[car.lane].push(car); car.s = e.L - 0.01; car.v = 0; car.why = 'hold-at-line'; car.by = n0.lists[l0].find((o) => o.s < car.len + 1.5); car.ds = car.s - s0; continue;
           }
         }
         car.prev = car.e; car.prevOff = car.off;
@@ -609,6 +616,9 @@ export class StreetLife {
         }
       }
       if (car.boxNode >= 0 && car.e !== car.boxFrom && car.s > BOX_OUT) this.boxLeave(car);
+      // this tick's motion in the current edge's coordinates, for render-time interpolation
+      car.ds = car.e === e0 ? car.s - s0 : car.s + e.L - s0;
+      car.dOff = car.e === e0 ? car.off - off0 : 0;
     }
     if (removed.size) this.cars = this.cars.filter((c) => !removed.has(c));
 
@@ -680,7 +690,8 @@ export class StreetLife {
       let acc = TRAM.a * (1 - (tr.v / TRAM.v) ** 4 - (gap === Infinity ? 0 : (ss / Math.max(gap, 0.1)) ** 2));
       acc = Math.max(acc, -5);
       tr.v = Math.max(0, tr.v + acc * dt);
-      tr.s += tr.v * dt;
+      tr.ds = tr.v * dt;
+      tr.s += tr.ds;
     });
     this.trams = this.trams.filter((tr) => tr.s - TRAM.n * (TRAM.sec + TRAM.gap) < this.tramPaths[tr.p].L);
 
@@ -719,9 +730,9 @@ export class StreetLife {
 
   // ------------------------------------------------------------------ positions
   // point on the car's path at arc length s, blended across the junction node into a smooth arc
-  carPoint(car, s, out) {
+  carPoint(car, s, out, off = car.off) {
     const e = this.roads[car.e];
-    const P = at(e, s, car.off, out);
+    const P = at(e, s, off, out);
     if (s < BLEND && car.prev >= 0) {
       const pe = this.roads[car.prev];
       const Q = at(pe, pe.L + s, car.prevOff, this.tmp2);
@@ -738,7 +749,8 @@ export class StreetLife {
     return P;
   }
 
-  render(dt, night) {
+  render(dt, night, lead = 0) {
+    const back = 1 - lead / STEP; // how far to step back from the latest tick towards the previous one
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     const Y = new THREE.Vector3(0, 1, 0);
     const A = { x: 0, y: 0, z: 0 }, B = { x: 0, y: 0, z: 0 };
@@ -746,9 +758,10 @@ export class StreetLife {
     this.cars.forEach((c, i) => {
       // front and rear axle points both on the blended path -> body follows the curve like a real car
       const wb = c.len - 1.2;
-      this.carPoint(c, c.s, A);
+      const s = c.s - (c.ds || 0) * back, off = c.off - (c.dOff || 0) * back;
+      this.carPoint(c, s, A, off);
       const fx = A.x, fy = A.y, fz = A.z;
-      this.carPoint(c, c.s - wb, B);
+      this.carPoint(c, s - wb, B, off);
       const h = Math.atan2(fx - B.x, fy - B.y);
       c.rp = c.rp || new THREE.Vector3();
       c.rp.set((fx + B.x) / 2, Math.min(fz, B.z), (fy + B.y) / 2);
@@ -772,11 +785,12 @@ export class StreetLife {
     for (const tr of this.trams) {
       const p = this.tramPaths[tr.p];
       for (let k = 0; k < TRAM.n; k++) {
-        const s0 = tr.s - k * (TRAM.sec + TRAM.gap);
+        const s0 = tr.s - (tr.ds || 0) * back - k * (TRAM.sec + TRAM.gap);
         at(p, s0, 0, A); at(p, s0 - TRAM.sec, 0, B);
         q.setFromAxisAngle(Y, Math.atan2(A.x - B.x, A.y - B.y));
         m.compose(pos.set((A.x + B.x) / 2, (A.z + B.z) / 2 + 0.05, (A.y + B.y) / 2), q, sc.set(1, 1, 1));
-        this.tramSections.push([tr, pos.x, pos.z, Math.atan2(A.x - B.x, A.y - B.y)]);
+        this.tramSections.push([tr, pos.x, pos.z, Math.atan2(A.x - B.x, A.y - B.y), pos.y]);
+        if (k === 0) { tr.rp = (tr.rp || new THREE.Vector3()).copy(pos); tr.rh = Math.atan2(A.x - B.x, A.y - B.y); }
         if (ti < this.MAXT) { this.mTram.setMatrixAt(ti, m); this.mTramWin.setMatrixAt(ti, m); ti++; }
       }
     }
@@ -787,8 +801,9 @@ export class StreetLife {
     const k = 1 - Math.exp(-dt * 10);
     this.people.forEach((p, i) => {
       const e = this.peds[p.e];
-      at(e, p.s, 0, A);
-      at(e, p.s + 0.5 * p.dir, 0, B);
+      const ds = p.wait ? 0 : p.v * lead;
+      at(e, p.s + ds * p.dir, 0, A);
+      at(e, p.s + (ds + 0.5) * p.dir, 0, B);
       let dx = B.x - A.x, dy = B.y - A.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
       const x = A.x - dy * p.lat, y = A.y + dx * p.lat;
       const h = Math.atan2(dx, dy);
@@ -798,7 +813,7 @@ export class StreetLife {
       p.rh += dh * k;
       q.setFromAxisAngle(Y, p.rh);
       pos.copy(p.rp);
-      if (!p.wait) pos.y += 0.05 * Math.abs(Math.sin(p.ph));
+      if (!p.wait) pos.y += 0.05 * Math.abs(Math.sin(p.ph + ds * 4.2));
       m.compose(pos, q, sc.set(1, 1, 1));
       this.mLegs.setMatrixAt(i, m); this.mTorso.setMatrixAt(i, m);
       this.mTorso.instanceColor.setXYZ(i, p.col.r, p.col.g, p.col.b);
@@ -818,6 +833,59 @@ export class StreetLife {
     this.mLamp.instanceMatrix.needsUpdate = this.mLamp.instanceColor.needsUpdate = true;
   }
 
+  // ------------------------------------------------------------------ riding along
+  // nearest agent to screen point (cx, cy): forgiving radius (people are a few pixels tall), skips hidden ones
+  pick(camera, cx, cy, px, minPx, visible, skip) {
+    const v = new THREE.Vector3(), cand = [];
+    const f = (innerHeight / 2) / Math.tan(camera.fov * Math.PI / 360);
+    const scr = (x, y, z) => { v.set(x, y, z).project(camera); return v.z > 1 || v.z < -1 ? null : [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
+    // tap distance to the agent's body: a segment from its back to its front (a tram is 11 m long, a car 4 m), not its centre
+    const test = (kind, obj, x, y, z, size, label, h, len = 0) => {
+      if (obj === skip) return;
+      const c = scr(x, y, z);
+      if (!c) return;
+      const dist = camera.position.distanceTo(v.set(x, y, z));
+      const onScreen = size * f / dist; // projected size in px
+      if (onScreen < minPx) return; // too small to mean it (a click on the map near a dot of a person)
+      let d = Math.hypot(c[0] - cx, c[1] - cy);
+      if (len) {
+        const back = len / 2 + (obj.v || 0) * 0.5; // plus half a second behind: you tap where you saw it
+        const hx = Math.sin(h), hz = Math.cos(h), a = scr(x - hx * back, y, z - hz * back), b = scr(x + hx * len / 2, y, z + hz * len / 2);
+        if (a && b) { const ex = b[0] - a[0], ey = b[1] - a[1], L2 = ex * ex + ey * ey || 1, t = Math.max(0, Math.min(1, ((cx - a[0]) * ex + (cy - a[1]) * ey) / L2));
+          d = Math.hypot(a[0] + ex * t - cx, a[1] + ey * t - cy); }
+      }
+      const r = Math.max(px, onScreen * 0.55);
+      // visibility is tested towards the top of the agent: a kerb or a bench must not hide a person
+      if (d < r) cand.push({ kind, obj, score: d / r + dist / 3000, at: new THREE.Vector3(x, y + size * 0.3, z), dist, label });
+    };
+    for (const c of this.cars) if (c.rp) test('car', c, c.rp.x, c.rp.y + 0.8, c.rp.z, c.bus ? 6 : 3.5, c.bus ? 'bus' : 'car', c.rh, c.len);
+    for (const p of this.people) if (p.rp) test('person', p, p.rp.x, p.rp.y + 0.9, p.rp.z, 1.6, 'person');
+    for (const [tr, x, z, h, y] of this.tramSections || []) test('tram', tr, x, (y ?? 0) + 1.6, z, 9, this.tramPaths[tr.p].ref ? `tram ${this.tramPaths[tr.p].ref}` : 'tram', h, TRAM.sec);
+    cand.sort((a, b) => a.score - b.score);
+    for (const c of cand.slice(0, 6)) if (visible(c.obj, c.at.clone().sub(camera.position))) return c;
+    return null;
+  }
+  // current position (ground level) and heading of an agent, or null once it has left the simulation
+  pose(kind, obj) {
+    const list = kind === 'car' ? this.cars : kind === 'tram' ? this.trams : this.people;
+    if (!obj.rp || !list.includes(obj)) return null;
+    return { x: obj.rp.x, y: obj.rp.y, z: obj.rp.z, h: obj.rh };
+  }
+  nearest(kind, at, skip) {
+    const list = kind === 'car' ? this.cars : kind === 'tram' ? this.trams : this.people;
+    let best = null, bd = Infinity;
+    for (const o of list) {
+      if (o === skip || !o.rp) continue;
+      const d = Math.hypot(o.rp.x - at.x, o.rp.z - at.z);
+      const moving = kind === 'person' || o.v > 1.5; // a ride stuck in a jam is boring: prefer one that is moving
+      const dd = d + (moving ? 0 : 400);
+      if (dd < bd && d > (kind === 'person' ? 3 : 8)) { bd = dd; best = o; }
+    }
+    if (!best) return null;
+    const label = kind === 'tram' ? (this.tramPaths[best.p].ref ? `tram ${this.tramPaths[best.p].ref}` : 'tram') : kind === 'car' ? (best.bus ? 'bus' : 'car') : 'person';
+    return { kind, obj: best, label };
+  }
+
   update(dt, hour, night) {
     dt = Math.min(dt, 0.1);
     const hh = ((hour % 24) + 24) % 24;
@@ -825,8 +893,8 @@ export class StreetLife {
     const cars = Math.min(1, 0.18 + 0.55 * bell(8, 2.2) + 0.5 * bell(17, 2.6) + 0.45 * bell(13, 5));
     const peds = Math.min(1, 0.08 + 0.4 * bell(8.5, 1.8) + 0.85 * bell(16, 4.5) + 0.25 * bell(21, 2));
     const trams = hh > 0.5 && hh < 5 ? 0 : 1; // night break in tram service
-    const sub = dt > 0.05 ? 2 : 1;
-    for (let i = 0; i < sub; i++) this.step(dt / sub, { cars, peds, trams });
-    this.render(dt, night);
+    this.acc = (this.acc || 0) + dt;
+    while (this.acc >= STEP) { this.step(STEP, { cars, peds, trams }); this.acc -= STEP; }
+    this.render(dt, night, this.acc);
   }
 }

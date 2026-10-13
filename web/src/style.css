@@ -28,13 +28,17 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1d22; fon
 .panel .lil-slider { background: var(--w); }
 .panel .lil-fill { background: #2fa1d6; border-right: 0; }
 .panel .lil-option .lil-widget, .panel .lil-option .lil-display { width: 100%; }
-.panel .help { display: grid; grid-template-columns: 92px 1fr; gap: 3px 10px; padding: 6px 10px 9px; }
+.panel .lil-controller.time .lil-name { min-width: 44px; width: 44px; } /* time gets most of the row */
+.panel .help { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; padding: 6px 10px 9px; }
 .panel .help .k { font: 11px ui-monospace, Menlo, monospace; color: var(--t); white-space: nowrap; }
 .panel .help span:not(.k) { color: var(--t2); }
 .panel .foot { padding: 6px 10px 9px; font-size: 10px; line-height: 1.5; color: var(--t2); }
 /* search: type-ahead in the "Go to" folder, green like dat.gui strings */
-.panel .search { border-left: 3px solid #1ed36f; padding: 4px 6px 4px 7px; }
-.panel .search input { width: 100%; height: 24px; box-sizing: border-box; border: 0; outline: 0; padding: 0 7px; background: var(--w); color: var(--t); font: inherit; font-size: 12px; border-radius: 0; }
+.panel .search { border-left: 3px solid #1ed36f; padding: 6px 6px 8px 7px; }
+.panel .search .box { position: relative; }
+.panel .search .x { position: absolute; right: 2px; top: 3px; width: 24px; height: 24px; border: 0; background: none; color: var(--t2); cursor: pointer; font-size: 12px; }
+.panel .search li.none { color: var(--t2); cursor: default; white-space: normal; }
+.panel .search input { width: 100%; height: 30px; box-sizing: border-box; border: 0; outline: 0; padding: 0 7px; background: var(--w); color: var(--t); font: inherit; font-size: 12px; border-radius: 0; }
 .panel .search input::placeholder { color: var(--t2); }
 .panel .search ol { list-style: none; margin: 0; padding: 0; }
 .panel .search li { display: flex; gap: 8px; padding: 4px 7px; cursor: pointer; white-space: nowrap; }
@@ -43,16 +47,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1d22; fon
 .panel .search li.sel, .panel .search li:hover { background: var(--w); }
 @media (max-width: 600px) { .lil-gui.panel { right: 0; left: 0; width: 100% !important; } }
 
-/* walk mode: only a centre dot */
-.walking #app::after { content: ''; position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255,255,255,.8); box-shadow: 0 0 0 1px rgba(0,0,0,.4); pointer-events: none; }
+/* walk mode: no centre dot any more (you look by dragging, not by aiming) */
 
 /* labels: map pins — dot on the roof, hairline stem, name with a dark halo; no boxes */
-#labels { position: fixed; inset: 0; pointer-events: none; }
+#labels { position: fixed; inset: 0; pointer-events: none; user-select: none; -webkit-user-select: none; }
 .label { position: absolute; left: 0; top: 0; transition: opacity .25s; }
-.label.off, .edge.off { opacity: 0; pointer-events: none; }
+.label.off, .edge.off, .label.off .txt { opacity: 0; pointer-events: none; }
 .label .dot { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.8); }
 .label .stem { position: absolute; left: -.5px; bottom: 3px; width: 1px; height: 17px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.5); }
-.label .txt { position: absolute; left: -1px; bottom: 20px; white-space: nowrap; color: #fff;
+.label .txt { position: absolute; left: -1px; bottom: 20px; white-space: nowrap; color: #fff; pointer-events: auto; cursor: pointer;
   text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.45); }
 .label.left .txt { left: auto; right: -1px; text-align: right; }
 .label.pinned .dot, .label.pinned .stem { display: none; }
@@ -73,3 +76,36 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1d22; fon
 @keyframes spin { to { transform: rotate(360deg); } }
 .noui #labels { display: none !important; }
 
+
+/* HUD: same strict palette as the panel — black surfaces, white text, one grey */
+#hud { --bg: rgba(0,0,0,.78); --w: #1f1f1f; --t: #fff; --t2: #a8a8a8; font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: var(--t); }
+#hud button { font: inherit; color: var(--t); background: var(--w); border: 0; border-radius: 0; padding: 0 10px; height: 28px; cursor: pointer; white-space: nowrap; touch-action: none; }
+#hud button:hover { background: #333; }
+#hud .bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px;
+  max-width: calc(100vw - 120px); background: var(--bg); padding: 5px 6px 5px 12px; }
+#hud .who { font-weight: 600; white-space: nowrap; }
+#hud .who:empty { display: none; }
+#hud .hint { color: var(--t2); line-height: 1.35; }
+#hud .btns { display: flex; gap: 4px; }
+#hud .btns:empty { display: none; }
+#hud .side { position: fixed; right: 14px; bottom: 14px; z-index: 4; display: flex; flex-direction: column; gap: 4px; }
+#hud .side button { width: 36px; height: 36px; padding: 0; font-size: 18px; background: var(--bg); }
+#hud .compass svg { width: 26px; height: 26px; display: block; margin: auto; }
+#hud .compass .rose { transition: transform .1s linear; }
+#hud[data-mode=walk] .zin, #hud[data-mode=walk] .zout, #hud[data-mode=ride] .zin, #hud[data-mode=ride] .zout,
+#hud[data-mode=walk] .walker, #hud[data-mode=ride] .walker { display: none; } /* one way up: the Fly up button in the bar */
+#hud .walker { cursor: grab; }
+#hud .tip { position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity .12s; background: var(--bg); padding: 4px 8px; white-space: nowrap; }
+#hud .offer { position: fixed; left: 0; top: 0; z-index: 6; opacity: 0; pointer-events: none; transition: opacity .15s; height: 34px !important; background: #2fa1d6 !important; font-weight: 600; }
+#hud .offer.on { opacity: 1; pointer-events: auto; }
+#hud .ghost { position: fixed; left: 0; top: 0; z-index: 7; display: none; font-size: 28px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+#hud .toast { position: fixed; left: 50%; bottom: 62px; transform: translateX(-50%); z-index: 6; background: var(--bg); padding: 7px 12px; transition: opacity .5s; }
+#hud .toast.off { opacity: 0; }
+@media (max-width: 600px) {
+  #hud .bar { left: 8px; right: 56px; bottom: 8px; transform: none; max-width: none; flex-wrap: wrap; padding: 6px 8px; gap: 6px; }
+  #hud .hint { font-size: 11px; flex-basis: 100%; }
+  #hud .side { right: 8px; bottom: 8px; }
+  #hud .side button { width: 42px; height: 42px; }
+  #hud button { height: 34px; }
+}
+.noui #hud { display: none; }
