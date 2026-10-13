@@ -113,6 +113,32 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
         R = math.sqrt(geom.area / math.pi)
         cols = [pal(_hex(c), MAT_IDS[st.get("material", "wall")]) for c in st["colours"]]
         rr, cc = cells_of(geom)
+        # recolour by palette colour within the area (e.g. OSM's #3399cc "glass" inner roof edge)
+        for src, dst in o.get("recolour", {}).items():
+            sr = _hex(src)
+            # palette entries are the OSM colour after voxelize's grading (soften by 8 % for glass, 12 % otherwise)
+            soft = [tuple(v * (1 - a) + w * a for v, w in zip(sr, (226, 220, 208))) for a in (0.08, 0.12)]
+            ids = [i for i, e in enumerate(pal.entries) if any(max(abs(e[k] - t[k]) for k in range(3)) < 8 for t in soft)]
+            if ids:
+                colv = vol[:, rr, cc]
+                for i_ in ids:
+                    mat = pal.entries[i_][3]
+                    colv[colv == i_] = pal(_hex(dst), mat)
+                vol[:, rr, cc] = colv
+        # the infield: the open middle of the building mass (the pitch), at ground level
+        inf = o.get("infield")
+        if inf:
+            r0_, c0_ = rr.min(), cc.min()
+            mm = np.zeros((rr.max() - r0_ + 3, cc.max() - c0_ + 3), bool)
+            kk = bmask[rr, cc]
+            mm[rr[kk] - r0_ + 1, cc[kk] - c0_ + 1] = True
+            mm = ndimage.binary_closing(mm, iterations=3)
+            hole = ndimage.binary_fill_holes(mm) & ~mm
+            hr, hc = np.nonzero(hole)
+            hr, hc = hr + r0_ - 1, hc + c0_ - 1
+            gi = pal(_hex(inf["colour"]), MAT_IDS[inf.get("material", "grass")])
+            vol[g[hr, hc] - 1, hr, hc] = gi
+            note("infield:", o.get("name", oid)[:30], len(hr), "cells")
         k_ = bmask[rr, cc]
         ring = st.get("ring", 1e9)  # only the facade: cells within this many metres of the building mass's outer edge
         r0, c0 = rr.min(), cc.min()

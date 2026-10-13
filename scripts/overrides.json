@@ -103,11 +103,18 @@
         "min_height": 15,
         "ring": 34
       },
-      "_note": "facade in the national colours, red and silver/white panels round the bowl, carried by the 72 roof columns",
+      "_note": "facade in the national colours, red and silver/white panels round the bowl, carried by the 72 roof columns; the pitch is grass (2025 ortho; the roof's shadow hides it from the green test); the inner roof edge OSM tags #3399cc glass reads light grey from above",
       "sources": [
         "https://worldconstructionnetwork.com/projects/national-stadium-warsaw-poland",
         "https://www.inyourpocket.com/warsaw/pge-narodowy_119075v"
-      ]
+      ],
+      "infield": {
+        "colour": "#6aa34a",
+        "material": "grass"
+      },
+      "recolour": {
+        "#3399cc": "#d4dade"
+      }
     },
     "Planetarium Niebo Kopernika": {
       "name": "Planetarium Niebo Kopernika (2011)",
@@ -116,10 +123,10 @@
         "material": "solid"
       },
       "roof": {
-        "colour": "#34363a",
-        "material": "solid"
+        "colour": "#c47d73",
+        "material": "concrete"
       },
-      "_note": "a dark, windowless 'boulder' beside the science centre (OSM colours it pink; read as a phantom palazzo)",
+      "_note": "dark walls, the dome dusty red (2025 orthophoto; Murator: red anti-reflective panes)",
       "sources": [
         "https://www.muratorplus.pl/galeria/centrum-nauki-kopernik-warszawa-zdjecia/gg-7th5-qGga-s3Cn/gp-zZgs-JkXS-WzPu"
       ]
