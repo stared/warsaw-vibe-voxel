@@ -33,7 +33,7 @@ controls.dampingFactor = 0.16; // short glide after letting go, not a drift
 if (matchMedia('(pointer: coarse)').matches) controls.panSpeed = 1.6; // a finger drag should move the map about as far as the finger
 controls.rotateSpeed = 0.3;    // calm: a long drag turns a quarter round and tilts gently (play-testers found it twitchy)
 controls.minDistance = 4;
-controls.maxDistance = 2600; // whole district in view, but no flinging into the void
+controls.maxDistance = 4500; // the whole 4 x 3 km map in view, but no flinging into the void
 controls.screenSpacePanning = false;
 controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
 controls.zoomSpeed = 2.0; // a scroll notch moves noticeably; trackpad pinch is tamed separately below
@@ -131,6 +131,7 @@ function applyTime(hour) {
   if (bloom) bloom.intensity = lerp(0.15, 0.9, night) * P.bloom;
   renderer.toneMappingExposure = 1;
   scene.fog = new THREE.Fog(sky.horizon.clone(), 2500, 7000);
+  if (uniforms) uniforms.uHorizon.value.copy(sky.horizon).convertSRGBToLinear();
   // environment for reflections (regenerated only when the sky has visibly changed, so time-lapse stays cheap)
   if (!envRT || Math.abs(hour - (state.envHour ?? -99)) > 0.08) {
     if (envRT) envRT.dispose();
@@ -341,12 +342,13 @@ const P = {
   fov: 28, bloom: 1, ao: 2.2, saturation: 0.12, contrast: 0.06,
   speed: 1, look: 1,
 };
-const gui = new GUI({ title: 'Warszawa · Śródmieście', width: 290 });
+const gui = new GUI({ title: 'Warszawa', width: 290 });
 gui.domElement.classList.add('panel');
 new ResizeObserver(() => { panelRect = null; }).observe(gui.domElement);
 const fTime = gui.addFolder('Time');
 const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = 'custom'; presetCtl.updateDisplay(); applyTime(h); });
 hourCtl.updateDisplay = function () { if (document.activeElement !== this.$input) this.$input.value = hhmm(this.getValue()); const t = (this.getValue() - 4.5) / 19; this.$fill.style.setProperty('width', `${t * 100}%`); return this; };
+hourCtl.$input.type = 'text'; // lil-gui makes it type=number on touch devices, which refuses "17:42" (blank readout)
 hourCtl.domElement.classList.add('time'); // wider slider: a whole day in ~95 px was too twitchy to find dusk
 // typed times ("18:05", "18.5", "18") are read when you press Enter or leave the field; lil-gui parsed every keystroke and snapped to 04:30
 const commitTime = () => {
@@ -482,6 +484,7 @@ let fly = null;
 function flyTo(v) {
   const p0 = camera.position.clone(), t0v = controls.target.clone(), t0 = performance.now();
   const p1 = new THREE.Vector3(...v.pos), t1 = new THREE.Vector3(...v.target);
+  streamer?.prefetch(p1, t1, camera); // fetch the destination's tiles while we fly (no coarse blocks on arrival)
   fly = (now) => {
     const t = Math.min(1, (now - t0) / (v.ms || 1600)), e = t * t * (3 - 2 * t);
     camera.position.lerpVectors(p0, p1, e);
@@ -510,7 +513,9 @@ function flyTo(v) {
   const th = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
-    onSearch: () => { gui.open(); fGo.open(); search.input.focus(); }, onHome: () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(VIEWS.overview); } });
+    // the search button starts a fresh query (people's taps appended to the last one)
+    onSearch: () => { gui.open(); fGo.open(); search.input.value = ''; search.render(); search.input.focus(); },
+    onHome: () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(VIEWS.city || VIEWS.overview); } });
   makeLabels(meta);
   const items = [];
   Object.values(VIEWS).forEach((v, i) => {
@@ -518,7 +523,7 @@ function flyTo(v) {
     viewCtls.push(go);
     items.push({ name: v.label, kind: `viewpoint · ${i + 1}`, featured: true, go });
   });
-  for (const l of meta.labels) items.push({ name: l.name, alt: l.note, kind: 'landmark', go: () => goPlace(l.x, l.y, 40, null) });
+  for (const l of meta.labels) items.push({ name: l.name, alt: `${l.alt || ''} ${l.note}`, kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R || 20) * 1.4), null) });
   fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
     for (const [name, kind, x, y, size, alt] of places) items.push({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) });
     search.setItems(items);

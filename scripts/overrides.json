@@ -81,11 +81,15 @@
         "colour": "#8b8174",
         "material": "concrete"
       },
-      "_note": "earth-toned glass-fibre-reinforced concrete panels, windows set into the 'cracks'; ~800 m2 roof garden (ortho decides the roof)",
+      "_note": "earth-toned glass-fibre-reinforced concrete panels, windows set into the 'cracks'; ~800 m2 roof garden (ortho decides the roof) -- roof: the garden (~800 m2) planted over most of it",
       "sources": [
         "https://bip.kopernik.org.pl/images/KonkursNaNajem/Załącznik_nr._2_do_Regulaminu__stan_faktyczny_.docx",
         "https://inzynierbudownictwa.pl/warszawa-prezentacja-projektu-centrum-nauki-kopernik-2/"
-      ]
+      ],
+      "roof": {
+        "colour": "#7d9a58",
+        "material": "grass"
+      }
     },
     "435894154": {
       "name": "PGE Narodowy (leisure=stadium area; the stands and facade are building parts inside it)",
@@ -96,12 +100,28 @@
         ],
         "width": 3,
         "material": "metal",
-        "min_height": 15
+        "min_height": 15,
+        "ring": 34
       },
       "_note": "facade in the national colours, red and silver/white panels round the bowl, carried by the 72 roof columns",
       "sources": [
         "https://worldconstructionnetwork.com/projects/national-stadium-warsaw-poland",
         "https://www.inyourpocket.com/warsaw/pge-narodowy_119075v"
+      ]
+    },
+    "Planetarium Niebo Kopernika": {
+      "name": "Planetarium Niebo Kopernika (2011)",
+      "wall": {
+        "colour": "#2e2f33",
+        "material": "solid"
+      },
+      "roof": {
+        "colour": "#34363a",
+        "material": "solid"
+      },
+      "_note": "a dark, windowless 'boulder' beside the science centre (OSM colours it pink; read as a phantom palazzo)",
+      "sources": [
+        "https://www.muratorplus.pl/galeria/centrum-nauki-kopernik-warszawa-zdjecia/gg-7th5-qGga-s3Cn/gp-zZgs-JkXS-WzPu"
       ]
     }
   }

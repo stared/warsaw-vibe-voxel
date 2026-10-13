@@ -310,6 +310,19 @@ burn(gcol, rails, all_touched=True)
 water = [(geom, C["granite_d"] if t.get("fountain") == "splash_pad" else C["water"]) for oid, typ, t, geom in osm.areas
          if (t.get("amenity") == "fountain" or t.get("natural") == "water" or t.get("water")) and not tunnelish(t)]
 burn(gcol, water)
+# the Vistula (and ponds): one flat surface per water body -- the DTM over water steps in 1 m terraces that show as
+# lines across the river; it drops ~0.3 m across the map, so a single level is truthful
+wlab, wn = ndimage.label(gcol == C["water"])
+wsize = np.bincount(wlab.ravel())
+n_flat = 0
+for i_, sl in enumerate(ndimage.find_objects(wlab), 1):
+    if sl is None or wsize[i_] < 400:
+        continue
+    m_ = wlab[sl] == i_
+    sub = g[sl]
+    sub[m_] = int(np.median(sub[m_]))
+    n_flat += 1
+note("water bodies flattened:", n_flat)
 from shapely.ops import unary_union as _uu
 _zl = [l for oid, t, l in osm.lines if t.get("name") == "Złota" and t.get("highway") in ("living_street", "pedestrian")]
 zlota_line = _uu(_zl) if _zl else None
@@ -614,6 +627,10 @@ veg &= ~wall_edge | (near_tree & (nd_mean < 25))
 step = ndimage.maximum_filter(nd_mean, 3) - ndimage.minimum_filter(nd_mean, 3)
 veg &= ~((btop_near > 0) & (step > 7) & (nd_mean > 0.5 * btop_near))
 veg &= nd_mean < 32  # no trees taller than ~30 m in central Warsaw
+# no trees growing out of a stadium shell (its fins and roof edge are LiDAR-high and greenish in the ortho)
+stad = np.zeros((D, W), np.uint16)
+burn(stad, [(geom, 1) for oid, typ, t, geom in osm.areas_with("leisure", ("stadium",))])
+veg &= ~((stad > 0) & ~near_tree)
 veg = ndimage.binary_opening(veg, iterations=1)
 note("wall-edge cells rejected as vegetation:", int(wall_edge.sum()))
 lab, n = ndimage.label(veg)
@@ -810,7 +827,10 @@ for layer in sorted({l for _, _, l in bridge_shapes}):  # upper decks win
 near_way = ndimage.binary_dilation(deck_col > 0, iterations=3)
 deck_col = np.where((deck_col == 0) & (bridge_area > 0) & near_way, C["deck"], deck_col)
 deck = (deck_col > 0) & ~bmask & (nd_mean > 2)
-deck_h = ndimage.minimum_filter(np.where(deck, nd_mean, 1e4), size=5)
+deck = ndimage.binary_closing(deck, iterations=2) & ~bmask  # no slits of sky between the carriageways
+deck_col = np.where(deck & (deck_col == 0), C["deck"], deck_col)
+# lowest return within 9 m: the road surface even next to the pylon base and under the cable fan
+deck_h = ndimage.minimum_filter(np.where(deck & (nd_mean > 2), nd_mean, 1e4), size=9)
 deck_h = np.where(deck & (deck_h < 1e3), deck_h, 0)
 rr, cc = np.nonzero(deck)
 if len(rr):
@@ -834,6 +854,53 @@ for i_, sl in enumerate(ndimage.find_objects(lab_), 1):
         vol[z0_:z1_, r_, c_] = np.where(vol[z0_:z1_, r_, c_] == 0, C["fence"], vol[z0_:z1_, r_, c_])
     n_pyl += 1
 note("bridge pylons from LiDAR:", n_pyl)
+# Most Świętokrzyski's stays (LiDAR only catches them as a blur): an A-pylon on the Praga bank, 87.5 m above the river,
+# 48 cables 51-171 m long in a semi-fan over spans of 180 m (river) + 140 m -> 12 per side per plane, anchored down
+# the top 30 m of the pylon, landing on both deck edges (structurae.net/structures/swietokrzyski-bridge, ITB 2001)
+from shapely.ops import linemerge as _lm
+_sw = _lm([l for oid, t, l in osm.lines if t.get("name") == "Most Świętokrzyski" and t.get("highway") in ROADS])
+_sw = max(getattr(_sw, "geoms", [_sw]), key=lambda l: l.length) if not _sw.is_empty else None
+n_cab = 0
+if _sw is not None and n_pyl:
+    lab_, _ = ndimage.label(pyl)
+    blobs = [(i_, sl) for i_, sl in enumerate(ndimage.find_objects(lab_), 1) if sl is not None]
+    best = None
+    for i_, sl in blobs:
+        rr_, cc_ = np.nonzero(lab_[sl] == i_)
+        cy_, cx_ = rr_.mean() + sl[0].start, cc_.mean() + sl[1].start
+        dd = _sw.distance(Point(cx_, cy_))
+        if dd < 25 and (best is None or dd < best[0]):
+            hz = float(max(g[r_ + sl[0].start, c_ + sl[1].start] + nd_max[r_ + sl[0].start, c_ + sl[1].start] for r_, c_ in zip(rr_, cc_)))
+            best = (dd, cx_, cy_, hz)
+    if best:
+        _, px, py, ptop = best
+        sp = _sw.project(Point(px, py))
+        L = _sw.length
+        for side, span in ((-1, 180.0), (1, 140.0)):
+            for k in range(12):
+                d = 30 + (span - 35) * (k + 1) / 12
+                s_ = sp + side * d
+                if not (0 <= s_ <= L):
+                    continue
+                q0, q1 = _sw.interpolate(s_), _sw.interpolate(min(s_ + 1, L))
+                tx_, ty_ = q1.x - q0.x, q1.y - q0.y
+                tl = max(math.hypot(tx_, ty_), 1e-6)
+                za = ptop - 2 - 28 * (k / 11)  # anchors spread down the pylon head: semi-fan
+                for lat in (-1, 1):
+                    ex, ey = q0.x - ty_ / tl * lat * 11, q0.y + tx_ / tl * lat * 11  # deck edges (~24 m deck)
+                    er, ec = int(ey), int(ex)
+                    if not (0 <= er < D and 0 <= ec < W):
+                        continue
+                    ez = g[er, ec] + (deck_h[er, ec] if deck_h[er, ec] > 0 else 12) + 1
+                    n = int(math.hypot(ex - px, ey - py, ez - za) * 1.5) + 1
+                    for j in range(n + 1):
+                        f_ = j / n
+                        x_, y_, z_ = px + (ex - px) * f_, py + (ey - py) * f_, za + (ez - za) * f_
+                        r_, c_, zz_ = int(y_), int(x_), int(z_)
+                        if 0 <= r_ < D and 0 <= c_ < W and 0 <= zz_ < vol.shape[0] and vol[zz_, r_, c_] == 0:
+                            vol[zz_, r_, c_] = C["fence"]
+                    n_cab += 1
+note("Most Świętokrzyski stays:", n_cab)
 # lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they
 # are lit -- put one every 32 m on each kerb of the deck, as for Złota, unless OSM has a lamp within 12 m
 n_bl = 0
@@ -950,7 +1017,7 @@ qa[is_road] = 1
 qa[np.isin(gcol, [C["trambed"], C["rail"]])] = 2
 with gzip.open(OUT / "qa_roadmask.bin.gz", "wb", compresslevel=9) as fh:  # mostly zeros: 12 MB -> ~0.3 MB
     fh.write(qa.tobytes())
-json.dump(traffic.build(g, nd_mean, note, qa), open(OUT / "traffic.json", "w"), separators=(",", ":"))
+json.dump(traffic.build(g, np.where(deck_h > 0, deck_h, nd_mean), note, qa, water=(gcol == C["water"]) & (deck_h > 0)), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel

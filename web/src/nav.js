@@ -85,7 +85,7 @@ export class Nav {
         const hit = this.world && this.hitAt(e.clientX, e.clientY);
         if (hit) {
           const v = this.camera.getWorldDirection(new THREE.Vector3()), dd = hit.clone().sub(this.camera.position).dot(v);
-          if (dd > 5) this.controls.target.copy(this.camera.position).addScaledVector(v, dd);
+          if (dd > 5) this.controls.target.copy(this.camera.position).addScaledVector(v, Math.min(dd, 900)); // a pivot on the horizon swung the camera kilometres
         } else this.retarget();
       }
       if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; this._twist = Math.atan2(b.y - a.y, b.x - a.x); }
@@ -314,7 +314,10 @@ export class Nav {
       if (!this.world) return;
       const c = this.camera.position, t = opts.at || this.controls.target;
       // land at the street spot nearest to where we look (the focus), not on a roof
-      const spot = (opts.exact && [Math.floor(t.x), Math.floor(t.z)]) || this.openSpot(t.x, t.z) || this.findStreet(c.x, c.z);
+      // the focus is a bridge deck (search for a bridge, the walker dropped on one): stand on the deck itself
+      const deck = !opts.exact && this.world.deckAt(t.x, t.z);
+      if (deck) { opts = { ...opts, exact: true, at: new THREE.Vector3(t.x, deck, t.z) }; }
+      const spot = (opts.exact && [Math.floor(opts.at ? opts.at.x : t.x), Math.floor(opts.at ? opts.at.z : t.z)]) || this.openSpot(t.x, t.z) || this.findStreet(c.x, c.z);
       if (!spot) return;
       // face what was in focus (the building you were looking at), tilted up towards its top
       let f = opts.facing, pitch = opts.pitch ?? 0.05;
@@ -330,8 +333,9 @@ export class Nav {
       this.yaw = Math.atan2(f.x, f.z);
       this.pitch = pitch;
       this.feet = this.world.groundAt(spot[0], spot[1]); this.vy = 0;
-      this.walkPos = new THREE.Vector3(opts.exact ? t.x : spot[0] + 0.5, this.feet + EYE, opts.exact ? t.z : spot[1] + 0.5);
-      if (opts.exact) this.feet = this.world.support(t.x, t.z, t.y + 1.5);
+      const T = opts.at || t;
+      this.walkPos = new THREE.Vector3(opts.exact ? T.x : spot[0] + 0.5, this.feet + EYE, opts.exact ? T.z : spot[1] + 0.5);
+      if (opts.exact) this.feet = this.world.support(T.x, T.z, T.y + 1.5);
       else this.backOff(spot, f);
       this.goal = null;
       this.mode = 'walk';
@@ -472,9 +476,10 @@ export class Nav {
         if (w.blocked(x, r, g, g + 40) || w.blocked(x + 1, r, g, g + 3) || w.blocked(x - 1, r, g, g + 3) || w.blocked(x, r + 1, g, g + 3) || w.blocked(x, r - 1, g, g + 3)) continue;
         o.set(x + 0.5, g + EYE, r + 0.5);
         let open = 0, long = 0;
-        for (let k = 0; k < 8; k++) { dir.set(Math.cos(k * Math.PI / 4), 0, Math.sin(k * Math.PI / 4)); const t = w.raycast(o, dir, 70); open += Math.min(40, t); if (t >= 60) long++; }
+        for (let k = 0; k < 8; k++) { dir.set(Math.cos(k * Math.PI / 4), 0, Math.sin(k * Math.PI / 4)); const t = w.raycast(o, dir, 130); open += Math.min(40, t); if (t >= 120) long++; }
         open /= 8;
-        if (open < 12 || long < 2) continue; // a courtyard (however big) has no long view out; a street or a square does
+        // a courtyard or a stadium bowl (however big) has no long view out; a street (both ways) or a square does
+        if (open < 12 || long < 2) continue;
         let sc;
         if (building) {
           // the upper part (2/3 up) must be in sight: nothing in the way well before we reach the landmark

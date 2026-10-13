@@ -25,6 +25,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
     uNight: { value: 0 },
     uDeep: { value: 0 },
     uTime: { value: 0 },
+    uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
   };
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
   mat.onBeforeCompile = (shader) => {
@@ -54,7 +55,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform sampler2D uPalette; uniform sampler2D uLampMap;
-        uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime;
+        uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
         varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
@@ -139,6 +140,10 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
         } else if (m == ${MAT.WATER}) {
           float r = sin(cell.x * 0.9 + uTime * 1.3) * sin(cell.z * 1.1 - uTime) * 0.5 + 0.5;
           col = base * (0.75 + 0.25 * r); gRough = 0.04; gMetal = 0.3;
+          // a river mirrors the sky, more so at grazing angles (Fresnel): without it the Vistula read as grey concrete
+          vec3 V = normalize(cameraPosition - vVox);
+          float fres = pow(1.0 - max(dot(vN, V), 0.0), 4.0);
+          col = mix(col, uHorizon, clamp(0.18 + 0.7 * fres, 0.0, 0.85));
         } else if (m == ${MAT.LAMP}) {
           col = base; gEmissive = vec3(1.0, 0.82, 0.55) * (0.15 + 3.2 * uNight);
         } else if (m == ${MAT.METAL}) {

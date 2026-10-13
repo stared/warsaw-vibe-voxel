@@ -139,7 +139,9 @@ export class TileStreamer {
       box.min.set(x0, 0, y0); box.max.set(x1, 330, y1);
       const seen = dist < 30 || fr.intersectsBox(box);
       // refine while a cell of this level would look bigger than ERR_PX (i.e. the finer level is visibly better)
-      if (s > fine && (near || (seen && dist < s * K))) {
+      // out of view: 4 m cells within 600 m (turning shows 4 m blocks for a moment, not 8 m ones; finer or farther would
+      // hold the whole circle around the camera in memory)
+      if (s > fine && (near || (seen ? dist < s * K : s > 4 && dist < 600))) {
         const d = this.dims[child];
         for (let cy = ty * 2; cy < Math.min(ty * 2 + 2, d.ny); cy++) for (let cx = tx * 2; cx < Math.min(tx * 2 + 2, d.nx); cx++) walk(child, cx, cy);
       } else want.add(this.key(s, tx, ty) + '|' + dist.toFixed(0));
@@ -213,6 +215,13 @@ export class TileStreamer {
   }
 
   free(n) { if (n.mesh) { n.mesh.geometry.dispose(); this.group.remove(n.mesh); } this.nodes.delete(n.key); if (n.data) this.version++; }
+
+  // request what a camera at pos looking at target will need (called when a flight starts)
+  prefetch(pos, target, like) {
+    const c = like.clone(); c.position.copy(pos); c.lookAt(target); c.updateMatrixWorld(); c.updateProjectionMatrix();
+    for (const w of this.pick(c)) { const [k, d] = w.split('|'); const [s, rest] = k.split('/'); const [tx, ty] = rest.split('_').map(Number); this.request(+s, tx, ty, -d - 50); }
+    this.pump();
+  }
 
   // make sure full detail is loaded around (x, z) (metres) before e.g. landing there; resolves when ready
   ensure(x, z, r = 120) {
@@ -305,6 +314,29 @@ export class StreamWorld {
       if (t <= top && t > s) s = t;
     }
     return s;
+  }
+  // a walkable surface with air beneath (a bridge deck, a footbridge), else null; roofs rise from the ground so
+  // they don't count. Metres.
+  deckAt(x, r, probe = true) {
+    if (!this.inside(x, r)) return null;
+    if (probe) { // a deck is something to stand on: low (bridges are < 35 m up) and wide (the same surface 3 m around)
+      const d = this.deckAt(x, r, false);
+      if (d == null || d - this.groundAt(x, r) > 35) return null;
+      for (const [dx, dr] of [[3, 0], [-3, 0], [0, 3], [0, -3]]) { const e = this.deckAt(x + dx, r + dr, false); if (e == null || Math.abs(e - d) > 1.5) return null; }
+      return d;
+    }
+    const n = this.node(x, r);
+    if (!n) return null;
+    const c = this.col(n, x, r), R = n.runs, gz = n.ground[c] / n.s, e = n.off[c + 1];
+    // the lowest floating surface with headroom; 1-voxel runs above (cable stays, lamp heads) are not a ceiling
+    for (let k = n.off[c]; k < e; k++) {
+      const z0 = R[k * 3], top = z0 + R[k * 3 + 1];
+      if (z0 <= gz + 2 / n.s) continue;
+      let ceil = 1e9;
+      for (let j = k + 1; j < e; j++) if (R[j * 3 + 1] > 1) { ceil = R[j * 3]; break; }
+      if (ceil - top >= 2.5 / n.s) return top * n.s;
+    }
+    return null;
   }
   blocked(x, r, z0, z1) {
     for (let z = Math.floor(z0); z < z1; z++) if (this.solid(x, r, z)) return true;

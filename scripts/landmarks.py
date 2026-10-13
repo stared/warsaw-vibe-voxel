@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 
 import numpy as np
+from shapely.geometry import Point
 from scipy import ndimage
 
 M_WALL, M_GLASS, M_PKIN, M_CONCRETE, M_CLOCK = 1, 2, 7, 13, 14
@@ -40,7 +41,7 @@ LABELS = {
     "Odbudowa Pałacu Saskiego": ("Pałac Saski", "reconstruction site", "center"),
     "Teatr Wielki": ("Teatr Wielki", "Grand Theatre · National Opera", "center"),
     "Zachęta": ("Zachęta", "National Gallery of Art · 1900", "center"),
-    "Politechnika Warszawska": ("Politechnika Warszawska", "Warsaw University of Technology", "center"),
+    "Gmach Główny PW": ("Politechnika Warszawska", "Main Building · 1901", "center"),
     "Sejm RP": ("Sejm", "Polish Parliament", "center"),
     "Hala Koszyki": ("Hala Koszyki", "market hall · 1909", "center"),
     "Biblioteka Uniwersytecka": ("BUW", "University Library · roof garden · 1999", "center"),
@@ -49,7 +50,14 @@ LABELS = {
     "Plac Konstytucji": ("Plac Konstytucji", "MDM · 1952", "center"),
 }
 # places without a single OSM polygon (EPSG:2180 x, y)
-EXTRA_LABELS = [("Zielona Złota", "street greening · opened Aug 2026", 637420, 487015)]
+EXTRA_LABELS = [("Zielona Złota", "street greening · opened Aug 2026", 637420, 487015),
+                ("Wisła", "Vistula", 639034, 487782), ("Bulwary Wiślane", "Vistula boulevards", 638580, 487914)]  # mid-river by Most Świętokrzyski; the boulevard by Kopernik
+# other names people search for (English, the official / colloquial Polish): added to the search keys only
+ALIASES = {"PGE Narodowy": "Stadion Narodowy National Stadium football", "Centrum Nauki Kopernik": "Copernicus Science Centre CNK",
+           "Pałac Kultury i Nauki": "PKiN Palace of Culture and Science", "Most Świętokrzyski": "bridge", "Most Poniatowskiego": "bridge Poniatowski",
+           "Ogród Saski": "Saxon Garden park", "Pałac Saski": "Saxon Palace", "Teatr Wielki": "Grand Theatre Opera", "Sejm": "Parliament",
+           "Warszawa Centralna": "Central Station railway train", "Złote Tarasy": "Golden Terraces mall", "BUW": "Biblioteka Uniwersytecka library",
+           "Wisła": "Vistula river", "Politechnika Warszawska": "Gmach Główny PW Warsaw University of Technology", "Bulwary Wiślane": "boulevards Vistula", "Politechnika Warszawska": "Warsaw University of Technology"}
 
 
 def adjust_heights(top, feats, note):
@@ -106,8 +114,15 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
         cols = [pal(_hex(c), MAT_IDS[st.get("material", "wall")]) for c in st["colours"]]
         rr, cc = cells_of(geom)
         k_ = bmask[rr, cc]
+        ring = st.get("ring", 1e9)  # only the facade: cells within this many metres of the building mass's outer edge
+        r0, c0 = rr.min(), cc.min()
+        m = np.zeros((rr.max() - r0 + 3, cc.max() - c0 + 3), bool)
+        m[rr[k_] - r0 + 1, cc[k_] - c0 + 1] = True
+        depth = ndimage.distance_transform_edt(ndimage.binary_fill_holes(ndimage.binary_closing(m, iterations=3)))
         n = 0
         for r, c in zip(rr[k_], cc[k_]):
+            if depth[r - r0 + 1, c - c0 + 1] > ring:
+                continue
             nz = np.nonzero(vol[:, r, c])[0]
             if not len(nz):
                 continue
@@ -196,7 +211,8 @@ def roof_override(f, pal):
     # Złote Tarasy: the undulating canopy is clear glass on a white steel lattice (OSM tags it #336699)
     if _name(f) == "Złote Tarasy" and f["tags"].get("building:colour", "").lower() == "#336699":
         return pal((206, 218, 220), M_GLASS)
-    return None
+    o = override_for(f)
+    return _style(pal, o["roof"]) if o and "roof" in o else None
 
 
 def small_tree(vol, g, r, c, h, leaves, trunk, height=None):
@@ -238,6 +254,16 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
         if n not in LABELS or n in found:
             continue
         label, sub, mode = LABELS[n]
+        if n.startswith("Most "):  # a bridge: on the middle of its carriageway, not on the area's highest cell
+            from shapely.ops import linemerge as _lm
+            ln = _lm([l for oid_, t_, l in osm.lines if t_.get("name") in (n, label) and t_.get("highway")])
+            ln = max(getattr(ln, "geoms", [ln]), key=lambda q: q.length) if not ln.is_empty else None
+            if ln is not None:
+                p = ln.interpolate(0.5, normalized=True)
+                r, c = int(p.y), int(p.x)
+                if 0 <= r < vol.shape[1] and 0 <= c < vol.shape[2]:
+                    found[n] = dict(name=label, note=sub, x=c, y=r, z=top_at(r, c))
+                    continue
         if mode == "top":
             rr, cc = cells_of(geom)
             if len(rr) == 0:
@@ -255,6 +281,9 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
     for label, sub, wx, wy in EXTRA_LABELS:
         c, r = (int(v) for v in to_grid(wx, wy))
         labels.append(dict(name=label, note=sub, x=c, y=r, z=top_at(r, c)))
+    for l in labels:
+        if l["name"] in ALIASES:
+            l["alt"] = ALIASES[l["name"]]
     note("labels:", [l["name"] for l in labels])
     extra = {"astoria": l for l in labels if l.get("highlight")}
     return labels, make_views(found, osm, g, top_at, note, bmask, extra, vol, leaf_ids)
@@ -355,6 +384,10 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
         st = at("PGE Narodowy")
         tgt = [st[0], g[int(st[2]), int(st[0])] + 20.0, st[2]]
         views["stadium"] = dict(label="PGE Narodowy", target=tgt, pos=add(tgt, (-420, 190, 260)))
+    # the whole map: from the south-west, high, PKiN left of centre and the river with the stadium on the right
+    H_, W_ = g.shape
+    mid = [W_ * 0.55, float(np.median(g)) + 10, H_ * 0.45]
+    views["city"] = dict(label="Whole map", target=mid, pos=add(mid, (-1100, 2100, 2300)))
     return views
 
 

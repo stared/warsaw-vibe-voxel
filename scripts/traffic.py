@@ -37,9 +37,14 @@ def underground(t):
             or t.get("location") == "underground" or (_num(t.get("level"), 0) or 0) < 0 or t.get("covered") == "yes")
 
 
-def build(g, nd_mean, note, surf=None):
-    """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving"""
+def build(g, nd_mean, note, surf=None, water=None):
+    """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving.
+    nd_mean: height of the walking/driving surface above the ground where it is a bridge deck (voxelize.py passes the
+    deck height: the lowest LiDAR return around, not the cars or cable stays the 2025 flight caught on it)."""
     data = json.load(open(f"{RAW}/osm.json"))
+    # nodes of any bridge way (road, path, tram, rail): drawn on the deck, so agents there move at deck height
+    bridge_nodes = {n for e in data["elements"] if e["type"] == "way" and e.get("tags", {}).get("bridge") not in (None, "no")
+                    for n in e.get("nodes", [])}
     nodes = {}  # id -> (x, y) grid
     ntags = {}
     ways = []
@@ -65,7 +70,8 @@ def build(g, nd_mean, note, surf=None):
 
     def z_at(x, y, bridge):
         c, r = min(max(int(x), 0), W - 1), min(max(int(y), 0), D - 1)
-        if bridge and nd_mean[r, c] > 2:
+        # on a deck: tagged bridge ways, and anything over water that has a deck above it (untagged bridge sidewalks)
+        if (bridge or (water is not None and water[r, c])) and nd_mean[r, c] > 2:
             return int(g[r, c] + round(nd_mean[r, c]))
         return int(g[r, c])
 
@@ -99,7 +105,23 @@ def build(g, nd_mean, note, surf=None):
         return res
 
     def pts_of(seq, bridge):
-        return [[round(nodes[n][0], 1), round(nodes[n][1], 1), z_at(*nodes[n], bridge)] for n in seq]
+        """points of a node chain; long segments get a point every 8 m with its own height, so a vehicle follows a
+        bridge deck (or a ramp) instead of the straight line between two far-apart OSM nodes"""
+        out = []
+        for a, b in zip(seq, seq[1:] + [None]):
+            xa, ya = nodes[a]
+            br = bridge or a in bridge_nodes
+            out.append([round(xa, 1), round(ya, 1), z_at(xa, ya, br)])
+            if b is None:
+                continue
+            xb, yb = nodes[b]
+            L = math.hypot(xb - xa, yb - ya)
+            on = br and (bridge or b in bridge_nodes)  # both ends on the bridge: the whole segment is
+            for k in range(1, int(L // 8)):
+                f = k * 8 / L
+                x, y = xa + (xb - xa) * f, ya + (yb - ya) * f
+                out.append([round(x, 1), round(y, 1), z_at(x, y, on)])
+        return out
 
     def length(p):
         return float(sum(math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:])))
