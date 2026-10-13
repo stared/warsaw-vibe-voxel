@@ -85,8 +85,10 @@ export class Nav {
         const hit = this.world && this.hitAt(e.clientX, e.clientY);
         if (hit) {
           const v = this.camera.getWorldDirection(new THREE.Vector3()), dd = hit.clone().sub(this.camera.position).dot(v);
-          if (dd > 5) this.controls.target.copy(this.camera.position).addScaledVector(v, Math.min(dd, 900)); // a pivot on the horizon swung the camera kilometres
-        } else this.retarget();
+          // a pivot on the horizon swung the camera kilometres; capping it put the pivot in mid-air (grey sky on phones),
+          // so a far hit just keeps the current focus
+          if (dd > 5 && dd < 2500) this.controls.target.copy(this.camera.position).addScaledVector(v, dd);
+        }
       }
       if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; this._twist = Math.atan2(b.y - a.y, b.x - a.x); }
       press = ptrs.size === 1 ? { x: e.clientX, y: e.clientY, t: performance.now(), button: e.button, moved: false } : null;
