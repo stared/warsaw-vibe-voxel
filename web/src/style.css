@@ -91,7 +91,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 #hud .btns:empty { display: none; }
 #hud.compact .hint { display: none; }
 #hud .side { position: fixed; right: 14px; bottom: 14px; z-index: 4; display: flex; flex-direction: column; gap: 4px; }
-#hud .side button { width: 36px; height: 36px; padding: 0; font-size: 18px; background: var(--bg); }
+#hud .side button { width: 36px; height: 36px; padding: 0; font-size: 18px; background: var(--bg); box-shadow: 0 0 0 1px rgba(255,255,255,.28); } /* findable on the night city too */
 #hud .compass svg { width: 26px; height: 26px; display: block; margin: auto; }
 #hud .compass .rose { transition: transform .1s linear; }
 #hud[data-mode=walk] .zin, #hud[data-mode=walk] .zout, #hud[data-mode=ride] .zin, #hud[data-mode=ride] .zout,

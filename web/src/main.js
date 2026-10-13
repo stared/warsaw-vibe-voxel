@@ -415,6 +415,10 @@ function keepInside() {
   const t = controls.target, m = 60;
   const cx = Math.min(Math.max(t.x, bbox.min.x + m), bbox.max.x - m), cz = Math.min(Math.max(t.z, bbox.min.z + m), bbox.max.z - m);
   if (cx !== t.x || cz !== t.z) { const d = new THREE.Vector3(cx - t.x, 0, cz - t.z); t.add(d); camera.position.add(d); }
+  // and the camera itself within 1.5 km of the map (a twist with the long zoom-out flung it 9 km away)
+  const p = camera.position, M = 1500;
+  const px = Math.min(Math.max(p.x, bbox.min.x - M), bbox.max.x + M), pz = Math.min(Math.max(p.z, bbox.min.z - M), bbox.max.z + M);
+  if (px !== p.x || pz !== p.z) { p.x = px; p.z = pz; }
 }
 // the whole map framed for this screen (a portrait phone needs a different distance than a laptop): from the south,
 // steep, far enough that the key landmarks all project inside the frame
