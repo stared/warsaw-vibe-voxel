@@ -443,11 +443,20 @@ function fitHome() {
   const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(pts.length); c.y = 40;
   // portrait screens look from the west, so the long PKiN-to-stadium axis runs up the screen instead of across it
   const dir = (camera.aspect < 1 ? new THREE.Vector3(-2100, 3500, 0) : new THREE.Vector3(0, 3500, 2100)).normalize(), cam = camera.clone();
-  let d = 1500;
+  // an open settings panel covers the right of the screen: fit into the strip left of it
+  const r = gui.domElement.getBoundingClientRect();
+  const x1 = !gui._closed && r.height > 150 && r.left > innerWidth * 0.5 ? (r.left - 8) / innerWidth * 2 - 1 : 1;
+  let d = 1500, m = 0;
   for (let k = 0; k < 40; k++, d *= 1.08) {
     cam.position.copy(c).addScaledVector(dir, d); cam.lookAt(c); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-    if (pts.every((p) => { const v = p.clone().project(cam); return Math.abs(v.x) < 0.82 && Math.abs(v.y) < 0.8; })) break;
+    const v = pts.map((p) => p.clone().project(cam)), xs = v.map((q) => q.x);
+    m = (Math.min(...xs) + Math.max(...xs)) / 2;
+    if (Math.max(...xs) - Math.min(...xs) < x1 + 1 - 0.36 && v.every((q) => Math.abs(q.y) < 0.8)) break;
   }
+  // slide sideways so the landmarks sit in the middle of the free strip
+  const half = c.distanceTo(cam.position) * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect;
+  const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+  c.addScaledVector(right, (m - (x1 - 1) / 2) * half);
   return { pos: c.clone().addScaledVector(dir, d).toArray(), target: c.toArray() };
 }
 // ride the nearest vehicle of a kind to what you look at (moving trams are hard to click from the air)
