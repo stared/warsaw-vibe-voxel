@@ -63,6 +63,16 @@ function makeLampMap(meta) {
     ctx.fillStyle = gr;
     ctx.fillRect((x + 0.5) * s - r, (y + 0.5) * s - r, 2 * r, 2 * r);
   }
+  // floodlit pitches (stadium infields): an even cool-white wash, fading out over the lower stands
+  for (const [x, y, r0] of meta.floods || []) {
+    const r = r0 * 1.35 * s;
+    const gr = ctx.createRadialGradient(x * s, y * s, 0, x * s, y * s, r);
+    gr.addColorStop(0, 'rgba(225,235,255,0.6)');
+    gr.addColorStop(0.7, 'rgba(225,235,255,0.52)');
+    gr.addColorStop(1, 'rgba(225,235,255,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(x * s - r, y * s - r, 2 * r, 2 * r);
+  }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.NoColorSpace;
   tex.flipY = false; // canvas row 0 = grid row 0 (with the default flip every pool was mirrored across the map)

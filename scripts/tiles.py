@@ -94,7 +94,7 @@ def export(vol, g, out, note, keep_ids=()):
                 top = int(np.nonzero(win.reshape(Hs, -1).any(1))[0].max()) + 1 if win.any() else 1
                 counts, runs = column_runs(win[:top])
                 blob = counts.tobytes() + gw.tobytes() + runs.tobytes()
-                with gzip.open(out / str(s) / f"{tx}_{ty}.bin", "wb", compresslevel=9) as fh:
+                with gzip.GzipFile(out / str(s) / f"{tx}_{ty}.bin", "wb", compresslevel=9, mtime=0) as fh:  # mtime 0: rebuilds of unchanged nodes stay byte-identical
                     fh.write(blob)
                 tot += (out / str(s) / f"{tx}_{ty}.bin").stat().st_size
                 nruns += len(runs)

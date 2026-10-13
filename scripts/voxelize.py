@@ -965,7 +965,7 @@ note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 
 # ---------------------------------------------------------------- curated landmark details
 landmarks.apply_zones(vol, g, feats, pal, bmask, note)
-landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
+floods = landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
 leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 
@@ -1008,7 +1008,7 @@ for ln in sorted(tram_lines, key=lambda l: -l.length):
     trams.append(path)
 note("tram paths:", len(trams), "total km", round(sum(len(p) for p in trams) * 2 / 1000, 2))
 meta = dict(W=W, D=D, H=Hm, base=BASE, tiles=tile_info, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets,
-            palette=[list(e) for e in pal.entries], lamps=lamps, labels=labels, views=views,
+            palette=[list(e) for e in pal.entries], lamps=lamps, floods=floods, labels=labels, views=views,
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))
 json.dump(meta, open(OUT / "meta.json", "w"))
@@ -1017,7 +1017,7 @@ import traffic
 qa = np.zeros((D, W), np.uint8)
 qa[is_road] = 1
 qa[np.isin(gcol, [C["trambed"], C["rail"]])] = 2
-with gzip.open(OUT / "qa_roadmask.bin.gz", "wb", compresslevel=9) as fh:  # mostly zeros: 12 MB -> ~0.3 MB
+with gzip.GzipFile(OUT / "qa_roadmask.bin.gz", "wb", compresslevel=9, mtime=0) as fh:  # mostly zeros: 12 MB -> ~0.3 MB
     fh.write(qa.tobytes())
 json.dump(traffic.build(g, np.where(deck_h > 0, deck_h, nd_mean), note, qa, water=(gcol == C["water"]) & (deck_h > 0)), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)

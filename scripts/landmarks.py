@@ -101,7 +101,9 @@ def wall_override(f, pal):
 def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
     """overrides.json areas with "stripes": vertical bands of colour by angle around the area's centre on every
     building column inside it, from 3 m up to (not including) the roof voxel -- e.g. PGE Narodowy's red and silver
-    facade. Whole columns, because the LiDAR bowl rises above the OSM part heights."""
+    facade. Whole columns, because the LiDAR bowl rises above the OSM part heights.
+    Returns the floodlit infields as [x, y, r] (cells) for the night lighting."""
+    floods = []
     for oid, o in OVERRIDES.items():
         st = o.get("stripes")
         if not st or not oid.isdigit():
@@ -152,6 +154,7 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
                 for z_ in range(int(g[r_, c_]), int(nz[-1])):
                     if vol[z_, r_, c_]:
                         vol[z_, r_, c_] = walk if (z_ - g[r_, c_]) % 4 == 0 else seat
+            floods.append([round(float(hc.mean()) + 0.5, 1), round(float(hr.mean()) + 0.5, 1), round(math.sqrt(len(hr) / math.pi), 1)])
             note("infield:", o.get("name", oid)[:30], len(hr), "cells")
         k_ = bmask[rr, cc]
         ring = st.get("ring", 1e9)  # only the facade: cells within this many metres of the building mass's outer edge
@@ -174,6 +177,7 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
             vol[z0:z1, r, c] = np.where(col != 0, cols[k], 0)
             n += 1
         note("stripes:", o.get("name", oid)[:40], n, "columns")
+    return floods
 
 
 def apply_zones(vol, g, feats, pal, bmask, note):
