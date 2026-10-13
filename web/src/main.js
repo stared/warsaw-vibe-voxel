@@ -30,13 +30,13 @@ const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 90
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.16; // short glide after letting go, not a drift
-if (matchMedia('(pointer: coarse)').matches) { controls.panSpeed = 1.6; controls.zoomSpeed = 1; } // fingers: the map moves and scales with them (zoomSpeed 2 squared every pinch: 2.5x fingers -> 6.5x zoom)
 controls.rotateSpeed = 0.3;    // calm: a long drag turns a quarter round and tilts gently (play-testers found it twitchy)
 controls.minDistance = 4;
 controls.maxDistance = 7000; // the whole 4 x 3 km map in view even on a portrait phone, but no flinging into the void
 controls.screenSpacePanning = false;
 controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
 controls.zoomSpeed = 2.0; // a scroll notch moves noticeably; trackpad pinch is tamed separately below
+if (matchMedia('(pointer: coarse)').matches) { controls.panSpeed = 1.6; controls.zoomSpeed = 1; } // fingers: the map moves and scales with them (zoomSpeed 2 squared every pinch: 2.5x fingers -> 6.5x zoom)
 
 const nav = new Nav({ camera, controls, scene, dom: renderer.domElement, flyTo: (v) => flyTo(v), onMode: (m, r) => onMode(m, r) });
 nav.cancelFly = () => { fly = null; };
