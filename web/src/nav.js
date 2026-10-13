@@ -420,12 +420,19 @@ export class Nav {
       pos = base.clone().addScaledVector(rt, -rig.eye[0]).addScaledVector(fw, fz).setY(base.y + ey);
     }
     else {
-      pos = base.clone().addScaledVector(new THREE.Vector3(look.x, 0, look.z).normalize(), -rig.back); pos.y = base.y + rig.up;
-      // keep the chase camera out of walls: pull in along the line to the agent if a building is in the way
+      const back = new THREE.Vector3(look.x, 0, look.z).normalize();
+      pos = base.clone().addScaledVector(back, -rig.back); pos.y = base.y + rig.up;
+      // keep the chase camera clear: under a bridge deck or a tree, drop lower at the same distance first; only then
+      // pull in along the line to the agent -- never into the vehicle itself (that showed a black roof)
       if (this.world) {
-        const eye = base.clone().setY(base.y + 1.5), d = pos.clone().sub(eye), L = d.length();
-        const t = this.world.raycast(eye, d.divideScalar(L), L);
-        if (t < L) pos = eye.addScaledVector(d, Math.max(1.5, t - 0.8));
+        const eye = base.clone().setY(base.y + 1.5);
+        const clear = (p) => { const d = p.clone().sub(eye), L = d.length(); return this.world.raycast(eye, d.divideScalar(L), L) >= L - 0.3; };
+        let ok = clear(pos);
+        for (const f of [0.6, 0.35]) { if (ok) break; const p = pos.clone(); p.y = base.y + Math.max(2.2, rig.up * f); if (clear(p)) { pos = p; ok = true; } }
+        if (!ok) {
+          const d = pos.clone().sub(eye), L = d.length(), t = this.world.raycast(eye, d.divideScalar(L), L);
+          pos = eye.addScaledVector(d, Math.max(R.kind === 'person' ? 1.5 : 4.5, t - 0.8));
+        }
       }
     }
     return { pos, look, fov: R.view === 'eyes' ? rig.fov : 55 };
