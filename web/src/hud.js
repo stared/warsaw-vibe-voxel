@@ -13,7 +13,7 @@ const HINTS = {
 const ICON = { tram: '🚋', car: '🚗', bus: '🚌', person: '🚶' };
 
 export class Hud {
-  constructor({ nav, dom, onZoom, onNorth, onHome, onSearch }) {
+  constructor({ nav, dom, onZoom, onNorth, onHome, onSearch, onRideTram }) {
     this.nav = nav;
     const el = this.el = document.createElement('div');
     el.id = 'hud';
@@ -28,7 +28,8 @@ export class Hud {
         <button class="compass" title="Compass — click to face north"><svg viewBox="-20 -20 40 40"><g class="rose"><path d="M0-15 5 0H-5Z" fill="#e8554e"/><path d="M0 15 5 0H-5Z" fill="#ddd"/></g></svg></button>
         <button class="zin" title="Zoom in">+</button>
         <button class="zout" title="Zoom out">−</button>
-        <button class="home" title="Whole district">⌂</button>
+        <button class="tram" title="Ride the nearest tram">🚋</button>
+        <button class="home" title="Whole map">⌂</button>
         <button class="walker" title="Street view — click, or drag me onto a street">🚶</button>
       </div>
       <div class="tip"></div>
@@ -40,6 +41,7 @@ export class Hud {
     this.q('.zout').onclick = () => onZoom(1.8);
     this.q('.compass').onclick = () => onNorth();
     this.q('.home').onclick = () => onHome();
+    this.q('.tram').onclick = () => onRideTram();
     this.q('.find').onclick = () => onSearch();
     // button tooltips that show at once (native titles are slow and invisible on touch)
     for (const b of el.querySelectorAll('.side button')) {
@@ -116,6 +118,7 @@ export class Hud {
     this.q('.walker').dataset.tip = mode === 'orbit' ? 'Street view — click, or drag me onto a street' : 'Back to the bird’s-eye view';
     this.offerEl?.classList.remove('on');
     if (mode === 'walk') this.button('⬆ Fly up', 'Back to the bird’s-eye view (Esc)', () => nav.flyUp());
+    this.el.classList.toggle('compact', mode === 'ride' && innerWidth < 1300); // the ride buttons need the bar's width
     if (mode === 'ride' && ride) {
       const what = ride.kind === 'person' ? 'Walking with a pedestrian' : ride.kind === 'tram' ? `Riding ${ride.label}` : `Riding in a ${ride.label}`;
       this.q('.who').textContent = `${ICON[ride.label] || ICON[ride.kind]} ${what}`;

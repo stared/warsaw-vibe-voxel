@@ -51,7 +51,7 @@ LABELS = {
 }
 # places without a single OSM polygon (EPSG:2180 x, y)
 EXTRA_LABELS = [("Zielona Złota", "street greening · opened Aug 2026", 637420, 487015),
-                ("Wisła", "Vistula", 639034, 487782), ("Bulwary Wiślane", "Vistula boulevards", 638580, 487914)]  # mid-river by Most Świętokrzyski; the boulevard by Kopernik
+                ("Wisła", "Vistula", 639034, 487782), ("Bulwary Wiślane", "Vistula boulevards", 638714, 487996)]  # mid-river by Most Świętokrzyski; the boulevard by Kopernik
 # other names people search for (English, the official / colloquial Polish): added to the search keys only
 ALIASES = {"PGE Narodowy": "Stadion Narodowy National Stadium football", "Centrum Nauki Kopernik": "Copernicus Science Centre CNK",
            "Pałac Kultury i Nauki": "PKiN Palace of Culture and Science", "Most Świętokrzyski": "bridge", "Most Poniatowskiego": "bridge Poniatowski",
@@ -138,6 +138,20 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
             hr, hc = hr + r0_ - 1, hc + c0_ - 1
             gi = pal(_hex(inf["colour"]), MAT_IDS[inf.get("material", "grass")])
             vol[g[hr, hc] - 1, hr, hc] = gi
+            # open above the pitch up to 40 m: the spire hub hangs on its cables (the LiDAR column stood on the grass)
+            for r_, c_ in zip(hr, hc):
+                vol[g[r_, c_]:g[r_, c_] + 40, r_, c_] = 0
+            # the inner face of the bowl: seating tiers (red seat rows, grey walkways), not office windows
+            seat, walk = pal(_hex("#b3343b"), 0), pal(_hex("#8f8f8c"), 0)
+            depth_in = ndimage.distance_transform_edt(~hole)
+            ir, ic = np.nonzero(mm & (depth_in <= 10))
+            for r_, c_ in zip(ir + r0_ - 1, ic + c0_ - 1):
+                nz = np.nonzero(vol[:, r_, c_])[0]
+                if not len(nz):
+                    continue
+                for z_ in range(int(g[r_, c_]), int(nz[-1])):
+                    if vol[z_, r_, c_]:
+                        vol[z_, r_, c_] = walk if (z_ - g[r_, c_]) % 4 == 0 else seat
             note("infield:", o.get("name", oid)[:30], len(hr), "cells")
         k_ = bmask[rr, cc]
         ring = st.get("ring", 1e9)  # only the facade: cells within this many metres of the building mass's outer edge

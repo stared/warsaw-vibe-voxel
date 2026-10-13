@@ -28,9 +28,15 @@ export class PlaceSearch {
   }
 
   setItems(items) {
-    const seen = new Set(); // one entry per name: the curated view or landmark wins over the raw OSM feature
-    this.items = items.filter((it) => { const k = fold(it.name); if (seen.has(k)) return false; seen.add(k); return true; })
-      .map((it, i) => ({ ...it, key: fold(it.name + ' ' + (it.alt || '')), order: i }));
+    // one entry per name: the curated view or landmark wins over the raw OSM feature, but keeps the others' other
+    // names ("National Stadium" lives on the landmark, while the viewpoint of the same name comes first)
+    const first = new Map();
+    for (const it of items) {
+      const k = fold(it.name);
+      if (!first.has(k)) first.set(k, { ...it, alts: [it.alt || ''] });
+      else first.get(k).alts.push(it.alt || '', it.kind || '');
+    }
+    this.items = [...first.values()].map((it, i) => ({ ...it, key: fold(it.name + ' ' + it.alts.join(' ')), order: i }));
   }
 
   find(q) {

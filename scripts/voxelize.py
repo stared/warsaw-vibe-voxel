@@ -861,6 +861,7 @@ from shapely.ops import linemerge as _lm
 _sw = _lm([l for oid, t, l in osm.lines if t.get("name") == "Most Świętokrzyski" and t.get("highway") in ROADS])
 _sw = max(getattr(_sw, "geoms", [_sw]), key=lambda l: l.length) if not _sw.is_empty else None
 n_cab = 0
+stay = pal("#c9cdd0")  # matte grey-white: the shiny metal read as glare from afar
 if _sw is not None and n_pyl:
     lab_, _ = ndimage.label(pyl)
     blobs = [(i_, sl) for i_, sl in enumerate(ndimage.find_objects(lab_), 1) if sl is not None]
@@ -892,13 +893,14 @@ if _sw is not None and n_pyl:
                     if not (0 <= er < D and 0 <= ec < W):
                         continue
                     ez = g[er, ec] + (deck_h[er, ec] if deck_h[er, ec] > 0 else 12) + 1
-                    n = int(math.hypot(ex - px, ey - py, ez - za) * 1.5) + 1
+                    # one voxel per step along the major axis: a thin straight line, not a rope of double voxels
+                    n = int(max(abs(ex - px), abs(ey - py), abs(ez - za))) + 1
                     for j in range(n + 1):
                         f_ = j / n
                         x_, y_, z_ = px + (ex - px) * f_, py + (ey - py) * f_, za + (ez - za) * f_
                         r_, c_, zz_ = int(y_), int(x_), int(z_)
                         if 0 <= r_ < D and 0 <= c_ < W and 0 <= zz_ < vol.shape[0] and vol[zz_, r_, c_] == 0:
-                            vol[zz_, r_, c_] = C["fence"]
+                            vol[zz_, r_, c_] = stay
                     n_cab += 1
 note("Most Świętokrzyski stays:", n_cab)
 # lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they

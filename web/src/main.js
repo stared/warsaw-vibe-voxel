@@ -33,7 +33,7 @@ controls.dampingFactor = 0.16; // short glide after letting go, not a drift
 if (matchMedia('(pointer: coarse)').matches) controls.panSpeed = 1.6; // a finger drag should move the map about as far as the finger
 controls.rotateSpeed = 0.3;    // calm: a long drag turns a quarter round and tilts gently (play-testers found it twitchy)
 controls.minDistance = 4;
-controls.maxDistance = 4500; // the whole 4 x 3 km map in view, but no flinging into the void
+controls.maxDistance = 7000; // the whole 4 x 3 km map in view even on a portrait phone, but no flinging into the void
 controls.screenSpacePanning = false;
 controls.zoomToCursor = true; // zoom where you point, so you can dive into a street
 controls.zoomSpeed = 2.0; // a scroll notch moves noticeably; trackpad pinch is tamed separately below
@@ -416,6 +416,30 @@ function keepInside() {
   const cx = Math.min(Math.max(t.x, bbox.min.x + m), bbox.max.x - m), cz = Math.min(Math.max(t.z, bbox.min.z + m), bbox.max.z - m);
   if (cx !== t.x || cz !== t.z) { const d = new THREE.Vector3(cx - t.x, 0, cz - t.z); t.add(d); camera.position.add(d); }
 }
+// the whole map framed for this screen (a portrait phone needs a different distance than a laptop): from the south,
+// steep, far enough that the key landmarks all project inside the frame
+function fitHome() {
+  const L = (n) => VIEWS && meta0.labels.find((l) => l.name === n);
+  const pts = ['Pałac Kultury i Nauki', 'PGE Narodowy', 'Warszawa Centralna', 'Centrum Nauki Kopernik', 'Ogród Saski', 'Politechnika Warszawska']
+    .map(L).filter(Boolean).map((l) => new THREE.Vector3(l.x, l.z || 40, l.y));
+  if (pts.length < 2) return VIEWS.city || VIEWS.overview;
+  const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(pts.length); c.y = 40;
+  // portrait screens look from the west, so the long PKiN-to-stadium axis runs up the screen instead of across it
+  const dir = (camera.aspect < 1 ? new THREE.Vector3(-2100, 3500, 0) : new THREE.Vector3(0, 3500, 2100)).normalize(), cam = camera.clone();
+  let d = 1500;
+  for (let k = 0; k < 40; k++, d *= 1.08) {
+    cam.position.copy(c).addScaledVector(dir, d); cam.lookAt(c); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    if (pts.every((p) => { const v = p.clone().project(cam); return Math.abs(v.x) < 0.82 && Math.abs(v.y) < 0.8; })) break;
+  }
+  return { pos: c.clone().addScaledVector(dir, d).toArray(), target: c.toArray() };
+}
+// ride the nearest vehicle of a kind to what you look at (moving trams are hard to click from the air)
+function rideNearest(kind) {
+  if (!life) return;
+  const f = nav.mode === 'orbit' ? controls.target : camera.position;
+  const ag = life.nearest(kind, { x: f.x, z: f.z }, null);
+  if (ag) { if (kind === 'tram') ag.label = ag.label || 'tram'; nav.startRide(ag); }
+}
 function zoomBy(f) {
   const off = camera.position.clone().sub(controls.target);
   const L = THREE.MathUtils.clamp(off.length() * f, controls.minDistance, controls.maxDistance);
@@ -432,7 +456,7 @@ function northUp() {
     if (t >= 1) fly = null;
   };
 }
-let hud = null;
+let hud = null, meta0 = null;
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('.lil-gui input'))) return;
   if (e.code === 'KeyG') { if (nav.mode === 'orbit') nav.setMode('walk'); else nav.flyUp(); }
@@ -506,6 +530,7 @@ function flyTo(v) {
   bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(meta.W, meta.H, meta.D));
   bbox.getCenter(center);
   VIEWS = meta.views;
+  meta0 = meta;
   world = nav.world = streamer.world;
   nav.streamer = streamer;
   status('Loading the city…');
@@ -515,7 +540,8 @@ function flyTo(v) {
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
     // the search button starts a fresh query (people's taps appended to the last one)
     onSearch: () => { gui.open(); fGo.open(); search.input.value = ''; search.render(); search.input.focus(); },
-    onHome: () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(VIEWS.city || VIEWS.overview); } });
+    onHome: () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(fitHome()); },
+    onRideTram: () => rideNearest('tram') });
   makeLabels(meta);
   const items = [];
   Object.values(VIEWS).forEach((v, i) => {
@@ -524,6 +550,10 @@ function flyTo(v) {
     items.push({ name: v.label, kind: `viewpoint · ${i + 1}`, featured: true, go });
   });
   for (const l of meta.labels) items.push({ name: l.name, alt: `${l.alt || ''} ${l.note}`, kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R || 20) * 1.4), null, l.name) });
+  // things to do, found by search too ("tram" found a school and a dentist)
+  items.push({ name: 'Ride a tram', alt: 'tramwaj tram ride jedź', kind: 'action', go: () => rideNearest('tram') });
+  items.push({ name: 'Ride a car', alt: 'samochód car bus autobus ride jedź', kind: 'action', go: () => rideNearest('car') });
+  items.push({ name: 'Walk with someone', alt: 'person people pieszy przechodzień idź walk', kind: 'action', go: () => rideNearest('person') });
   fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
     for (const [name, kind, x, y, size, alt] of places) items.push({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) });
     search.setItems(items);

@@ -639,7 +639,10 @@ export class Nav {
       const nx = P.x + s.x, nz = P.z + s.z;
       const ax = nx + Math.sign(s.x) * 0.3, az = nz + Math.sign(s.z) * 0.3; // body radius
       const sup = w.support(ax, az, this.feet + STEP);
-      if (!w.blocked(ax, az, Math.max(sup, this.feet + STEP), sup + HEAD) && !w.blocked(nx, nz, Math.max(w.support(nx, nz, this.feet + STEP), this.feet + STEP), this.feet + HEAD)) {
+      // the camera's near plane needs the body's sides clear too (walking past a lamp post put the eye inside it)
+      const side = (x, z) => w.blocked(x, z, Math.max(w.support(x, z, this.feet + STEP), this.feet + STEP), this.feet + HEAD);
+      if (!w.blocked(ax, az, Math.max(sup, this.feet + STEP), sup + HEAD) && !w.blocked(nx, nz, Math.max(w.support(nx, nz, this.feet + STEP), this.feet + STEP), this.feet + HEAD)
+        && !side(nx + 0.4, nz) && !side(nx - 0.4, nz) && !side(nx, nz + 0.4) && !side(nx, nz - 0.4)) {
         P.x = nx; P.z = nz;
         return true;
       }
