@@ -214,12 +214,15 @@ export class StreetLife {
   // tram stop lines: 14 m before each signalled junction the line passes through
   tramStops(p) {
     const stops = [];
-    const q = { x: 0, y: 0, z: 0 };
+    // the path sampled once every 2 m (not once per signal controller), and controllers off its box skipped
+    const pts = [];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let s = 0; s < p.L; s += 2) { const q = at(p, s, 0, { x: 0, y: 0, z: 0 }); pts.push([s, q.x, q.y]); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
     this.ctrls.forEach((c, ci) => {
+      if (c.x < x0 - 18 || c.x > x1 + 18 || c.y < y0 - 18 || c.y > y1 + 18) return;
       let best = Infinity, bs = 0;
-      for (let s = 0; s < p.L; s += 2) {
-        at(p, s, 0, q);
-        const d = Math.hypot(q.x - c.x, q.y - c.y);
+      for (const [s, qx, qy] of pts) {
+        const d = Math.hypot(qx - c.x, qy - c.y);
         if (d < best) { best = d; bs = s; }
       }
       if (best < 18 && bs > 20) {
