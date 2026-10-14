@@ -5,9 +5,14 @@ import * as THREE from 'three';
 // the camera (plus full detail around "focus" points: where you walk, who you ride with). Nodes are fetched and
 // meshed by a worker pool; a parent stays on screen until all its children are ready (and vice versa), so there
 // are no holes while streaming. Nodes off the wanted set for a while are disposed (geometry and column data).
-const ERR_PX = +(new URLSearchParams(location.search).get('err') || 3); // px a coarser cell may span (3: 0.4% of pixels differ from full detail, tools/cmpshots.mjs)
+// A level swap in view must not read as the city flipping: swapped tiles dissolve into each other (FADE_MS), the
+// threshold has hysteresis, and thin things (spires, stays) ride in coarse tiles at true size (tools/lodfade.mjs,
+// tools/lodflip.mjs measure it).
+const ERR_PX = +(new URLSearchParams(location.search).get('err') || 3); // px a coarser cell may span (1 would hold ~3x the triangles)
 const FOCUS_R = 260;     // full 1 m detail within this radius of focus points (street level, rides, landing)
 const KEEP_MS = 8000;    // unused nodes are freed after this long
+const FADE_MS = +(new URLSearchParams(location.search).get('fade') ?? 1200); // a tile swapped for another level dissolves into it this slowly (0: instant)
+const FADE_TRIS = 8e6;   // most triangles dissolving at once (incoming + outgoing)
 const CAP_MB = 150;      // and hidden ones are evicted (least recently used) beyond this much geometry + column data
 
 function releaseArray() { this.array = null; }
@@ -21,6 +26,9 @@ export class TileStreamer {
     this.dims = Object.fromEntries(T.levels.map((l) => [l.s, l]));
     this.nodes = new Map();   // key -> { s, tx, ty, state: 'loading'|'ready', mesh, data, used }
     this.group = new THREE.Group();
+    this.fading = new Set();
+    this.err = ERR_PX;
+    this.refined = new Set(); // nodes refined at the last pick (hysteresis)
     scene.add(this.group);
     this.queue = [];
     this.focus = [];
@@ -130,9 +138,9 @@ export class TileStreamer {
   }
 
   // distance from the camera to a node's box, and the level it should be drawn at
-  pick(camera) {
-    const want = new Set(), cp = camera.position;
-    const fov = camera.fov * Math.PI / 180, K = innerHeight / (2 * Math.tan(fov / 2)) / ERR_PX;
+  pick(camera, track = true) {
+    const want = new Set(), cp = camera.position, refined = new Set();
+    const fov = camera.fov * Math.PI / 180, K = innerHeight / (2 * Math.tan(fov / 2)) / this.err;
     // only what is (nearly) in view gets refined: a frustum ~1.35x wider than the camera's, so turning a little
     // never shows coarse tiles; behind you the coarsest level is enough (and still casts the shadows)
     const wide = camera.clone(); wide.fov = Math.min(150, camera.fov * 1.35); wide.aspect = camera.aspect; wide.far = 20000;
@@ -152,18 +160,24 @@ export class TileStreamer {
       // refine while a cell of this level would look bigger than ERR_PX (i.e. the finer level is visibly better)
       // out of view: 4 m cells within 600 m (turning shows 4 m blocks for a moment, not 8 m ones; finer or farther would
       // hold the whole circle around the camera in memory)
-      if (s > fine && (near || (seen ? dist < s * K : s > 4 && dist < 600))) {
+      // hysteresis about the threshold (refine 7 % nearer, coarsen 7 % farther), so zooming about it can't flip a
+      // tile back and forth; on average as much detail as without it
+      const k = this.key(s, tx, ty), h = this.refined.has(k) ? 1.07 : 0.93;
+      if (s > fine && (near || (seen ? dist < s * K * h : s > 4 && dist < 600 * h))) {
+        if (track) refined.add(k);
         const d = this.dims[child];
         for (let cy = ty * 2; cy < Math.min(ty * 2 + 2, d.ny); cy++) for (let cx = tx * 2; cx < Math.min(tx * 2 + 2, d.nx); cx++) walk(child, cx, cy);
       } else want.add(this.key(s, tx, ty) + '|' + dist.toFixed(0));
     };
     const top = this.levels[0], d = this.dims[top];
     for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) walk(top, tx, ty);
+    if (track) this.refined = refined;
     return want;
   }
 
   update(camera) {
     const now = performance.now();
+    this.fadeTick(now);
     if (!this.dirty && now - (this._t || 0) < 150) return;
     this.retire();
     this._t = now; this.dirty = false;
@@ -201,18 +215,45 @@ export class TileStreamer {
       let s = n.s, tx = n.tx, ty = n.ty;
       while (this.dims[s * 2]) { s *= 2; tx >>= 1; ty >>= 1; if (show.has(this.key(s, tx, ty))) { show.delete(k); break; } }
     }
+    // swap levels without a visible jump: a newly shown tile over ground another tile already draws dissolves in
+    // while those dissolve out (complementary screen noise, so each pixel shows one of them); elsewhere it just appears
+    const shown = [...this.nodes.values()].filter((n) => n.mesh && n.alpha > 0);
+    const overlap = (a, b) => { const [ax0, ay0, ax1, ay1] = this.bounds(a.s, a.tx, a.ty), [bx0, by0, bx1, by1] = this.bounds(b.s, b.tx, b.ty);
+      return ax0 < bx1 && bx0 < ax1 && ay0 < by1 && by0 < ay1; };
     let tris = 0;
+    // during a camera flight (views, search) the whole picture moves and tiles swap in waves: swaps are instant
+    // (several generations of tiles dissolving at once cost ~200 MB of GPU memory); otherwise within a budget
+    let budget = FADE_TRIS;
+    for (const n of this.fading) budget -= n.tris || 0;
+    // arriving first, so the leaving ones below know what replaces them; nearest first, so the budget goes to the
+    // tiles that are big on screen
+    const dist = (n) => wanted.get(n.key) ?? Math.hypot(...this.bounds(n.s, n.tx, n.ty).slice(0, 2).map((v, i) => v - (i ? camera.position.z : camera.position.x)));
+    for (const n of [...this.nodes.values()].filter((n) => n.mesh && show.has(n.key)).sort((a, b) => dist(a) - dist(b))) {
+      if (!(n.alpha > 0)) {
+        const under = FADE_MS > 0 && !this.flying && budget > 0 && shown.some((o) => o !== n && !show.has(o.key) && overlap(o, n));
+        if (under) budget -= 2 * (n.tris || 0);
+        n.alpha = under ? 0.001 : 1; n.dir = under ? 1 : 0;
+        if (under) this.fading.add(n);
+      } else if (n.dir < 0) { n.dir = 1; this.fading.add(n); } // wanted back while it was leaving
+    }
+    const arriving = [...this.fading].filter((o) => o.dir > 0);
     for (const n of this.nodes.values()) {
       const vis = show.has(n.key);
-      if (n.mesh) n.mesh.visible = vis;
+      if (n.mesh) {
+        if (!vis && n.alpha > 0 && n.dir >= 0) {
+          if (arriving.some((o) => overlap(o, n))) { n.dir = -1; this.fading.add(n); } else n.alpha = 0;
+        }
+        n.mesh.visible = n.alpha > 0;
+      }
       if (vis || wanted.has(n.key)) n.used = now;
       if (vis && n.tris) tris += n.tris;
     }
+    this.fadeTick(now);
     this.tris = tris;
     // free what has not been needed for a while, and the least recently used hidden nodes above the memory cap
     // (never the coarsest level: it is the fallback everywhere)
     const free = (n) => this.free(n);
-    const evictable = (n) => n.s !== this.levels[0] && n.state === 'ready' && !show.has(n.key) && !wanted.has(n.key) && !((n.pinned || 0) > now);
+    const evictable = (n) => n.s !== this.levels[0] && n.state === 'ready' && !show.has(n.key) && !wanted.has(n.key) && !(n.alpha > 0) && !((n.pinned || 0) > now);
     let bytes = 0;
     for (const n of this.nodes.values()) bytes += n.bytes || 0;
     for (const n of [...this.nodes.values()].filter(evictable).sort((a, b) => a.used - b.used)) {
@@ -226,12 +267,32 @@ export class TileStreamer {
     for (const n of [...this.nodes.values()]) if (n.state === 'queued' && !inQueue.has(n)) this.nodes.delete(n.key);
   }
 
-  free(n) { if (n.mesh) { n.mesh.geometry.dispose(); this.group.remove(n.mesh); } this.nodes.delete(n.key); if (n.data) this.version++; }
+  // advance the cross-fades: a fading tile draws with its own material whose noise range is its share of the pixels
+  fadeTick(now) {
+    const dt = Math.min(100, now - (this._ft || now)); this._ft = now;
+    for (const n of this.fading) {
+      if (!n.mesh) { this.fading.delete(n); continue; }
+      n.alpha = Math.min(1, Math.max(0, n.alpha + n.dir * dt / FADE_MS));
+      const done = n.dir > 0 ? n.alpha >= 1 : n.alpha <= 0;
+      if (done) {
+        this.fading.delete(n); n.dir = 0;
+        if (n.mesh.material !== this.material) { this.material.userData.releaseFade(n.mesh.material); n.mesh.material = this.material; }
+        n.mesh.visible = n.alpha > 0;
+        continue;
+      }
+      if (n.mesh.material === this.material) n.mesh.material = this.material.userData.fadeMaterial();
+      const f = n.mesh.material.userData.fade.value;
+      if (n.dir > 0) f.set(0, n.alpha); else f.set(1 - n.alpha, 1);
+      n.mesh.visible = true;
+    }
+  }
+
+  free(n) { if (n.mesh?.material && n.mesh.material !== this.material) this.material.userData.releaseFade(n.mesh.material); this.fading.delete(n); if (n.mesh) { n.mesh.geometry.dispose(); this.group.remove(n.mesh); } this.nodes.delete(n.key); if (n.data) this.version++; }
 
   // request what a camera at pos looking at target will need (called when a flight starts)
   prefetch(pos, target, like) {
     const c = like.clone(); c.position.copy(pos); c.lookAt(target); c.updateMatrixWorld(); c.updateProjectionMatrix();
-    for (const w of this.pick(c)) { const [k, d] = w.split('|'); const [s, rest] = k.split('/'); const [tx, ty] = rest.split('_').map(Number); this.request(+s, tx, ty, -d - 50); }
+    for (const w of this.pick(c, false)) { const [k, d] = w.split('|'); const [s, rest] = k.split('/'); const [tx, ty] = rest.split('_').map(Number); this.request(+s, tx, ty, -d - 50); }
     this.pump();
   }
 

@@ -14,9 +14,12 @@ self.onmessage = async (e) => {
     const n2 = (m.N + 2) * (m.N + 2);
     const counts = new Uint16Array(buf, 0, n2);
     const ground = new Uint8Array(buf, n2 * 2, n2);
-    const runs = new Uint16Array(buf.slice(n2 * 3)); // (N+2)^2 is even, so the runs start 2-byte aligned
+    let nr = 0;
+    for (let i = 0; i < n2; i++) nr += counts[i];
+    const runs = new Uint16Array(buf.slice(n2 * 3, n2 * 3 + nr * 6)); // (N+2)^2 is even, so the runs start 2-byte aligned
+    const detail = new Uint16Array(buf.slice(n2 * 3 + nr * 6)); // coarse levels: thin structures as 1 m voxels (x, y, z, palette)
     const t1 = performance.now();
-    const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs);
+    const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs, detail);
     out.ms = [Math.round(t1 - t0), Math.round(performance.now() - t1)]; // fetch+unzip, mesh
     const transfer = [out.pos.buffer, out.attr.buffer, out.pal.buffer, out.idx.buffer];
     let data = null;
@@ -30,7 +33,7 @@ self.onmessage = async (e) => {
   }
 };
 
-function meshNode(N, s, x0, y0, counts, ground, runs) {
+function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
   const S = N + 2;
   const offsets = new Uint32Array(S * S + 1);
   for (let i = 0; i < S * S; i++) offsets[i + 1] = offsets[i] + counts[i];
@@ -149,6 +152,47 @@ function meshNode(N, s, x0, y0, counts, ground, runs) {
           }
         }
       }
+    }
+  }
+  // thin structures at true size: vertical runs of one colour become boxes (a spire is 4 tall quads, not 4 per
+  // metre); faces against another detail voxel are culled, no AO (they are poles and lines)
+  if (detail.length) {
+    const key = (x, y, z) => (z * 2048 + y) * 2048 + x;
+    const have = new Set(), order = [];
+    for (let k = 0; k < detail.length; k += 4) { have.add(key(detail[k], detail[k + 1], detail[k + 2])); order.push(k); }
+    order.sort((a, b) => detail[a] - detail[b] || detail[a + 1] - detail[b + 1] || detail[a + 2] - detail[b + 2]);
+    const quad = (d, dir, base, w, h, palIdx, gm) => { // w along axis (d+1)%3, h along (d+2)%3
+      const u = (d + 1) % 3, v = (d + 2) % 3;
+      const corners = [base.slice(), base.slice(), base.slice(), base.slice()];
+      corners[1][u] += w; corners[2][u] += w; corners[2][v] += h; corners[3][v] += h;
+      if (vcount + 4 > cap) grow();
+      for (let c = 0; c < 4; c++) {
+        const cc = corners[c], v3 = (vcount + c) * 3, v4 = (vcount + c) * 4;
+        pos[v3] = cc[0] + x0; pos[v3 + 1] = cc[2]; pos[v3 + 2] = cc[1] + y0;
+        attr[v4] = d * 2 + (dir > 0 ? 1 : 0); attr[v4 + 1] = 3; attr[v4 + 2] = gm; attr[v4 + 3] = 1;
+        pal[vcount + c] = palIdx;
+      }
+      const tri = dir > 0 ? [0, 3, 1, 1, 3, 2] : [0, 1, 3, 1, 2, 3];
+      for (let t = 0; t < 6; t++) idx[ni + t] = vcount + tri[t];
+      ni += 6; vcount += 4;
+    };
+    for (let i = 0; i < order.length;) {
+      const k = order[i], x = detail[k], y = detail[k + 1], z0 = detail[k + 2], p = detail[k + 3];
+      let j = i + 1;
+      while (j < order.length && detail[order[j]] === x && detail[order[j] + 1] === y && detail[order[j] + 2] === z0 + (j - i) && detail[order[j] + 3] === p) j++;
+      const h = j - i; i = j;
+      const gm = ground[(Math.floor(x / s) + 1) + S * (Math.floor(y / s) + 1)];
+      // sides: the whole run, unless a neighbouring column holds detail all along it
+      for (const [dx, dy, d, dir] of [[-1, 0, 0, -1], [1, 0, 0, 1], [0, -1, 1, -1], [0, 1, 1, 1]]) {
+        let covered = true;
+        for (let z = z0; z < z0 + h && covered; z++) covered = have.has(key(x + dx, y + dy, z));
+        if (covered) continue;
+        const base = [x + (dir > 0 && d === 0 ? 1 : 0), y + (dir > 0 && d === 1 ? 1 : 0), z0];
+        if (d === 0) quad(0, dir, base, 1, h, p, gm); // x faces: u = y, v = z
+        else quad(1, dir, base, h, 1, p, gm);         // y faces: u = z, v = x
+      }
+      if (!have.has(key(x, y, z0 - 1))) quad(2, -1, [x, y, z0], 1, 1, p, gm);
+      if (!have.has(key(x, y, z0 + h))) quad(2, 1, [x, y, z0 + h], 1, 1, p, gm);
     }
   }
   const P = pos.slice(0, vcount * 3), A = attr.slice(0, vcount * 4), L = pal.slice(0, vcount);

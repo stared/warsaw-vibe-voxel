@@ -991,7 +991,9 @@ Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
 vol = vol[:Hm]
 note("final height", Hm, "palette", len(pal.entries))
 import tiles
-tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP})
+tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
+                         skip_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
+                         face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK})
 # tram routes for the animated trams: merged open-air tram tracks, sampled every metre with ground z
 from shapely.ops import linemerge
 tram_lines = linemerge([l for oid, t, l in osm.lines_with("railway", ("tram",)) if not tunnelish(t)])
