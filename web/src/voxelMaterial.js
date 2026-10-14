@@ -27,17 +27,9 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
     uTime: { value: 0 },
     uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
   };
-  // level-of-detail cross-fade: a fragment is drawn when its screen noise falls in [x, y). Tiles fading in use
-  // [0, a), the ones they replace [a, 1), so every pixel shows exactly one of the two (tools/lodflip.mjs)
-  const build = (fade) => {
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
-    mat.onBeforeCompile = (shader) => compile(shader, fade);
-    mat.customProgramCacheKey = () => 'voxel-v2'; // every copy shares one program
-    mat.userData.fade = fade; mat.userData.uniforms = uniforms;
-    return mat;
-  };
-  const compile = (shader, fade) => {
-    Object.assign(shader.uniforms, uniforms, { uFade: fade });
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec4 vattr;
@@ -65,7 +57,6 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
         uniform sampler2D uPalette; uniform sampler2D uLampMap;
         uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
         varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal;
-        uniform vec2 uFade;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
         vec3 gEmissive; float gRough; float gMetal;
@@ -77,8 +68,6 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
         }
       `)
       .replace('#include <color_fragment>', `
-        float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); // interleaved gradient noise
-        if (ign < uFade.x || ign >= uFade.y) discard;
         vec4 pe = texelFetch(uPalette, ivec2(vPal % 64, vPal / 64), 0);
         vec3 base = pow(pe.rgb, vec3(2.2));
         int m = int(pe.a * 255.0 + 0.5);
@@ -215,10 +204,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
         float aoF = mix(0.55, 1.0, vAO);
         reflectedLight.indirectDiffuse *= aoF; reflectedLight.indirectSpecular *= aoF;`);
   };
-  const mat = build({ value: new THREE.Vector2(0, 2) });
-  // a material per fading tile (same shader program, its own fade range), pooled
-  const pool = [];
-  mat.userData.fadeMaterial = () => pool.pop() || build({ value: new THREE.Vector2(0, 2) });
-  mat.userData.releaseFade = (m) => pool.push(m);
+  mat.customProgramCacheKey = () => 'voxel-v1';
+  mat.userData.uniforms = uniforms;
   return mat;
 }

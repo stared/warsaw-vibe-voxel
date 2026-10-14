@@ -18,6 +18,11 @@ self.onmessage = async (e) => {
     for (let i = 0; i < n2; i++) nr += counts[i];
     const runs = new Uint16Array(buf.slice(n2 * 3, n2 * 3 + nr * 6)); // (N+2)^2 is even, so the runs start 2-byte aligned
     const detail = new Uint16Array(buf.slice(n2 * 3 + nr * 6)); // coarse levels: thin structures as 1 m voxels (x, y, z, palette)
+    if (m.dataOnly) { // the node is already meshed: only its column data was asked for
+      const data = { counts: counts.slice(), ground: ground.slice(), runs };
+      self.postMessage({ type: 'node', key: m.key, dataOnly: true, data }, [data.counts.buffer, data.ground.buffer, runs.buffer]);
+      return;
+    }
     const t1 = performance.now();
     const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs, detail);
     out.ms = [Math.round(t1 - t0), Math.round(performance.now() - t1)]; // fetch+unzip, mesh
@@ -29,7 +34,7 @@ self.onmessage = async (e) => {
     }
     self.postMessage({ type: 'node', key: m.key, ...out, data }, transfer);
   } catch (err) {
-    self.postMessage({ type: 'error', key: m.key, error: String(err) });
+    self.postMessage({ type: 'error', key: m.key, dataOnly: m.dataOnly, error: String(err) });
   }
 };
 

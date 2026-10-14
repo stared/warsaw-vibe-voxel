@@ -11,10 +11,10 @@ Node file  tiles/{s}/{nx}_{ny}.bin, gzip of:
 
 Coarser levels (s > 1): a cell is solid when at least a quarter (a third at s = 2) of its block is; its colour
 is the topmost voxel in the block, so roofs stay roofs and the street stays paving when seen from above.
-Blocks holding a street-lamp voxel always stay, lamp-coloured: far lamps are the city's lights at night.
-Thin things (spires, masts, cable stays, parapets: one voxel across) would vanish in a coarse block or swell to its
-size, a visible jump when the viewer swaps levels: where their block is empty they ride along as `detail`, 1 m voxels
-at true size (levels 2 and 4; at 8 m cells a 1 m line is under half a pixel). Clock faces colour their whole block.
+Thin things (spires, masts, cable stays, parapets, street lamps: one voxel across) would vanish in a coarse block or
+swell to its size (an 8 m lamp-coloured cube per lamp), a visible jump when the viewer swaps levels: where their block
+is empty they ride along as `detail`, 1 m voxels at true size (levels 2 and 4; at 8 m cells a 1 m line is under half a
+pixel). Clock faces colour their whole block.
 """
 import gzip
 
@@ -25,7 +25,7 @@ N = 128
 LEVELS = (1, 2, 4, 8)
 
 
-def downsample(vol, s, keep_ids=(), face_ids=()):
+def downsample(vol, s, face_ids=()):
     H, D, W = vol.shape
     Hs, Ds, Ws = -(-H // s), -(-D // s), -(-W // s)
     out = np.zeros((Hs, Ds, Ws), np.uint16)
@@ -56,10 +56,6 @@ def downsample(vol, s, keep_ids=(), face_ids=()):
         if len(face_ids):  # markings on a wall (the PKiN clock faces) colour the whole block, not just its top voxel
             fv = blk.max((1, 3, 5), where=np.isin(blk, face_ids), initial=0)
             res = np.where((res != 0) & (fv > 0), fv, res)
-        if len(keep_ids):
-            lamp = np.isin(blk, keep_ids)
-            lv = blk.max((1, 3, 5), where=lamp, initial=0)  # the lamp's palette id where the block has one
-            res = np.where(lv > 0, lv, res)
         out[:, rb:rb + db, :] = res
     return out
 
@@ -84,12 +80,13 @@ def column_runs(vol_win):
     return counts.astype(np.uint16), np.stack([s_z0, s_z1 - s_z0, val], 1).astype(np.uint16)
 
 
-def thin_voxels(vol, skip_ids, note, most=9, band=96):
+def thin_voxels(vol, skip_ids, keep_ids, note, most=9, band=96):
     """Voxels of thin things -- spires, poles, cable stays: lines one voxel across -- found in 3D: at most `most` of
-    the 27 voxels around them are solid (a roof edge has 12 or more). Foliage and trunks (`skip_ids`) excepted:
-    the canopy is drawn by the coarse tiles anyway. -> (z, r, c, palette) arrays."""
+    the 27 voxels around them are solid (a roof edge has 12 or more), and all of `keep_ids` (lamp heads). Foliage and
+    trunks (`skip_ids`) excepted: the canopy is drawn by the coarse tiles anyway. -> (z, r, c, palette) arrays."""
     H, D, W = vol.shape
     skip = np.zeros(65536, bool); skip[list(skip_ids)] = True
+    keep = np.zeros(65536, bool); keep[list(keep_ids)] = True
     out = [[], [], [], []]
     for r0 in range(0, D, band):
         a, b = max(r0 - 1, 0), min(r0 + band + 1, D)
@@ -99,7 +96,7 @@ def thin_voxels(vol, skip_ids, note, most=9, band=96):
         cnt = p[:-2] + p[1:-1] + p[2:]                          # along z
         cnt = cnt[:, :-2] + cnt[:, 1:-1] + cnt[:, 2:]           # along rows
         cnt = cnt[:, :, :-2] + cnt[:, :, 1:-1] + cnt[:, :, 2:]  # along columns
-        thin = (solid == 1) & (cnt <= most)
+        thin = ((solid == 1) & (cnt <= most)) | keep[sub]
         thin[:, :r0 - a] = False; thin[:, r0 - a + band:] = False  # the halo rows belong to the next band
         z, r, c = np.nonzero(thin)
         out[0].append(z); out[1].append(r + a); out[2].append(c); out[3].append(sub[z, r, c])
@@ -112,9 +109,9 @@ def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=()):
     """vol (H, D, W) level-1 voxels, g (D, W) ground level -> node files; returns the manifest for meta.json."""
     D, W = g.shape
     info = dict(N=N, levels=[], bytes=0)
-    tz, tr, tc, tv = thin_voxels(vol, skip_ids, note)
+    tz, tr, tc, tv = thin_voxels(vol, skip_ids, keep_ids, note)
     for s in LEVELS:
-        vs = vol if s == 1 else downsample(vol, s, np.array(sorted(keep_ids), np.uint16), np.array(sorted(face_ids), np.uint16))
+        vs = vol if s == 1 else downsample(vol, s, np.array(sorted(face_ids), np.uint16))
         gs = g if s == 1 else g[::s, ::s]  # ground metres at the block's corner column (shader only)
         Hs, Ds, Ws = vs.shape
         nx, ny = -(-Ws // N), -(-Ds // N)

@@ -630,7 +630,7 @@ renderer.setAnimationLoop((now) => {
   if (fountains) fountains.update(tsec, state.night);
   if (life && life.group.visible) life.update(dtf, state.hour, state.night, nav.mode === 'orbit' ? controls.target : camera.position);
   sky.mesh.position.copy(camera.position);
-  if (streamer) { streamer.focus = nav.focusPoints(); streamer.flying = !!fly; streamer.update(camera); }
+  if (streamer) { streamer.focus = nav.focusPoints(); streamer.update(camera); }
   fitShadow();
   composer.render();
   updateLabels();
