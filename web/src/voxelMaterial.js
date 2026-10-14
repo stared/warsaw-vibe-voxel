@@ -26,6 +26,8 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
     uDeep: { value: 0 },
     uTime: { value: 0 },
     uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
+    // PROTOTYPE (proto-ghost): treatment with distance from the look-at point (0 none, 1 fog of war, 2 haze)
+    uFocus: { value: new THREE.Vector2(0, 0) }, uRad: { value: 1e9 }, uFow: { value: 0 },
   };
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
   // PROTOTYPE (proto-ghost): the ghost city outside the real square; uMask marks 128 m cells drawn for real
@@ -59,6 +61,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
       .replace('#include <common>', `#include <common>
         uniform sampler2D uPalette; uniform sampler2D uLampMap;
         uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
+        uniform vec2 uFocus; uniform float uRad; uniform int uFow;
         varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
@@ -202,7 +205,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         #ifdef GHOST
         if (texelFetch(uMask, ivec2(floor(vVox.x / 128.0), floor(vVox.z / 128.0)), 0).r > 0.5) discard;
         float lumc = dot(col, vec3(0.3, 0.59, 0.11));
-        gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0;
+        if (uGStyle != 0) { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; }
         if (uGStyle == 1) { diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }                  // clay model
         else if (uGStyle == 2) { diffuseColor.rgb = vec3(0.55, 0.65, 0.78); diffuseColor.a = 0.28; gEmissive = vec3(0.08, 0.1, 0.14); } // glass
         else if (uGStyle == 3) {                                                                                 // drawing: white with cell edges
@@ -214,6 +217,12 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         else if (uGStyle == 5) { diffuseColor.rgb = mix(col, vec3(lumc), 0.85) * 0.9; }                       // desaturated colour
         #endif
       `)
+      .replace('#include <fog_fragment>', `#include <fog_fragment>
+        if (uFow > 0) { // the change happens before the edge of the real area: the seam to the ghost is where nothing shows
+          float k = smoothstep(uRad * 0.55, uRad * 0.97, length(vVox.xz - uFocus));
+          if (uFow == 1) gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.012, 0.014, 0.02), k);
+          else gl_FragColor.rgb = mix(gl_FragColor.rgb, uHorizon, k);
+        }`)
       .replace('#include <roughnessmap_fragment>', `float roughnessFactor = gRough;`)
       .replace('#include <metalnessmap_fragment>', `float metalnessFactor = gMetal;`)
       .replace('#include <emissivemap_fragment>', `totalEmissiveRadiance += gEmissive;`)

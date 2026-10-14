@@ -562,7 +562,7 @@ function flyTo(v) {
   status('Loading the city…');
   await streamer.preload();
   const qsp = new URLSearchParams(location.search);
-  if (qsp.get('ghost')) await (await import('./proto.js')).installProto({ streamer, material, meta, paletteTex, lampTex: material.userData.uniforms.uLampMap.value, controls, nav, qs: qsp });
+  if (qsp.get('ghost')) await (await import('./proto.js')).installProto({ streamer, material, composer, n8, camera, renderer, meta, paletteTex, lampTex: material.userData.uniforms.uLampMap.value, controls, nav, qs: qsp });
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
