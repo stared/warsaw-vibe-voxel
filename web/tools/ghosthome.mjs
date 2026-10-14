@@ -13,7 +13,11 @@ for (const v of vs) {
   await page.goto(`http://localhost:5173/?ui=0&${q}`);
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 });
   await page.waitForTimeout(7000);
-  await page.waitForFunction(() => window.__streamer.inflight === 0 && window.__streamer.queue.length === 0, null, { timeout: 60000 }).catch(() => {});
+  // settled: every tile the streamer wants is loaded (no stand-ins on screen)
+  await page.waitForFunction(() => { const S = window.__streamer, cam = window.__three.camera;
+    if (S.inflight || S.queue.length) return false;
+    for (const w of S.pick(cam, false)) { const n = S.nodes.get(w.split('|')[0]); if (!n || n.state !== 'ready') return false; }
+    return true; }, null, { timeout: 120000, polling: 250 }).catch(() => console.log('  not settled'));
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${out}/${name}.png` });
   console.log(name, 'ok');

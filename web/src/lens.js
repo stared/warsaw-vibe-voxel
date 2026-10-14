@@ -18,8 +18,7 @@ const FRAG = `
     float z = max(1.0, -v.z);
     vec3 w = (uCamWorld * v).xyz;
     float coc = uA * uF / uZf * abs(1.0 - uZf / z);
-    ivec2 c = clamp(ivec2(floor(w.xz / 128.0)), ivec2(0), ivec2(uGrid) - 1);
-    float cell = texelFetch(uCell, c, 0).r;
+    float cell = texture2D(uCell, w.xz / 128.0 / uGrid).r; // bilinear: the extra blur ramps across a 128 m cell, no edge
     return min(uMaxR, max(coc, uAlpha * max(0.0, cell - 1.0) * uF / z));
   }
   void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
@@ -51,10 +50,16 @@ export function installLens({ streamer: S, composer, n8, camera, renderer, contr
   const A = +qs.get('lens'), ALPHA = +(qs.get('alpha') || 4);
   const d1 = S.dims[1];
   const cellData = new Float32Array(d1.nx * d1.ny).fill(8), target = new Float32Array(d1.nx * d1.ny);
-  const cellTex = new THREE.DataTexture(cellData, d1.nx, d1.ny, THREE.RedFormat, THREE.FloatType);
+  const half = new Uint16Array(d1.nx * d1.ny);
+  const cellTex = new THREE.DataTexture(half, d1.nx, d1.ny, THREE.RedFormat, THREE.HalfFloatType);
+  cellTex.magFilter = cellTex.minFilter = THREE.LinearFilter; cellTex.wrapS = cellTex.wrapT = THREE.ClampToEdgeWrapping; cellTex.unpackAlignment = 2;
   cellTex.needsUpdate = true;
+  // the stand-in while a tile loads is never coarser than 4 m: all of level 4 stays loaded (it is small)
+  const d4 = S.dims[4];
+  for (let ty = 0; ty < d4.ny; ty++) for (let tx = 0; tx < d4.nx; tx++) S.request(4, tx, ty, 1e9).then(() => { const n = S.nodes.get(S.key(4, tx, ty)); if (n) n.pinned = Infinity; });
+  S.pump();
   const shared = { uInvProj: new THREE.Uniform(new THREE.Matrix4()), uCamWorld: new THREE.Uniform(new THREE.Matrix4()), uF: new THREE.Uniform(1000),
-    uZf: new THREE.Uniform(1000), uA: new THREE.Uniform(A), uAlpha: new THREE.Uniform(ALPHA), uMaxR: new THREE.Uniform(48),
+    uZf: new THREE.Uniform(1000), uA: new THREE.Uniform(A), uAlpha: new THREE.Uniform(ALPHA), uMaxR: new THREE.Uniform(128),
     uCell: new THREE.Uniform(cellTex), uGrid: new THREE.Uniform(new THREE.Vector2(d1.nx, d1.ny)) };
   const i = composer.passes.indexOf(n8);
   composer.addPass(new EffectPass(camera, new LensBlur([1, 0], shared)), i + 1);
@@ -78,7 +83,7 @@ export function installLens({ streamer: S, composer, n8, camera, renderer, contr
       let dmax = 0; for (const x of [x0, x1]) for (const z of [y0, y1]) for (const y of [0, 330]) dmax = Math.max(dmax, v.set(x, y, z).distanceTo(cp));
       const zs = zf < dmin ? dmin : zf > dmax ? dmax : zf; // the depth in the node closest to focus
       const seen = dmin < 30 || fr.intersectsBox(box);
-      const k = S.key(s, tx, ty), h = S.refined.has(k) ? 1.1 : 0.9; // hysteresis
+      const k = S.key(s, tx, ty), h = S.refined.has(k) ? 0.9 : 1.1; // hysteresis: refined stays refined until the blur is 10 % wider than needed
       const hidden = ALPHA * (s - 1) <= A * Math.abs(zs / zf - 1) * h; // the blur there covers cells of s m
       if (s > fine && (seen ? !hidden : s > 4 && dmin < 600)) {
         if (track) refined.add(k);
@@ -103,6 +108,7 @@ export function installLens({ streamer: S, composer, n8, camera, renderer, contr
     }
     const ease = 1 - Math.exp(-dt / 180);
     for (let j = 0; j < cellData.length; j++) cellData[j] = target[j] > cellData[j] ? target[j] : cellData[j] + (target[j] - cellData[j]) * ease;
+    for (let j = 0; j < cellData.length; j++) half[j] = THREE.DataUtils.toHalfFloat(cellData[j]);
     cellTex.needsUpdate = true;
     shared.uInvProj.value.copy(cam.projectionMatrixInverse); shared.uCamWorld.value.copy(cam.matrixWorld);
     shared.uZf.value = cam.position.distanceTo(controls.target);
