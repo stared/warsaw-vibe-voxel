@@ -9,7 +9,7 @@ const port = process.env.PORT || 5173;
 fs.mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-await page.goto(`http://localhost:${port}/`);
+await page.goto(`http://localhost:${port}/?${process.env.Q || ''}`);
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 });
 await page.waitForTimeout(7000);
 const rng = (seed) => () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
