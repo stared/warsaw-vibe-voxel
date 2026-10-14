@@ -17,8 +17,8 @@ export function makePaletteTexture(palette) {
   return tex;
 }
 
-export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
-  const uniforms = {
+export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, shared = null }) {
+  const uniforms = shared || {
     uPalette: { value: paletteTex },
     uLampMap: { value: lampTex },
     uSize: { value: new THREE.Vector2(W, D) },
@@ -28,8 +28,11 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
     uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
   };
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
+  // PROTOTYPE (proto-ghost): the ghost city outside the real square; uMask marks 128 m cells drawn for real
+  const gu = ghost ? { uMask: { value: ghost.mask }, uGStyle: { value: ghost.style } } : {};
   mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, gu);
+    if (ghost) shader.fragmentShader = '#define GHOST\nuniform sampler2D uMask; uniform int uGStyle;\n' + shader.fragmentShader;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec4 vattr;
@@ -196,6 +199,20 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
           else gEmissive += col * lm * fall * uNight * 2.2 * up;
         }
         diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
+        #ifdef GHOST
+        if (texelFetch(uMask, ivec2(floor(vVox.x / 128.0), floor(vVox.z / 128.0)), 0).r > 0.5) discard;
+        float lumc = dot(col, vec3(0.3, 0.59, 0.11));
+        gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0;
+        if (uGStyle == 1) { diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }                  // clay model
+        else if (uGStyle == 2) { diffuseColor.rgb = vec3(0.55, 0.65, 0.78); diffuseColor.a = 0.28; gEmissive = vec3(0.08, 0.1, 0.14); } // glass
+        else if (uGStyle == 3) {                                                                                 // drawing: white with cell edges
+          vec3 q = fract(vVox / 4.0); vec3 e = min(q, 1.0 - q) * 4.0; float w = vert ? min(abs(vN.x) > 0.5 ? e.z : e.x, e.y) : min(e.x, e.z);
+          diffuseColor.rgb = mix(vec3(0.25, 0.28, 0.33), vec3(0.85, 0.85, 0.83), smoothstep(0.15, 0.45, w));
+          gEmissive = diffuseColor.rgb * 0.25;
+        }
+        else if (uGStyle == 4) { diffuseColor.rgb = mix(vec3(lumc), pow(uHorizon, vec3(2.2)), 0.7); gEmissive = pow(uHorizon, vec3(2.2)) * 0.25; } // haze
+        else if (uGStyle == 5) { diffuseColor.rgb = mix(col, vec3(lumc), 0.85) * 0.9; }                       // desaturated colour
+        #endif
       `)
       .replace('#include <roughnessmap_fragment>', `float roughnessFactor = gRough;`)
       .replace('#include <metalnessmap_fragment>', `float metalnessFactor = gMetal;`)
@@ -204,7 +221,8 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D }) {
         float aoF = mix(0.55, 1.0, vAO);
         reflectedLight.indirectDiffuse *= aoF; reflectedLight.indirectSpecular *= aoF;`);
   };
-  mat.customProgramCacheKey = () => 'voxel-v1';
+  mat.customProgramCacheKey = () => ghost ? 'voxel-ghost' : 'voxel-v1';
+  if (ghost?.style === 2) { mat.transparent = true; mat.depthWrite = false; }
   mat.userData.uniforms = uniforms;
   return mat;
 }
