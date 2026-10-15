@@ -29,12 +29,38 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
     // PROTOTYPE (proto-ghost): treatment with distance from the look-at point (0 none, 1 fog of war, 2 haze)
     uFocus: { value: new THREE.Vector2(0, 0) }, uRad: { value: 1e9 }, uFow: { value: 0 },
   };
+  // PROTOTYPE (proto-ghost): ?shape= -- which columns are real is decided per pixel (zones.js); both the real tiles
+  // and the clay hide where the other one is drawn
+  const ZONES = !shared && new URLSearchParams(location.search).get('shape');
+  if (ZONES) {
+    const one = (fmt, type, data) => { const t = new THREE.DataTexture(data, 1, 1, fmt, type); t.needsUpdate = true; return t; };
+    Object.assign(uniforms, { uZBlk: { value: one(THREE.RedIntegerFormat, THREE.UnsignedShortType, new Uint16Array(1)) },
+      uZBld: { value: one(THREE.RedIntegerFormat, THREE.UnsignedShortType, new Uint16Array(1)) },
+      uZFBlk: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) }, uZFBld: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) },
+      uZMode: { value: 0 }, uZFocus: { value: new THREE.Vector2() }, uZRad: { value: 1e9 } });
+  }
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
   // PROTOTYPE (proto-ghost): the ghost city outside the real square; uMask marks 128 m cells drawn for real
   const gu = ghost ? { uMask: { value: ghost.mask }, uGStyle: { value: ghost.style } } : {};
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms, gu);
     if (ghost) shader.fragmentShader = '#define GHOST\nuniform sampler2D uMask; uniform int uGStyle;\n' + shader.fragmentShader;
+    if ('uZMode' in uniforms) shader.fragmentShader = `#define ZONES
+      uniform highp usampler2D uZBlk; uniform highp usampler2D uZBld; uniform sampler2D uZFBlk; uniform sampler2D uZFBld;
+      uniform int uZMode; uniform vec2 uZFocus; uniform float uZRad;
+      bool zflag(sampler2D t, uint id) { int w = textureSize(t, 0).x; return texelFetch(t, ivec2(int(id) % w, int(id) / w), 0).r > 0.5; }
+      bool zreal(vec3 c) {
+        ivec2 p = clamp(ivec2(c.x, c.z), ivec2(0), textureSize(uZBlk, 0) - 1);
+        vec2 d = c.xz + 0.5 - uZFocus;
+        if (uZMode == 1) return max(abs(d.x), abs(d.y)) < uZRad;
+        if (uZMode == 2) return length(d) < uZRad;
+        uint b = texelFetch(uZBld, p, 0).r;
+        if ((uZMode == 3 || uZMode == 6) && b > 0u) return zflag(uZFBld, b);
+        if (uZMode == 3) return length(d) < uZRad;
+        return zflag(uZFBlk, texelFetch(uZBlk, p, 0).r);
+      }
+    ` + shader.fragmentShader;
+
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec4 vattr;
@@ -202,8 +228,17 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           else gEmissive += col * lm * fall * uNight * 2.2 * up;
         }
         diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
+        #ifdef ZONES
         #ifdef GHOST
+        if (zreal(cell)) discard;
+        #else
+        if (!zreal(cell)) discard;
+        #endif
+        #endif
+        #ifdef GHOST
+        #ifndef ZONES
         if (texelFetch(uMask, ivec2(floor(vVox.x / 128.0), floor(vVox.z / 128.0)), 0).r > 0.5) discard;
+        #endif
         float lumc = dot(col, vec3(0.3, 0.59, 0.11));
         if (uGStyle != 0) { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; }
         if (uGStyle == 1) { diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }                  // clay model
