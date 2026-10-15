@@ -9,7 +9,7 @@ import { makeVoxelMaterial } from './voxelMaterial.js';
 const MODES = { square: 1, circle: 2, building: 3, block: 4, budget: 5, ragged: 6 };
 
 export async function installZones({ streamer: S, material, meta, paletteTex, controls, nav, qs }) {
-  const shape = qs.get('shape'), mode = MODES[shape] || 4, R = +(qs.get('r') || 250), BUDGET = +(qs.get('budget') || 2) * 1e6;
+  let mode = MODES[qs.get('shape')] || 4, R = +(qs.get('r') || 250), BUDGET = +(qs.get('budget') || 2) * 1e6;
   const U = material.userData.uniforms, { W, D } = meta;
   const [zbuf, zj] = await Promise.all([
     fetch('data/zones.bin').then((r) => new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()),
@@ -75,4 +75,9 @@ export async function installZones({ streamer: S, material, meta, paletteTex, co
     S.queue = S.queue.filter((n) => need.has(n.key) || n.s === 8);
   };
   window.__zones = { onBlk, onBld };
+  // the Experimental menu changes these live
+  return { MODES, get shape() { return Object.keys(MODES).find((k) => MODES[k] === mode); },
+    set shape(v) { mode = MODES[v]; U.uZMode.value = mode; S._t = 0; },
+    get r() { return R; }, set r(v) { R = v; S._t = 0; },
+    get budget() { return BUDGET / 1e6; }, set budget(v) { BUDGET = v * 1e6; S._t = 0; } };
 }
