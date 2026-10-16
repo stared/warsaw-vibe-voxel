@@ -268,5 +268,6 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
   mat.customProgramCacheKey = () => ghost ? 'voxel-ghost' : 'voxel-v1';
   if (ghost?.style === 2) { mat.transparent = true; mat.depthWrite = false; }
   mat.userData.uniforms = uniforms;
+  mat.userData.ghost = gu;
   return mat;
 }

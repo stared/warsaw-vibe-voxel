@@ -562,10 +562,10 @@ function flyTo(v) {
   status('Loading the city…');
   await streamer.preload();
   const qsp = new URLSearchParams(location.search);
-  const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp }) : null;
+  const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
   // the real-area shape, radius and budget change live.
-  const ENGINES = { 'today (levels)': '', 'real area + clay': 'shape=budget&budget=2', 'whole city at 1 m': 'all1m=1' };
+  const ENGINES = { 'today (levels)': '', 'real area + clay': 'shape=budget&budget=2&blur=8', 'whole city at 1 m': 'all1m=1' };
   const engineOf = () => Object.keys(ENGINES).find((k) => ENGINES[k] && qsp.get(ENGINES[k].split('=')[0]) !== null) || 'today (levels)';
   const reloadWith = (q) => { const c = camera.position, t = controls.target, u = new URLSearchParams(q);
     u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
@@ -574,13 +574,15 @@ function flyTo(v) {
   gui.$children.insertBefore(fExp.domElement, fKeys.domElement);
   fExp.add({ engine: engineOf() }, 'engine', Object.keys(ENGINES)).name('engine').onChange((k) => reloadWith(ENGINES[k]));
   if (zones) {
-    const sync = () => { const u = new URLSearchParams(location.search); u.set('shape', zones.shape); u.set('r', zones.r); u.set('budget', zones.budget);
+    const sync = () => { const u = new URLSearchParams(location.search); u.set('shape', zones.shape); u.set('r', zones.r); u.set('budget', zones.budget); u.set('outside', zones.outside); u.set('blur', zones.blur);
       history.replaceState(null, '', '?' + u); };
     const SHAPES = { 'blocks, triangle budget': 'budget', 'blocks within radius': 'block', 'whole buildings': 'building', 'circle': 'circle', 'square': 'square', 'ragged': 'ragged' };
     const show = () => { budgetCtl.show(zones.shape === 'budget'); rCtl.show(zones.shape !== 'budget'); };
     fExp.add(zones, 'shape', SHAPES).name('real area').onChange(() => { show(); sync(); });
     const budgetCtl = fExp.add(zones, 'budget', 0.5, 8, 0.25).name('budget (M tris)').onChange(sync);
     const rCtl = fExp.add(zones, 'r', 100, 800, 10).name('radius (m)').onChange(sync);
+    fExp.add(zones, 'outside', ['clay', 'colour']).name('outside').onChange(sync);
+    fExp.add(zones, 'blur', 0, 24, 1).name('blur outside (m)').onChange(sync);
     show();
   }
   fExp.open(engineOf() !== 'today (levels)');
