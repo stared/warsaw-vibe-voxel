@@ -565,7 +565,7 @@ function flyTo(v) {
   const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
   // the real-area shape, radius and budget change live.
-  const ENGINES = { 'today (levels)': '', 'real area + clay': 'shape=budget&budget=2&blur=8', 'whole city at 1 m': 'all1m=1' };
+  const ENGINES = { 'today (levels)': '', 'real area + clay': 'shape=budget&budget=2', 'whole city at 1 m': 'all1m=1' };
   const engineOf = () => Object.keys(ENGINES).find((k) => ENGINES[k] && qsp.get(ENGINES[k].split('=')[0]) !== null) || 'today (levels)';
   const reloadWith = (q) => { const c = camera.position, t = controls.target, u = new URLSearchParams(q);
     u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
@@ -586,7 +586,7 @@ function flyTo(v) {
     show();
   }
   fExp.open(engineOf() !== 'today (levels)');
-  if (qsp.get('all1m')) await (await import('./all1m.js')).installAll1m({ streamer, status });
+  if (qsp.get('all1m')) (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, controls, nav, status });
   if (qsp.get('lens')) (await import('./lens.js')).installLens({ streamer, composer, n8, camera, renderer, controls, qs: qsp, tiltPass, P });
   if (qsp.get('ghost')) await (await import('./proto.js')).installProto({ streamer, material, composer, n8, camera, renderer, meta, paletteTex, lampTex: material.userData.uniforms.uLampMap.value, controls, nav, qs: qsp });
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
