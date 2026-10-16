@@ -34,6 +34,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .panel .help .k { font: 11px ui-monospace, Menlo, monospace; color: var(--t); white-space: nowrap; }
 .panel .help span:not(.k) { color: var(--t2); }
 .panel .foot { padding: 6px 10px 9px; font-size: 10px; line-height: 1.5; color: var(--t2); }
+.panel .foot a { color: var(--t); }
 /* search: type-ahead in the "Go to" folder, green like dat.gui strings */
 .panel .search { border-left: 3px solid #1ed36f; padding: 6px 6px 8px 7px; }
 .panel .search .box { position: relative; }

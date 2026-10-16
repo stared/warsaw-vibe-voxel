@@ -409,7 +409,7 @@ fKeys.$children.appendChild(help);
 const fAbout = gui.addFolder('About').close();
 const foot = document.createElement('div');
 foot.className = 'foot';
-foot.innerHTML = '<div id="sources"></div><div id="stats">loading…</div>';
+foot.innerHTML = '<div id="sources"></div><div id="stats">loading…</div><div><a href="https://github.com/stared/warsaw-vibe-voxel" target="_blank" rel="noopener">source code on GitHub</a></div>';
 fAbout.$children.appendChild(foot);
 // one plain sentence for first-time visitors, first thing in the panel
 if (innerWidth < 600) gui.close();
