@@ -4,8 +4,10 @@
 // twice. (No compact vertex format or temporal anti-aliasing yet: this is today's meshes, all of them.)
 import * as THREE from 'three';
 import { makeVoxelMaterial } from './voxelMaterial.js';
+import { makeCaption } from './caption.js';
 
-export function installAll1m({ streamer: S, material, meta, paletteTex, controls, nav, status }) {
+export async function installAll1m({ streamer: S, material, meta, paletteTex, controls, nav, status }) {
+  const cap = await makeCaption({ meta });
   const d = S.dims[1], coarse = S.levels[0], total = d.nx * d.ny;
   const maskData = new Uint8Array(d.nx * d.ny);
   const mask = new THREE.DataTexture(maskData, d.nx, d.ny, THREE.RedFormat, THREE.UnsignedByteType);
@@ -28,15 +30,12 @@ export function installAll1m({ streamer: S, material, meta, paletteTex, controls
         ready++;
         if (n.mesh) { n.mesh.visible = true; tris += n.tris; }
         const i = n.ty * d.nx + n.tx;
-        if (!maskData[i]) { maskData[i] = 255; changed = true; }
+        if (!maskData[i]) { maskData[i] = 255; changed = true; cap.arrived(n.tx * 128, n.ty * 128, (n.tx + 1) * 128, (n.ty + 1) * 128); }
       }
     }
     if (changed) mask.needsUpdate = true;
     S.tris = tris;
     S.pump();
-    if (ready !== done) {
-      done = ready;
-      status?.(done < total ? `Whole city at 1 m: ${done} / ${total} cells` : `Whole city at 1 m: loaded in ${((now - t0) / 1000).toFixed(1)} s`);
-    }
+    if (ready !== done) { done = ready; cap.progress(done, total); if (done === total) console.log(`whole city at 1 m: ${((now - t0) / 1000).toFixed(1)} s`); }
   };
 }

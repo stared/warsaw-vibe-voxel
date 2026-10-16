@@ -112,3 +112,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
   #hud button { height: 34px; }
 }
 .noui #hud { display: none; }
+/* PROTOTYPE: what the city is building while it fills in (caption.js) */
+.caption { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;
+  min-width: 260px; max-width: calc(100vw - 32px); padding: 7px 12px 6px; background: rgba(0,0,0,.78); color: #fff;
+  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; text-align: center; transition: opacity .6s; }
+.caption.off { opacity: 0; }
+.caption .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caption .bar { height: 2px; background: #333; }
+.caption .bar i { display: block; height: 100%; width: 0; background: #2fa1d6; transition: width .3s; }
+@media (max-width: 600px) { .caption { top: 8px; min-width: 0; width: calc(100vw - 32px); } }
