@@ -23,15 +23,21 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
   // 1. terrain
   const tbuf = await gunzip(await fetchBytes('data/terrain.bin', () => {}));
   cap.show(`Terrain · 0 / ${total} tiles`, 0, total);
-  const tw = Math.ceil(W / 4), th = Math.ceil(D / 4), hd = new Uint16Array(tbuf);
-  const tpos = new Float32Array(tw * th * 3), tidx = new Uint32Array((tw - 1) * (th - 1) * 6);
-  for (let r = 0; r < th; r++) for (let c = 0; c < tw; c++) { const i = r * tw + c; tpos.set([Math.min(c * 4, W), hd[i] / 10 - 0.4, Math.min(r * 4, D)], i * 3); }
-  for (let r = 0, k = 0; r < th - 1; r++) for (let c = 0; c < tw - 1; c++, k += 6) { const i = r * tw + c; tidx.set([i, i + tw, i + 1, i + 1, i + tw, i + tw + 1], k); }
-  const tgeo = new THREE.BufferGeometry();
-  tgeo.setAttribute('position', new THREE.BufferAttribute(tpos, 3)); tgeo.setIndex(new THREE.BufferAttribute(tidx, 1)); tgeo.computeVertexNormals();
-  const terrain = new THREE.Mesh(tgeo, new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 0.95 })); // 0.4 m under the voxel ground
-  terrain.receiveShadow = true;
-  scene.add(terrain);
+  // one terrain piece per 128 m tile, dropped the moment that tile's voxels arrive: under real ground it would
+  // z-fight (flicker when moving) and poke through the flattened river
+  const tw = Math.ceil(W / 4), th = Math.ceil(D / 4), hd = new Uint16Array(tbuf), C = T / 4;
+  const tmat = new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 0.95 }), terrainOf = new Array(total);
+  for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) {
+    const c0 = tx * C, r0 = ty * C, nc = Math.min(C, tw - 1 - c0) + 1, nr = Math.min(C, th - 1 - r0) + 1;
+    if (nc < 2 || nr < 2) continue;
+    const pos = new Float32Array(nc * nr * 3), idx = new Uint16Array((nc - 1) * (nr - 1) * 6);
+    for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) pos.set([(c0 + c) * 4, hd[(r0 + r) * tw + c0 + c] / 10, (r0 + r) * 4], (r * nc + c) * 3);
+    for (let r = 0, k = 0; r < nr - 1; r++) for (let c = 0; c < nc - 1; c++, k += 6) { const i = r * nc + c; idx.set([i, i + nc, i + 1, i + 1, i + nc, i + nc + 1], k); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, tmat); m.receiveShadow = true; m.matrixAutoUpdate = false;
+    scene.add(m); terrainOf[ty * d.nx + tx] = m;
+  }
   // building ids (zones.bin): the mesher keeps buildings apart and tags each vertex; one flag per building says shown
   const [zbuf, zj] = await Promise.all([fetch('data/zones.bin').then((r) => r.arrayBuffer()).then(gunzip), fetch('data/zones.json').then((r) => r.json())]);
   const bld = new Uint16Array(zbuf, W * D * 2, W * D);
@@ -76,6 +82,7 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
       const i = n.ty * d.nx + n.tx;
       if (!inTile[i]) {
         inTile[i] = 1; tilesIn++;
+        if (terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
         if (n.mesh) { n.mesh.customDepthMaterial = depthMat; n.mesh.visible = true; }
         for (const b of onTile[i]) if (!complete[b] && tilesOf[b].every((k) => inTile[k])) {
           complete[b] = 1;
