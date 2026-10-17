@@ -1,23 +1,10 @@
-// PROTOTYPE (proto-ghost): while the city fills in, a caption says what just arrived ("Paving Marszałkowska…"),
-// named from what really lies in the 128 m square that turned real: a landmark first, else a named place, else a
-// generic line. One line at a time, held long enough to read; a thin bar shows how much of the city is in.
-const SAY = {
-  street: (n) => `Paving ${n}`, square: (n) => `Laying the cobbles of ${n}`, park: (n) => `Planting trees in ${n}`,
-  stop: (n) => `Laying tram tracks at ${n}`, station: (n) => `Writing the timetable for ${n}`,
-  cafe: (n) => `Brewing coffee at ${n}`, restaurant: (n) => `Lighting the ovens at ${n}`, 'fast food': (n) => `Frying chips at ${n}`,
-  bar: (n) => `Pouring the first beer at ${n}`, pub: (n) => `Pouring the first beer at ${n}`, 'ice cream': (n) => `Scooping ice cream at ${n}`,
-  hotel: (n) => `Making the beds at ${n}`, museum: (n) => `Hanging the paintings in ${n}`, gallery: (n) => `Hanging the paintings in ${n}`,
-  theatre: (n) => `Raising the curtain at ${n}`, cinema: (n) => `Threading the film at ${n}`, library: (n) => `Shelving the books in ${n}`,
-  'place of worship': (n) => `Ringing the bells of ${n}`, school: (n) => `Ringing the school bell at ${n}`, university: (n) => `Opening the lecture halls of ${n}`,
-  bridge: (n) => `Spanning ${n}`, fountain: (n) => `Turning on ${n}`, stadium: (n) => `Mowing the pitch at ${n}`, building: (n) => `Raising ${n}`,
-};
-// landmarks that are not buildings get their own line
-const LANDMARK = { 'Wisła': 'Filling the Vistula', 'Bulwary Wiślane': 'Paving the Vistula boulevards', 'Park Świętokrzyski': 'Planting Park Świętokrzyski',
-  'Ogród Saski': 'Planting the Saxon Garden', 'Plac Centralny': 'Laying out Plac Centralny', 'Plac Konstytucji': 'Laying out Plac Konstytucji',
-  'Zielona Złota': 'Greening Złota street', 'Most Świętokrzyski': 'Spanning Most Świętokrzyski', 'Most Poniatowskiego': 'Spanning Most Poniatowskiego',
-  'PGE Narodowy': 'Mowing the pitch at PGE Narodowy', 'Pałac Saski': 'Rebuilding Pałac Saski', 'Ilmet': 'Raising Ilmet (while it lasts)' };
-const GENERIC = ['Paving roads', 'Growing foliage', 'Placing street lamps', 'Painting zebra crossings', 'Laying tram tracks',
-  'Stacking voxels', 'Glazing windows', 'Planting trees', 'Raising rooftops', 'Sweeping the pavements'];
+// PROTOTYPE (proto-ghost): while the city fills in, a caption says what kind of thing just arrived ("Paving roads…"),
+// judged from what really lies in the 128 m square that turned real (landmarks, OSM places). Categories only, never
+// particular places. One line at a time, held long enough to read; a thin bar shows how much of the city is in.
+const CAT = { landmark: 'Raising landmark buildings', river: 'Filling the river', foliage: 'Growing foliage', tram: 'Laying tram tracks',
+  road: 'Paving roads', building: 'Adding buildings' };
+const KIND = { street: 'road', square: 'road', bridge: 'river', park: 'foliage', stop: 'tram', station: 'tram' };
+const GREEN = new Set(['Park Świętokrzyski', 'Ogród Saski', 'Zielona Złota']), WATER = new Set(['Wisła', 'Bulwary Wiślane', 'Most Świętokrzyski', 'Most Poniatowskiego']);
 
 export async function makeCaption({ meta }) {
   const { places } = await fetch('data/places.json').then((r) => r.json()).catch(() => ({ places: [] }));
@@ -28,33 +15,30 @@ export async function makeCaption({ meta }) {
   const txt = el.querySelector('.txt'), fill = el.querySelector('i');
   txt.textContent = 'Building Warsaw…';
   const labels = meta.labels || [];
-  const used = new Set();
-  let queue = [], shownAt = 0, gen = 0, lastW = 0, finished = false;
-  // what a square [x0, z0, x1, z1] holds: a landmark beats everything, then the place types we have a line for
-  const lineFor = (x0, z0, x1, z1) => {
-    const inside = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1;
-    for (const l of labels) if (inside(l.x, l.y) && !used.has(l.name)) { used.add(l.name); return { t: LANDMARK[l.name] || `Raising ${l.name}`, w: 3 }; }
-    let best = null;
-    for (const [name, kind, x, z, size] of places) if (SAY[kind] && inside(x, z) && !used.has(name) && (!best || size > best[4])) best = [name, kind, x, z, size];
-    if (best) { used.add(best[0]); return { t: SAY[best[1]](best[0]), w: 1 + Math.random() }; } // streets, cafés, stops… in no fixed order
-    return null;
+  let shownAt = 0, finished = false;
+  // what a square [x0, z0, x1, z1] holds; every square has roads, buildings and trees
+  const catsFor = (x0, z0, x1, z1) => {
+    const inside = (x, z) => x >= x0 && x < x1 && z >= z0 && z < z1, c = new Set();
+    for (const l of labels) if (inside(l.x, l.y)) c.add(WATER.has(l.name) ? 'river' : GREEN.has(l.name) ? 'foliage' : 'landmark');
+    for (const [, kind, x, z] of places) if (KIND[kind] && inside(x, z)) c.add(KIND[kind]);
+    c.add('road'); c.add('building'); c.add('foliage'); // street trees grow everywhere
+    return c;
   };
+  const seen = new Set(), shown = {}; // categories arrived since last shown; when each was last on screen
+  let n = 0;
   setInterval(() => {
     if (finished || el.classList.contains('off')) return;
     const now = performance.now();
-    if (now - shownAt < 1100) return;
-    queue.sort((a, b) => b.w - a.w || b.t0 - a.t0);
-    // a landmark at most every other line, so the city between them gets its turn
-    const i = lastW === 3 ? queue.findIndex((q) => q.w < 3) : 0;
-    const next = (i >= 0 && queue.splice(i, 1)[0]) || { t: GENERIC[gen++ % GENERIC.length], w: 0 };
-    lastW = next.w;
-    queue = queue.slice(0, 12); // stale news is dropped: what arrived seconds ago is no longer interesting
-    txt.textContent = next.t + '…';
+    if (now - shownAt < 1300 || !seen.size) return;
+    // the category that has waited longest takes its turn, so every kind of thing gets named
+    const next = [...seen].sort((a, b) => (shown[a] || 0) - (shown[b] || 0) || Object.keys(CAT).indexOf(a) - Object.keys(CAT).indexOf(b))[0];
+    seen.delete(next); shown[next] = ++n;
+    txt.textContent = CAT[next] + '…';
     shownAt = now;
   }, 200);
   return {
     // a square just turned real (bounds in scene metres)
-    arrived(x0, z0, x1, z1) { const l = lineFor(x0, z0, x1, z1); if (l) queue.push({ ...l, t0: performance.now() }); },
+    arrived(x0, z0, x1, z1) { for (const k of catsFor(x0, z0, x1, z1)) seen.add(k); },
     progress(done, total) {
       fill.style.width = `${(100 * done / total).toFixed(1)}%`;
       if (done < total) { el.classList.remove('off'); return; }
