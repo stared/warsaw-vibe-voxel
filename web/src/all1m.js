@@ -57,10 +57,14 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
   const landmarks = [...new Set(meta.labels.map((l) => bldAt(l.x, l.y)).filter((b) => b >= 0))], isLm = new Set(landmarks);
   const lmPrio = new Map();
   landmarks.forEach((b, j) => tilesOf[b].forEach((k) => { if (!lmPrio.has(k)) lmPrio.set(k, 1e6 - j); }));
-  const prio = (tx, ty, f) => lmPrio.get(ty * d.nx + tx) ?? -Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z);
+  // then the tiles in view (the frustum, tiles up to 330 m tall), then the rest of the city, nearest first
+  const fr = new THREE.Frustum(), box = new THREE.Box3(), pm = new THREE.Matrix4(), seen = new Uint8Array(total);
+  const look = (camera) => { camera.updateMatrixWorld(); pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); fr.setFromProjectionMatrix(pm);
+    for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) { box.min.set(tx * T, 0, ty * T); box.max.set((tx + 1) * T, 330, (ty + 1) * T); seen[ty * d.nx + tx] = fr.intersectsBox(box) ? 1 : 0; } };
+  look(nav.camera);
+  const prio = (tx, ty, f) => lmPrio.get(ty * d.nx + tx) ?? (seen[ty * d.nx + tx] ? 1e5 : 0) - Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z);
   for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) S.request(1, tx, ty, prio(tx, ty, controls.target), true);
   S.pump();
-  cap.split(lmPrio.size, total); // the landmarks' tiles come first
   const depthMat = makeBuildDepthMaterial(U);
   const inTile = new Uint8Array(total), complete = new Uint8Array(nb);
   let tilesIn = 0, lmShown = 0, bShown = 0, stage = 1;
@@ -74,6 +78,7 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     S._t = performance.now();
     S.retire();
     const f = nav.mode === 'orbit' ? controls.target : camera.position;
+    look(camera);
     let tris = 0, changed = false;
     for (const n of S.nodes.values()) {
       if (n.s !== 1) continue;
@@ -97,7 +102,19 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     if (stage >= 2) for (let i = 0; i < total; i++) if (inTile[i] && terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
     if (changed) onTex.needsUpdate = true;
     if (window.__life) window.__life.group.visible = stage >= 3 && P.life;
-    if (stage < 3) cap.show(stage === 1 ? 'Landmarks' : 'Buildings', tilesIn, total);
+    // the long building stage in named parts, each a set of tiles loaded in turn: what you see, then the rest of the
+    // city in rings around you; ticks on the bar where each part ends (same tile count as the bar)
+    const RINGS = [['Buildings in view', 0], ['Buildings within 1 km', 1000], ['Buildings within 2 km', 2000], ['Buildings to the edge', 1e9]];
+    const part = (i) => { if (seen[i]) return 0; const r = Math.hypot((i % d.nx + 0.5) * T - f.x, (Math.floor(i / d.nx) + 0.5) * T - f.z); return r < 1000 ? 1 : r < 2000 ? 2 : 3; };
+    const size = [0, 0, 0, 0];
+    let lmTiles = 0;
+    for (let i = 0; i < total; i++) { if (lmPrio.has(i)) { lmTiles++; continue; } size[part(i)]++; }
+    const ends = [lmTiles]; for (const n of size) ends.push(ends[ends.length - 1] + n);
+    cap.ticks(ends.slice(0, -1), total);
+    // the part is the one whose stretch of the bar the count is in (a last straggler of a part loading late
+    // doesn't hold its name while the next part fills)
+    let now = 0; while (now < 3 && tilesIn >= ends[now + 1]) now++;
+    if (stage < 3) cap.show(stage === 1 ? 'Landmarks' : RINGS[now][0], tilesIn, total);
     else cap.finish('Foliage', total);
     S.tris = tris;
     S.pump();
