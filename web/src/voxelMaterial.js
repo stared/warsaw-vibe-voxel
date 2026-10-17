@@ -17,21 +17,27 @@ export function makePaletteTexture(palette) {
   return tex;
 }
 
-// What of the whole city is shown while it loads (all1m.js): no timing, only what has arrived. Per vertex: foliage
-// (trees and grass) and details once every tile is in (uStage 3), a building once all its tiles are in and its turn has come
-// (uBldOn, set on the CPU: landmarks first), everything else once the landmarks are done (uStage 2). Hidden
-// geometry is folded below the bare terrain (terrain.bin), which lies under everything. Shared by the depth
-// material, so hidden things cast no shadows.
+// What of the whole city is shown while it loads (all1m.js): no timing, only what has arrived. A building shows once
+// all its tiles are in and its turn has come (uBldOn, set on the CPU: landmarks first); other ground from stage 2
+// (after the landmarks); trees, grass and details from stage 3 (every tile in). Hidden: in stage 1 folded under the
+// bare terrain (all1m.js keeps a tile's terrain piece until stage 2); later a building lies flat as a ground-coloured
+// footprint, grass is shown as bare ground, trees and details are not drawn. Shared by the depth material.
 const BUILD_PARS = `
   uniform float uStage; uniform sampler2D uBldOn; uniform sampler2D uPalette;
   attribute vec4 vattr; attribute float vpal; attribute float vbld;`;
 const BUILD_VERTEX = (normal) => `
+  float hideB = 0.0;
   {
     int bid = int(vbld + 0.5);                            // the face's building (mesher.worker.js), 0: none
     int pi = int(vpal + 0.5), m = int(texelFetch(uPalette, ivec2(pi % 64, pi / 64), 0).a * 255.0 + 0.5);
-    bool late = m == ${MAT.LEAF} || m == ${MAT.GRASS} || m == ${MAT.LAMP} || m == ${MAT.CAR} || m == ${MAT.SIGN} || m == ${MAT.SIGNBAND} || m == ${MAT.JET} || m == ${MAT.BRONZE};
-    bool on = late ? uStage > 2.5 : bid > 0 ? texelFetch(uBldOn, ivec2(bid % 128, bid / 128), 0).r > 0.5 : uStage > 1.5;
-    if (!on) transformed.y = vattr.z - 3.0;
+    bool grass = m == ${MAT.GRASS};
+    bool above = m == ${MAT.LEAF} || m == ${MAT.LAMP} || m == ${MAT.CAR} || m == ${MAT.SIGN} || m == ${MAT.SIGNBAND} || m == ${MAT.JET} || m == ${MAT.BRONZE};
+    bool on = above || grass ? uStage > 2.5 : bid > 0 ? texelFetch(uBldOn, ivec2(bid % 128, bid / 128), 0).r > 0.5 : uStage > 1.5;
+    if (!on) {
+      if (uStage < 1.5) transformed.y = vattr.z - 3.0;            // under the terrain piece
+      else if (above) transformed = vec3(0.0, -1e5, 0.0);         // not drawn
+      else { hideB = 1.0; if (!grass) transformed.y = vattr.z; }  // a flat footprint / bare ground
+    }
   }`;
 export function makeBuildDepthMaterial(uniforms) {
   const m = new THREE.MeshDepthMaterial();
@@ -105,6 +111,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         varying float vAO;
         varying float vGz;
         flat varying int vPal;
+        varying float vHide;
         vec3 normalFromIdx(float i){
           // data axes: 0=x(east),1=y(south),2=z(up) -> three: x, z, y
           if (i < 0.5) return vec3(-1.,0.,0.);
@@ -116,8 +123,8 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         }`)
       .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalFromIdx(vattr.x);`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5);
-        ${'uStage' in uniforms ? BUILD_VERTEX('objectNormal') : ''}`);
+        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5); vHide = 0.0;
+        ${'uStage' in uniforms ? BUILD_VERTEX('objectNormal') + 'vHide = hideB;' : ''}`);
     if ('uStage' in uniforms) shader.vertexShader = shader.vertexShader.replace('attribute vec4 vattr;\n        attribute float vpal;', BUILD_PARS);
 
     shader.fragmentShader = shader.fragmentShader
@@ -125,7 +132,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         uniform sampler2D uPalette; uniform sampler2D uLampMap;
         uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
         uniform vec2 uFocus; uniform float uRad; uniform int uFow;
-        varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal;
+        varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
         vec3 gEmissive; float gRough; float gMetal;
@@ -265,6 +272,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           else gEmissive += col * lm * fall * uNight * 2.2 * up;
         }
         diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
+        if (vHide > 0.5) { diffuseColor.rgb = vec3(0.42, 0.41, 0.39); gEmissive = vec3(0.0); }   // not shown yet: bare ground
         #ifdef ZONES
         #ifdef GHOST
         if (zreal(cell)) discard;

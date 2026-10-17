@@ -22,7 +22,7 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
   S.update = () => {};
   // 1. terrain
   const tbuf = await gunzip(await fetchBytes('data/terrain.bin', () => {}));
-  cap.show(`Terrain · 0 / ${total} tiles`, 0, total);
+  cap.show('Terrain', 0, total);
   // one terrain piece per 128 m tile, dropped the moment that tile's voxels arrive: under real ground it would
   // z-fight (flicker when moving) and poke through the flattened river
   const tw = Math.ceil(W / 4), th = Math.ceil(D / 4), hd = new Uint16Array(tbuf), C = T / 4;
@@ -82,7 +82,6 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
       const i = n.ty * d.nx + n.tx;
       if (!inTile[i]) {
         inTile[i] = 1; tilesIn++;
-        if (terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
         if (n.mesh) { n.mesh.customDepthMaterial = depthMat; n.mesh.visible = true; }
         for (const b of onTile[i]) if (!complete[b] && tilesOf[b].every((k) => inTile[k])) {
           complete[b] = 1;
@@ -94,10 +93,12 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     // the stages follow what has arrived: everything else once every landmark is in, the foliage once every tile is
     if (stage === 1 && lmShown === landmarks.length) { stage = 2; U.uStage.value = 2; for (let b = 0; b < nb; b++) if (complete[b]) show(b); changed = true; }
     if (stage === 2 && tilesIn === total) { stage = 3; U.uStage.value = 3; console.log(`whole city at 1 m: ${((performance.now() - t0) / 1000).toFixed(1)} s`); }
+    // a tile's terrain piece goes once its own ground shows (stage 2); before, the hidden ground is folded under it
+    if (stage >= 2) for (let i = 0; i < total; i++) if (inTile[i] && terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
     if (changed) onTex.needsUpdate = true;
     if (window.__life) window.__life.group.visible = stage >= 3 && P.life;
-    if (stage < 3) cap.show(`${stage === 1 ? 'Landmarks' : 'Buildings'} · ${tilesIn} / ${total} tiles`, tilesIn, total);
-    else cap.finish(`Foliage · ${total} / ${total} tiles`);
+    if (stage < 3) cap.show(stage === 1 ? 'Landmarks' : 'Buildings', tilesIn, total);
+    else cap.finish('Foliage', total);
     S.tris = tris;
     S.pump();
   };

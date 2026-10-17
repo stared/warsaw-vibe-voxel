@@ -72,13 +72,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .edge small { font: 500 10.5px Inter, system-ui, sans-serif; color: #fff; }
 .edge i { font-style: normal; display: inline-block; width: 14px; text-align: center; }
 
-#loading { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; transition: opacity .6s; }
+#loading { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
 /* PROTOTYPE: the first moments look like the loading caption that follows (caption.js), not a separate page */
-#loading-text { margin-top: 14px; min-width: 260px; padding: 7px 12px 13px; background: rgba(0,0,0,.78); color: #fff; text-align: center;
+#loading-text { box-sizing: border-box; margin-top: 14px; width: 300px; padding: 7px 12px 13px; text-align: left !important; background: rgba(0,0,0,.78); color: #fff; text-align: center;
   font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
 #loading .spinner { display: none; }
 @media (max-width: 600px) { #loading-text { margin-top: 8px; min-width: 0; width: calc(100vw - 32px); } }
-#loading.hidden { opacity: 0; pointer-events: none; }
+#loading.hidden { display: none; } /* at once: the caption takes over in the same place */
 .spinner { width: 28px; height: 28px; border: 3px solid rgba(0,0,0,.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .noui #labels { display: none !important; }
@@ -122,7 +122,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
   width: 300px; font-variant-numeric: tabular-nums; max-width: calc(100vw - 32px); padding: 7px 12px 6px; background: rgba(0,0,0,.78); color: #fff;
   font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; text-align: center; transition: opacity .6s; }
 .caption.off { opacity: 0; }
-.caption .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caption .txt { display: flex; justify-content: space-between; white-space: nowrap; }
 .caption .bar { position: relative; height: 2px; background: #333; }
 .caption .bar b { position: absolute; top: -2px; width: 1px; height: 6px; background: #888; }
 .caption .bar i { display: block; height: 100%; width: 0; background: #2fa1d6; transition: width .3s; }

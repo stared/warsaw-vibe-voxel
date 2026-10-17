@@ -4,20 +4,21 @@
 export function makeCaption() {
   const el = document.createElement('div');
   el.className = 'caption';
-  el.innerHTML = '<span class="txt"></span><span class="bar"><i></i></span>';
+  el.innerHTML = '<span class="txt"><span class="st"></span><span class="n"></span></span><span class="bar"><i></i></span>';
   document.body.appendChild(el);
-  const txt = el.querySelector('.txt'), fill = el.querySelector('i');
+  const st = el.querySelector('.st'), num = el.querySelector('.n'), fill = el.querySelector('i');
   let finished = false;
   return {
     split(at, total) { const t = document.createElement('b'); t.style.left = `${(100 * at / total).toFixed(1)}%`; el.querySelector('.bar').appendChild(t); },
-    show(text, done, total) {
+    // stage on the left, count on the right (right-aligned, tabular digits): neither moves as the numbers change
+    show(stage, done, total) {
       if (finished) return;
-      txt.textContent = text;
+      st.textContent = stage; num.textContent = `${done} / ${total} tiles`;
       fill.style.width = `${(100 * Math.min(1, done / Math.max(1, total))).toFixed(1)}%`;
     },
-    finish(text) {
+    finish(stage, total) {
       if (finished) return;
-      finished = true; txt.textContent = text; fill.style.width = '100%';
+      finished = true; st.textContent = stage; num.textContent = `${total} / ${total} tiles`; fill.style.width = '100%';
       setTimeout(() => el.classList.add('off'), 1500);
     },
   };
