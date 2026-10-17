@@ -570,10 +570,9 @@ function flyTo(v) {
     camera.position.set(...v.pos); controls.target.set(...v.target);
     if (qsp.get('cam')) { const c = qsp.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
     applyTime(qsp.get('hour') ? +qsp.get('hour') : PRESETS['golden hour']);
-    $('#loading').classList.add('hidden');
   }
   status('Building Warsaw…');
-  if (caption) await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, controls, nav, caption });
+  if (caption) await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, controls, nav, caption, P });
   else await streamer.preload();
   const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);

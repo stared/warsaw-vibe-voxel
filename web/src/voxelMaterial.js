@@ -31,7 +31,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
   };
   // PROTOTYPE (proto-ghost): ?shape= -- which columns are real is decided per pixel (zones.js); both the real tiles
   // and the clay hide where the other one is drawn
-  const ZONES = !shared && new URLSearchParams(location.search).get('shape');
+  const ZONES = !shared && (new URLSearchParams(location.search).get('shape') || new URLSearchParams(location.search).get('all1m'));
   if (ZONES) {
     const one = (fmt, type, data) => { const t = new THREE.DataTexture(data, 1, 1, fmt, type); t.needsUpdate = true; return t; };
     Object.assign(uniforms, { uZBlk: { value: one(THREE.RedIntegerFormat, THREE.UnsignedShortType, new Uint16Array(1)) },
@@ -44,7 +44,6 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
   const gu = ghost ? { uMask: { value: ghost.mask }, uGStyle: { value: ghost.style } } : {};
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms, gu);
-    if (ghost) shader.fragmentShader = '#define GHOST\nuniform sampler2D uMask; uniform int uGStyle;\n' + shader.fragmentShader;
     if ('uZMode' in uniforms) shader.fragmentShader = `#define ZONES
       uniform highp usampler2D uZBlk; uniform highp usampler2D uZBld; uniform sampler2D uZFBlk; uniform sampler2D uZFBld;
       uniform int uZMode; uniform vec2 uZFocus; uniform float uZRad;
@@ -54,12 +53,16 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         vec2 d = c.xz + 0.5 - uZFocus;
         if (uZMode == 1) return max(abs(d.x), abs(d.y)) < uZRad;
         if (uZMode == 2) return length(d) < uZRad;
+        // 7: the whole city loading (all1m.js): uZFBld is then a plain 1 m map of what is real (ground with its tile,
+        // a building once all its tiles are in), kept on the CPU; no integer texture involved
+        if (uZMode == 7) return texelFetch(uZFBld, clamp(ivec2(c.x, c.z), ivec2(0), textureSize(uZFBld, 0) - 1), 0).r > 0.5;
         uint b = texelFetch(uZBld, p, 0).r;
         if ((uZMode == 3 || uZMode == 6) && b > 0u) return zflag(uZFBld, b);
         if (uZMode == 3) return length(d) < uZRad;
         return zflag(uZFBlk, texelFetch(uZBlk, p, 0).r);
       }
     ` + shader.fragmentShader;
+    if (ghost) shader.fragmentShader = '#define GHOST\nuniform sampler2D uMask; uniform int uGStyle;\n' + shader.fragmentShader;
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
