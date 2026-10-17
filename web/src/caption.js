@@ -37,6 +37,8 @@ export async function makeCaption({ meta }) {
     shownAt = now;
   }, 200);
   return {
+    // before any square is real: show the caption with a line of its own
+    start(t) { el.classList.remove('off'); txt.textContent = t + '…'; shownAt = performance.now(); },
     // a square just turned real (bounds in scene metres)
     arrived(x0, z0, x1, z1) { for (const k of catsFor(x0, z0, x1, z1)) seen.add(k); },
     progress(done, total) {

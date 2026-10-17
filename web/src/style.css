@@ -72,7 +72,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .edge small { font: 500 10.5px Inter, system-ui, sans-serif; color: #fff; }
 .edge i { font-style: normal; display: inline-block; width: 14px; text-align: center; }
 
-#loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; background: #e9e4da; color: #555; font-size: 13px; transition: opacity .6s; z-index: 10; }
+#loading { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; transition: opacity .6s; }
+/* PROTOTYPE: the first moments look like the loading caption that follows (caption.js), not a separate page */
+#loading-text { margin-top: 14px; min-width: 260px; padding: 7px 12px 13px; background: rgba(0,0,0,.78); color: #fff; text-align: center;
+  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+#loading .spinner { display: none; }
+@media (max-width: 600px) { #loading-text { margin-top: 8px; min-width: 0; width: calc(100vw - 32px); } }
 #loading.hidden { opacity: 0; pointer-events: none; }
 .spinner { width: 28px; height: 28px; border: 3px solid rgba(0,0,0,.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

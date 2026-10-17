@@ -42,7 +42,7 @@ const nav = new Nav({ camera, controls, scene, dom: renderer.domElement, flyTo: 
 nav.cancelFly = () => { fly = null; };
 
 async function loadData() {
-  status('Loading the city…');
+  status('Building Warsaw…');
   return { meta: await fetch('data/meta.json').then((r) => r.json()) };
 }
 
@@ -559,9 +559,22 @@ function flyTo(v) {
   meta0 = meta;
   world = nav.world = streamer.world;
   nav.streamer = streamer;
-  status('Loading the city…');
-  await streamer.preload();
   const qsp = new URLSearchParams(location.search);
+  // PROTOTYPE: the whole city at 1 m has no loading screen: the view and the light are set now, and a caption
+  // tells what is being built while the clay and then the real city fill in
+  let caption = null;
+  if (qsp.get('all1m')) {
+    caption = await (await import('./caption.js')).makeCaption({ meta });
+    caption.start('Laying the ground');
+    const v = VIEWS[qsp.get('view') || 'overview'] || VIEWS.overview;
+    camera.position.set(...v.pos); controls.target.set(...v.target);
+    if (qsp.get('cam')) { const c = qsp.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
+    applyTime(qsp.get('hour') ? +qsp.get('hour') : PRESETS['golden hour']);
+    $('#loading').classList.add('hidden');
+  }
+  status('Building Warsaw…');
+  if (caption) await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, controls, nav, caption });
+  else await streamer.preload();
   const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
   // the real-area shape, radius and budget change live.
@@ -586,7 +599,6 @@ function flyTo(v) {
     show();
   }
   fExp.open(engineOf() !== 'today (levels)');
-  if (qsp.get('all1m')) await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, controls, nav, status });
   if (qsp.get('lens')) (await import('./lens.js')).installLens({ streamer, composer, n8, camera, renderer, controls, qs: qsp, tiltPass, P });
   if (qsp.get('ghost')) await (await import('./proto.js')).installProto({ streamer, material, composer, n8, camera, renderer, meta, paletteTex, lampTex: material.userData.uniforms.uLampMap.value, controls, nav, qs: qsp });
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
