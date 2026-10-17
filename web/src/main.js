@@ -253,7 +253,7 @@ function updateLabels() {
     let x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
     if (!L.w) { L.w = L.txt.offsetWidth || 160; L.h = L.txt.offsetHeight || 30; }
     let vis = false, side = 'r', pinned = false;
-    if (!L.occluded && inFront && x > -20 && x < innerWidth + 20) {
+    if (!L.occluded && inFront && x > -20 && x < innerWidth + 20 && (!window.__labelGate || window.__labelGate(L.p.x, L.p.z))) {
       // roof above the screen but the building itself in view: pin the label to the top edge
       if (y < TOP + STEM + L.h && y > -innerHeight * 0.8) {
         v.copy(L.base).project(camera);

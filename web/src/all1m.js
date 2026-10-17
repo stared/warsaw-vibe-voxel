@@ -1,77 +1,72 @@
 // PROTOTYPE (proto-ghost branch), engine A preview: the whole city at 1 m, no levels. ?all1m=1
-// Loads progressively and replaces the usual preload: the coarsest level arrives first and shows as clay from its
-// first tile, then each 128 m cell turns real as soon as its 1 m tile is meshed, nearest to where you look first.
-// A building turns real only once every tile under it is in (scripts/zones.py building map), so no building is cut
-// by the seam; traffic waits until the whole city is there. A real tile never goes back, so nothing swaps twice.
+// Loads from nothing: no clay, no coarse stand-in. 1 m tiles load nearest to the view first (landmarks a little
+// sooner); each column gets the time it became complete (its tile, or for a building the last tile under it,
+// scripts/zones.py ids) and the vertex shader builds it up from then on (voxelMaterial.js BUILD_VERTEX): ground,
+// then buildings rising, trees growing, details. Labels wait for their building, traffic for the whole city.
 // (No compact vertex format or temporal anti-aliasing yet: this is today's meshes, all of them.)
 import * as THREE from 'three';
-import { makeVoxelMaterial } from './voxelMaterial.js';
+import { makeBuildDepthMaterial, makeVoxelMaterial } from './voxelMaterial.js';
 
 export async function installAll1m({ streamer: S, material, meta, paletteTex, controls, nav, caption: cap, P }) {
-  const d = S.dims[1], coarse = S.levels[0], dc = S.dims[coarse], total = d.nx * d.ny;
-  const maskData = new Uint8Array(d.nx * d.ny);
-  const mask = new THREE.DataTexture(maskData, d.nx, d.ny, THREE.RedFormat, THREE.UnsignedByteType);
-  mask.unpackAlignment = 1; mask.needsUpdate = true;
-  // what is real, per 1 m column, kept here and uploaded as a plain R8 map (an integer id texture read back wrong
-  // on ANGLE/Metal after an in-tab reload): a tile's open ground turns real with the tile, a building (zones.py ids)
-  // only once every tile under it is in
-  // tiles start loading at once (the clay first), while the building map arrives
+  const d = S.dims[1], total = d.nx * d.ny, U = material.userData.uniforms, { W, D } = meta, T = 128;
+  // nearest first, landmarks a little sooner; nothing else streams
   S.update = () => {};
-  const clayReady = [];
-  for (let ty = 0; ty < dc.ny; ty++) for (let tx = 0; tx < dc.nx; tx++) clayReady.push(S.request(coarse, tx, ty, 1e9));
-  for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) S.request(1, tx, ty, -Math.hypot((tx + 0.5) * 128 - controls.target.x, (ty + 0.5) * 128 - controls.target.z), true);
+  const lmTile = new Set(meta.labels.map((l) => Math.floor(l.y / T) * d.nx + Math.floor(l.x / T)));
+  const prio = (tx, ty, f) => -Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z) + (lmTile.has(ty * d.nx + tx) ? 300 : 0);
+  for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) S.request(1, tx, ty, prio(tx, ty, controls.target), true);
   S.pump();
-  const U = material.userData.uniforms, { W, D } = meta;
   const [zbuf, zj] = await Promise.all([
     fetch('data/zones.bin').then((r) => new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()),
     fetch('data/zones.json').then((r) => r.json())]);
-  const bld = new Uint16Array(zbuf, W * D * 2, W * D), real = new Uint8Array(W * D);
-  const realTex = new THREE.DataTexture(real, W, D, THREE.RedFormat, THREE.UnsignedByteType);
-  realTex.unpackAlignment = 1; realTex.needsUpdate = true;
-  U.uZFBld.value = realTex; U.uZMode.value = 7;
+  // building id per column as two bytes (RG8: an integer texture read back wrong on ANGLE/Metal after an in-tab reload)
+  const idTex = new THREE.DataTexture(new Uint8Array(zbuf, W * D * 2, W * D * 2), W, D, THREE.RGFormat, THREE.UnsignedByteType);
+  idTex.unpackAlignment = 2; idTex.needsUpdate = true;
+  const nb = zj.buildings.length, bT = new Float32Array(128 * Math.ceil((nb + 1) / 128)).fill(1e9), tT = new Float32Array(total).fill(1e9);
+  const floatTex = (a, w) => { const t = new THREE.DataTexture(a, w, a.length / w, THREE.RedFormat, THREE.FloatType); t.needsUpdate = true; return t; };
+  const bTex = floatTex(bT, 128);
+  U.uBldId.value = idTex; U.uBldT.value = bTex;
   const tilesOf = zj.buildings.map((b) => { const t = [];
-    for (let ty = Math.floor(b[4] / 128); ty <= Math.min(d.ny - 1, Math.floor((b[6] - 1) / 128)); ty++)
-      for (let tx = Math.floor(b[3] / 128); tx <= Math.min(d.nx - 1, Math.floor((b[5] - 1) / 128)); tx++) t.push(ty * d.nx + tx);
+    for (let ty = Math.floor(b[4] / T); ty <= Math.min(d.ny - 1, Math.floor((b[6] - 1) / T)); ty++)
+      for (let tx = Math.floor(b[3] / T); tx <= Math.min(d.nx - 1, Math.floor((b[5] - 1) / T)); tx++) t.push(ty * d.nx + tx);
     return t; });
-  const onTile = Array.from({ length: d.nx * d.ny }, () => []);
+  const onTile = Array.from({ length: total }, () => []);
   tilesOf.forEach((t, i) => t.forEach((k) => onTile[k].push(i)));
-  const fill = (x0, y0, x1, y1, id) => { // id 0: open ground; else that building's columns
-    for (let y = y0; y < Math.min(y1, D); y++) for (let x = x0, r = y * W; x < Math.min(x1, W); x++) if (bld[r + x] === id) real[r + x] = 255; };
-  const clay = makeVoxelMaterial({ paletteTex, lampTex: material.userData.uniforms.uLampMap.value, W: meta.W, D: meta.D, ghost: { style: 1, mask }, shared: material.userData.uniforms });
-  let done = 0, t0 = performance.now();
+  const t0 = performance.now(), sec = () => (performance.now() - t0) / 1000;
+  // a label shows once its building has had time to rise
+  window.__labelGate = (x, z) => { const i = Math.floor(z / T) * d.nx + Math.floor(x / T); return tT[i] < 1e8 && sec() - tT[i] > 2.5; };
+  let done = 0, first;
+  const firstTile = new Promise((r) => { first = r; });
   S.update = (camera) => {
+    U.uBT.value = sec();
     const now = performance.now();
     if (now - (S._t || 0) < 100) return;
     S._t = now;
     const f = nav.mode === 'orbit' ? controls.target : camera.position;
     let tris = 0, ready = 0, changed = false;
     for (const n of S.nodes.values()) {
-      if (n.s === coarse) {
-        if (n.mesh && !n.clay) { n.mesh.material = clay; n.clay = true; }
-        if (n.mesh) { n.mesh.visible = true; tris += n.tris; }
-        continue;
-      }
       if (n.s !== 1) { if (n.mesh) n.mesh.visible = false; continue; }
-      if (n.state === 'queued') n.prio = -Math.hypot((n.tx + 0.5) * 128 - f.x, (n.ty + 0.5) * 128 - f.z);
+      if (n.state === 'queued') n.prio = prio(n.tx, n.ty, f);
       else if (n.state === 'ready') {
         ready++;
+        if (n.mesh && !n.built) { // its own material (same compiled shader) carrying the tile's time, main and shadow pass
+          const own = { ...U, uMeshT: { value: tT[n.ty * d.nx + n.tx] < 1e8 ? tT[n.ty * d.nx + n.tx] : sec() } };
+          n.mesh.material = makeVoxelMaterial({ paletteTex, lampTex: U.uLampMap.value, W, D, shared: own });
+          n.mesh.customDepthMaterial = makeBuildDepthMaterial(own); n.built = true;
+        }
         if (n.mesh) { n.mesh.visible = true; tris += n.tris; }
         const i = n.ty * d.nx + n.tx;
-        if (!maskData[i]) {
-          maskData[i] = 255; changed = true; cap.arrived(n.tx * 128, n.ty * 128, (n.tx + 1) * 128, (n.ty + 1) * 128);
-          fill(n.tx * 128, n.ty * 128, (n.tx + 1) * 128, (n.ty + 1) * 128, 0);
-          for (const b of onTile[i]) if (tilesOf[b].every((k) => maskData[k])) { const z = zj.buildings[b]; fill(z[3], z[4], z[5], z[6], b + 1); }
+        if (tT[i] > 1e8) {
+          tT[i] = sec(); changed = true; first();
+          cap.arrived(n.tx * T, n.ty * T, (n.tx + 1) * T, (n.ty + 1) * T);
+          for (const b of onTile[i]) if (tilesOf[b].every((k) => tT[k] < 1e8)) bT[b + 1] = tT[i];
         }
       }
     }
-    if (changed) { mask.needsUpdate = true; realTex.needsUpdate = true; }
+    if (changed) bTex.needsUpdate = true;
     if (window.__life) window.__life.group.visible = done === total && P.life; // traffic only once the city is all there
     S.tris = tris;
     S.pump();
-    if (ready !== done) { done = ready; cap.progress(done, total); if (done === total) console.log(`whole city at 1 m: ${((now - t0) / 1000).toFixed(1)} s`); }
+    if (ready !== done) { done = ready; cap.progress(done, total); if (done === total) console.log(`whole city at 1 m: ${sec().toFixed(1)} s`); }
   };
-  S.pump();
-  await Promise.all(clayReady); // the opening caption stays up until the clay city is complete
-  for (const n of S.nodes.values()) if (n.s === coarse && n.mesh) { n.mesh.material = clay; n.clay = true; n.mesh.visible = true; }
-  cap.start('Shaping the city');
+  await firstTile; // the opening caption stays until the first square starts building
 }

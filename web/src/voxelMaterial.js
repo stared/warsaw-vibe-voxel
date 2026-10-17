@@ -17,6 +17,44 @@ export function makePaletteTexture(palette) {
   return tex;
 }
 
+// PROTOTYPE (proto-ghost): the whole city loading from nothing (all1m.js). Each column has a time it became
+// complete (its 128 m tile; for a building, the last of its tiles); from then on, in the vertex shader, the ground
+// slides up into place, buildings rise from the ground, trees grow, details pop in. Shared by the depth material,
+// so shadows rise with the buildings. Nothing at all is drawn where the time has not come.
+const BUILD_PARS = `
+  uniform float uBT; uniform float uMeshT; uniform sampler2D uBldId; uniform sampler2D uBldT; uniform sampler2D uPalette;
+  attribute vec4 vattr; attribute float vpal;`;
+// uMeshT is the tile's own time, set per mesh (all corners of a face agree: a corner on a tile border never reads the
+// neighbour's time, which stretched faces into cliffs); a building waits for its last tile as a flat footprint
+const BUILD_VERTEX = (normal) => `
+  {
+    vec3 cb = floor(position - (${normal}) * 0.5 + 1e-3);
+    ivec2 col = clamp(ivec2(cb.x, cb.z), ivec2(0), textureSize(uBldId, 0) - 1);
+    vec2 bb = texelFetch(uBldId, col, 0).rg;               // building id, two bytes (no integer texture)
+    int bid = int(bb.r * 255.0 + 0.5) + 256 * int(bb.g * 255.0 + 0.5);
+    float a = uBT - uMeshT, ab = bid > 0 ? uBT - texelFetch(uBldT, ivec2(bid % 128, bid / 128), 0).r : a;
+    float hgt = position.y - vattr.z;
+    int pi = int(vpal + 0.5), m = int(texelFetch(uPalette, ivec2(pi % 64, pi / 64), 0).a * 255.0 + 0.5);
+    bool detail = m == ${MAT.LAMP} || m == ${MAT.CAR} || m == ${MAT.SIGN} || m == ${MAT.SIGNBAND} || m == ${MAT.JET} || m == ${MAT.BRONZE};
+    vec3 gone = vec3(0.0, -1e5, 0.0);
+    if (detail && a < 1.4) transformed = gone;
+    else if (m == ${MAT.LEAF}) { float h = (a - 0.9) * 30.0; if (h <= 0.0) transformed = gone; else transformed.y = vattr.z + min(hgt, h); }
+    else if (bid == 0 && hgt <= 1.5) transformed.y -= 3.0 * (1.0 - smoothstep(0.0, 0.35, a));     // ground slides up
+    else transformed.y = vattr.z + min(hgt, max((ab - 0.35) * 90.0, 0.05));                         // buildings rise
+  }`;
+export function makeBuildDepthMaterial(uniforms) {
+  const m = new THREE.MeshDepthMaterial();
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>${BUILD_PARS}
+        vec3 nIdx(float i){ return i < 0.5 ? vec3(-1.,0.,0.) : i < 1.5 ? vec3(1.,0.,0.) : i < 2.5 ? vec3(0.,0.,-1.) : i < 3.5 ? vec3(0.,0.,1.) : i < 4.5 ? vec3(0.,-1.,0.) : vec3(0.,1.,0.); }`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>${BUILD_VERTEX('nIdx(vattr.x)')}`);
+  };
+  m.customProgramCacheKey = () => 'voxel-build-depth';
+  return m;
+}
+
 export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, shared = null }) {
   const uniforms = shared || {
     uPalette: { value: paletteTex },
@@ -31,13 +69,19 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
   };
   // PROTOTYPE (proto-ghost): ?shape= -- which columns are real is decided per pixel (zones.js); both the real tiles
   // and the clay hide where the other one is drawn
-  const ZONES = !shared && (new URLSearchParams(location.search).get('shape') || new URLSearchParams(location.search).get('all1m'));
+  const ZONES = !shared && new URLSearchParams(location.search).get('shape');
   if (ZONES) {
     const one = (fmt, type, data) => { const t = new THREE.DataTexture(data, 1, 1, fmt, type); t.needsUpdate = true; return t; };
     Object.assign(uniforms, { uZBlk: { value: one(THREE.RedIntegerFormat, THREE.UnsignedShortType, new Uint16Array(1)) },
       uZBld: { value: one(THREE.RedIntegerFormat, THREE.UnsignedShortType, new Uint16Array(1)) },
       uZFBlk: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) }, uZFBld: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) },
       uZMode: { value: 0 }, uZFocus: { value: new THREE.Vector2() }, uZRad: { value: 1e9 } });
+  }
+  // PROTOTYPE (proto-ghost): ?all1m= -- the whole city builds itself up as it loads (BUILD_VERTEX, all1m.js)
+  if (!shared && new URLSearchParams(location.search).get('all1m')) {
+    const one = (fmt, type, data) => { const t = new THREE.DataTexture(data, 1, 1, fmt, type); t.needsUpdate = true; return t; };
+    Object.assign(uniforms, { uBT: { value: 0 }, uMeshT: { value: 1e9 },
+      uBldId: { value: one(THREE.RGFormat, THREE.UnsignedByteType, new Uint8Array(2)) }, uBldT: { value: one(THREE.RedFormat, THREE.FloatType, new Float32Array([1e9])) } });
   }
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
   // PROTOTYPE (proto-ghost): the ghost city outside the real square; uMask marks 128 m cells drawn for real
@@ -53,9 +97,6 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         vec2 d = c.xz + 0.5 - uZFocus;
         if (uZMode == 1) return max(abs(d.x), abs(d.y)) < uZRad;
         if (uZMode == 2) return length(d) < uZRad;
-        // 7: the whole city loading (all1m.js): uZFBld is then a plain 1 m map of what is real (ground with its tile,
-        // a building once all its tiles are in), kept on the CPU; no integer texture involved
-        if (uZMode == 7) return texelFetch(uZFBld, clamp(ivec2(c.x, c.z), ivec2(0), textureSize(uZFBld, 0) - 1), 0).r > 0.5;
         uint b = texelFetch(uZBld, p, 0).r;
         if ((uZMode == 3 || uZMode == 6) && b > 0u) return zflag(uZFBld, b);
         if (uZMode == 3) return length(d) < uZRad;
@@ -84,7 +125,9 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         }`)
       .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalFromIdx(vattr.x);`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5);`);
+        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5);
+        ${'uBT' in uniforms ? BUILD_VERTEX('objectNormal') : ''}`);
+    if ('uBT' in uniforms) shader.vertexShader = shader.vertexShader.replace('attribute vec4 vattr;\n        attribute float vpal;', BUILD_PARS);
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
