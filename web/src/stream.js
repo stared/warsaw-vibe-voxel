@@ -21,9 +21,9 @@ export class TileStreamer {
     this.inflight = 0;
     this.tris = 0;
     this.version = 0;  // bumps when column data changes (for caches)
-    // workers exist while there is work: up to 4 while streaming (a 1 m tile meshes in ~80 ms), retired after 4 s idle
+    // workers exist while there is work (a 1 m tile meshes in ~45 ms), retired after 4 s idle
     // down to one, so a settled view doesn't keep several worker heaps alive (each ~35 MB)
-    this.maxW = Math.min(Math.max(2, ((navigator.hardwareConcurrency || 4) >> 1) - 1), 4);
+    this.maxW = Math.min(Math.max(2, (navigator.hardwareConcurrency || 4) - 2), 10); // all but two cores (a phone: 2-6), at most 10
     this.workers = [];
     this.spawn();
     this.world = new StreamWorld(this);
@@ -98,7 +98,10 @@ export class TileStreamer {
         for (let r = 0; r < N && y0 + r < this.meta.D; r++) bld.set(data.subarray((y0 + r) * W + x0, (y0 + r) * W + Math.min(x0 + N, W)), r * N);
       }
       const file = (k) => new URL(`${this.base}/${k}.bin`, location.href).href;
-      if (n.fol) { w.postMessage({ type: 'node', key: n.key, url: file(`1f/${n.tx}_${n.ty}`), under: file(`1/${n.tx}_${n.ty}`), N: this.N, s: 1, x0, y0, keep: false, dataOnly: false, bld: null }); continue; }
+      if (n.fol) { // the base tile's column data is still here: hand it over (a copy) instead of fetching it again
+        const b = this.nodes.get(this.key(1, n.tx, n.ty))?.data, under = b ? { counts: b.counts.slice(), runs: b.runs.slice() } : file(`1/${n.tx}_${n.ty}`);
+        w.postMessage({ type: 'node', key: n.key, url: file(`1f/${n.tx}_${n.ty}`), under, N: this.N, s: 1, x0, y0, keep: false, dataOnly: false, bld: null }, b ? [under.counts.buffer, under.runs.buffer] : []);
+        continue; }
       w.postMessage({ type: 'node', key: n.key, url: new URL(`${this.base}/${n.key}.bin`, location.href).href, N: this.N, s: n.s, x0, y0, keep: n.keep || n.s > 1, dataOnly: !!job.dataOnly, bld }, bld ? [bld.buffer] : []);
     }
   }
@@ -112,24 +115,25 @@ export class TileStreamer {
       job?.resolve(); this.pump(); return;
     }
     if (m.type === 'error') { console.warn(m.error); n.state = 'ready'; n.empty = true; n.resolve(); this.pump(); return; }
-    if (m.idx.length) {
+    if (m.quads) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(m.pos, 3));
       geo.setAttribute('vattr', new THREE.BufferAttribute(m.attr, 4));
       geo.setAttribute('vpal', new THREE.BufferAttribute(m.pal, 1));
       if (m.bld) geo.setAttribute('vbld', new THREE.BufferAttribute(m.bld, 1));
-      geo.setIndex(new THREE.BufferAttribute(m.idx, 1));
+      geo.setIndex(this.quadIndex(m.quads)); // one index buffer shared by every tile (mesher.worker.js QUAD_ORDER)
+      geo.setDrawRange(0, m.quads * 6);
       geo.computeBoundingBox(); geo.computeBoundingSphere();
       // once on the GPU the CPU copy is not needed (culling uses the bounding sphere): don't hold every mesh twice
-      for (const a of [...Object.values(geo.attributes), geo.index]) a.onUpload(releaseArray);
+      for (const a of Object.values(geo.attributes)) a.onUpload(releaseArray);
       const mesh = new THREE.Mesh(geo, this.material);
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.visible = false;
       mesh.matrixAutoUpdate = false;
       this.group.add(mesh);
-      n.mesh = mesh; n.tris = m.idx.length / 3;
-      mesh.userData.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + m.idx.byteLength;
-      n.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + m.idx.byteLength + (m.bld ? m.bld.byteLength : 0); // GPU-side
+      n.mesh = mesh; n.tris = m.quads * 2;
+      mesh.userData.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + (m.bld ? m.bld.byteLength : 0);
+      n.bytes = mesh.userData.bytes; // GPU-side
     }
     if (m.data) this.setData(n, m.data);
     n.state = 'ready';
@@ -137,6 +141,19 @@ export class TileStreamer {
     n.resolve();
     this.dirty = true;
     this.pump();
+  }
+
+  // 0 1 2, 0 2 3 for quad after quad: every tile's quads use it, so a tile has no index buffer of its own (6 of the
+  // ~20 bytes per vertex); grown when a tile has more quads than any before (the old one is then dropped)
+  quadIndex(quads) {
+    if (!this._qi || this._qi.count < quads * 6) {
+      const n = Math.max(quads, 2 * (this._qn || 65536)), a = new Uint32Array(n * 6);
+      for (let q = 0, b = 0; q < n; q++, b += 4) a.set([b, b + 1, b + 2, b, b + 2, b + 3], q * 6);
+      const old = this._qi;
+      this._qi = new THREE.BufferAttribute(a, 1); this._qn = n;
+      if (old) for (const v of this.nodes.values()) if (v.mesh?.geometry.index === old) v.mesh.geometry.setIndex(this._qi);
+    }
+    return this._qi;
   }
 
   setData(n, { counts, ground, runs }) {
