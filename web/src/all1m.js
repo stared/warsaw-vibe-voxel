@@ -3,11 +3,11 @@
 //   1. terrain: the bare ground (terrain.bin, one small file), nothing else
 //   2. landmarks: their tiles are fetched first, landmark after landmark; each shows the moment all its tiles are in
 //   3. everything else: the rest of the tiles, nearest to the view first; each building once all its tiles are in
-//   4. foliage and details (lamps, signs, cars) once every tile is in; then traffic
-// The caption counts one thing throughout: tiles in, out of all of them.
+//   4. foliage: trees and grass are their own tiles (tiles/1f), fetched once every building tile is in; then traffic
+// The caption counts one thing throughout: tile files in (775 building tiles, then 775 foliage tiles), out of all.
 // (No compact vertex format or temporal anti-aliasing yet: this is today's meshes, all of them.)
 import * as THREE from 'three';
-import { makeBuildDepthMaterial } from './voxelMaterial.js';
+import { makeBuildDepthMaterial, makeVoxelMaterial } from './voxelMaterial.js';
 
 async function fetchBytes(url, onBytes) { // with progress: the caption shows the bytes as they come
   const res = await fetch(url), total = +res.headers.get('content-length') || 0, reader = res.body.getReader(), parts = [];
@@ -17,12 +17,12 @@ async function fetchBytes(url, onBytes) { // with progress: the caption shows th
 }
 const gunzip = (buf) => new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
 
-export async function installAll1m({ streamer: S, material, meta, scene, controls, nav, caption: cap, P }) {
+export async function installAll1m({ streamer: S, material, meta, paletteTex, scene, controls, nav, caption: cap, P }) {
   const d = S.dims[1], total = d.nx * d.ny, U = material.userData.uniforms, { W, D } = meta, T = 128;
   S.update = () => {};
   // 1. terrain
+  cap.show('Terrain', 0, 2 * total);
   const tbuf = await gunzip(await fetchBytes('data/terrain.bin', () => {}));
-  cap.show('Terrain', 0, total);
   // one terrain piece per 128 m tile, dropped the moment that tile's voxels arrive: under real ground it would
   // z-fight (flicker when moving) and poke through the flattened river
   const tw = Math.ceil(W / 4), th = Math.ceil(D / 4), hd = new Uint16Array(tbuf), C = T / 4;
@@ -38,6 +38,7 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     const m = new THREE.Mesh(g, tmat); m.receiveShadow = true; m.matrixAutoUpdate = false;
     scene.add(m); terrainOf[ty * d.nx + tx] = m;
   }
+  document.querySelector('#loading').classList.add('hidden'); // the terrain is there: from here the caption tells what arrives
   // building ids (zones.bin): the mesher keeps buildings apart and tags each vertex; one flag per building says shown
   const [zbuf, zj] = await Promise.all([fetch('data/zones.bin').then((r) => r.arrayBuffer()).then(gunzip), fetch('data/zones.json').then((r) => r.json())]);
   const bld = new Uint16Array(zbuf, W * D * 2, W * D);
@@ -67,11 +68,13 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
   S.pump();
   const depthMat = makeBuildDepthMaterial(U);
   const inTile = new Uint8Array(total), complete = new Uint8Array(nb);
-  let tilesIn = 0, lmShown = 0, bShown = 0, stage = 1;
+  let tilesIn = 0, folIn = 0, lmShown = 0, bShown = 0, stage = 1;
+  const folMat = makeVoxelMaterial({ paletteTex, lampTex: U.uLampMap.value, W, D, shared: U });
+  folMat.polygonOffset = true; folMat.polygonOffsetFactor = -1; folMat.polygonOffsetUnits = -2;
   const show = (b) => { if (!on[b + 1]) { on[b + 1] = 255; bShown++; if (isLm.has(b)) lmShown++; } };
   // labels: a building's label once it shows; the others (parks, the river) with the foliage
   const lblB = new Map(meta.labels.map((l) => [`${l.x + 0.5},${l.y + 0.5}`, bldAt(l.x, l.y)]));
-  window.__labelGate = (x, z) => { const b = lblB.get(`${x},${z}`); return b >= 0 ? on[b + 1] > 0 : stage >= 3; };
+  window.__labelGate = (x, z) => { const b = lblB.get(`${x},${z}`); return b >= 0 ? on[b + 1] > 0 : stage >= 4; };
   const t0 = performance.now();
   S.update = (camera) => {
     if (performance.now() - (S._t || 0) < 100) return;
@@ -83,6 +86,11 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     for (const n of S.nodes.values()) {
       if (n.s !== 1) continue;
       if (n.state === 'queued') { n.prio = prio(n.tx, n.ty, f); continue; }
+      if (n.fol) { // a foliage tile: drawn over the base, winning where its grass lies on the base's bare earth
+        if (n.state === 'ready' && !n.counted) { n.counted = true; folIn++; if (n.mesh) { n.mesh.material = folMat; n.mesh.visible = true; } }
+        if (n.mesh) tris += n.tris;
+        continue;
+      }
       if (n.state !== 'ready') continue;
       const i = n.ty * d.nx + n.tx;
       if (!inTile[i]) {
@@ -97,11 +105,15 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     }
     // the stages follow what has arrived: everything else once every landmark is in, the foliage once every tile is
     if (stage === 1 && lmShown === landmarks.length) { stage = 2; U.uStage.value = 2; for (let b = 0; b < nb; b++) if (complete[b]) show(b); changed = true; }
-    if (stage === 2 && tilesIn === total) { stage = 3; U.uStage.value = 3; console.log(`whole city at 1 m: ${((performance.now() - t0) / 1000).toFixed(1)} s`); }
+    if (stage === 2 && tilesIn === total) {
+      stage = 3; U.uStage.value = 3; console.log(`buildings: ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+      for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) S.requestFoliage(tx, ty, (seen[ty * d.nx + tx] ? 1e5 : 0) - Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z));
+    }
+    if (stage === 3 && folIn === total) { stage = 4; console.log(`whole city at 1 m with foliage: ${((performance.now() - t0) / 1000).toFixed(1)} s`); }
     // a tile's terrain piece goes once its own ground shows (stage 2); before, the hidden ground is folded under it
     if (stage >= 2) for (let i = 0; i < total; i++) if (inTile[i] && terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
     if (changed) onTex.needsUpdate = true;
-    if (window.__life) window.__life.group.visible = stage >= 3 && P.life;
+    if (window.__life) window.__life.group.visible = stage >= 4 && P.life;
     // the long building stage in named parts, each a set of tiles loaded in turn: what you see, then the rest of the
     // city in rings around you; ticks on the bar where each part ends (same tile count as the bar)
     const RINGS = [['Buildings in view', 0], ['Buildings within 1 km', 1000], ['Buildings within 2 km', 2000], ['Buildings to the edge', 1e9]];
@@ -110,12 +122,13 @@ export async function installAll1m({ streamer: S, material, meta, scene, control
     let lmTiles = 0;
     for (let i = 0; i < total; i++) { if (lmPrio.has(i)) { lmTiles++; continue; } size[part(i)]++; }
     const ends = [lmTiles]; for (const n of size) ends.push(ends[ends.length - 1] + n);
-    cap.ticks(ends.slice(0, -1), total);
+    cap.ticks(ends, 2 * total); // the last one: where the foliage tiles start
     // the part is the one whose stretch of the bar the count is in (a last straggler of a part loading late
     // doesn't hold its name while the next part fills)
     let now = 0; while (now < 3 && tilesIn >= ends[now + 1]) now++;
-    if (stage < 3) cap.show(stage === 1 ? 'Landmarks' : RINGS[now][0], tilesIn, total);
-    else cap.finish('Foliage', total);
+    if (stage < 3) cap.show(stage === 1 ? 'Landmarks' : RINGS[now][0], tilesIn, 2 * total);
+    else if (stage === 3) cap.show('Foliage', total + folIn, 2 * total);
+    else cap.finish('Foliage', 2 * total);
     S.tris = tris;
     S.pump();
   };

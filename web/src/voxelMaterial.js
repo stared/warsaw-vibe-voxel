@@ -17,26 +17,22 @@ export function makePaletteTexture(palette) {
   return tex;
 }
 
-// What of the whole city is shown while it loads (all1m.js): no timing, only what has arrived. A building shows once
-// all its tiles are in and its turn has come (uBldOn, set on the CPU: landmarks first); other ground from stage 2
-// (after the landmarks); trees, grass and details from stage 3 (every tile in). Hidden: in stage 1 folded under the
-// bare terrain (all1m.js keeps a tile's terrain piece until stage 2); later a building lies flat as a ground-coloured
-// footprint, grass is shown as bare ground, trees and details are not drawn. Shared by the depth material.
+// What of the whole city is shown while it loads (all1m.js), in order: a building once all its tiles are in and its
+// turn has come (uBldOn, set on the CPU: landmarks first), the other ground of a tile from stage 2 (after the
+// landmarks). Trees and grass are not in these tiles at all: they are their own files, loaded last (tiles.py).
+// Hidden: in stage 1 folded under the bare terrain (all1m.js keeps a tile's terrain piece until stage 2); later a
+// building lies flat as a ground-coloured footprint. Shared by the depth material.
 const BUILD_PARS = `
-  uniform float uStage; uniform sampler2D uBldOn; uniform sampler2D uPalette;
+  uniform float uStage; uniform sampler2D uBldOn;
   attribute vec4 vattr; attribute float vpal; attribute float vbld;`;
 const BUILD_VERTEX = (normal) => `
   float hideB = 0.0;
   {
     int bid = int(vbld + 0.5);                            // the face's building (mesher.worker.js), 0: none
-    int pi = int(vpal + 0.5), m = int(texelFetch(uPalette, ivec2(pi % 64, pi / 64), 0).a * 255.0 + 0.5);
-    bool grass = m == ${MAT.GRASS};
-    bool above = m == ${MAT.LEAF} || m == ${MAT.LAMP} || m == ${MAT.CAR} || m == ${MAT.SIGN} || m == ${MAT.SIGNBAND} || m == ${MAT.JET} || m == ${MAT.BRONZE};
-    bool on = above || grass ? uStage > 2.5 : bid > 0 ? texelFetch(uBldOn, ivec2(bid % 128, bid / 128), 0).r > 0.5 : uStage > 1.5;
+    bool on = bid > 0 ? texelFetch(uBldOn, ivec2(bid % 128, bid / 128), 0).r > 0.5 : uStage > 1.5;
     if (!on) {
-      if (uStage < 1.5) transformed.y = vattr.z - 3.0;            // under the terrain piece
-      else if (above) transformed = vec3(0.0, -1e5, 0.0);         // not drawn
-      else { hideB = 1.0; if (!grass) transformed.y = vattr.z; }  // a flat footprint / bare ground
+      if (uStage < 1.5) transformed.y = vattr.z - 3.0;   // under the terrain piece
+      else { hideB = 1.0; transformed.y = vattr.z; }     // a flat footprint
     }
   }`;
 export function makeBuildDepthMaterial(uniforms) {

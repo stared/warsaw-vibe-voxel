@@ -23,8 +23,16 @@ self.onmessage = async (e) => {
       self.postMessage({ type: 'node', key: m.key, dataOnly: true, data }, [data.counts.buffer, data.ground.buffer, runs.buffer]);
       return;
     }
+    // a foliage tile (tiles/1f) is meshed over its base tile: the base only hides faces, it draws nothing here
+    let under = null;
+    if (m.under) {
+      const ub = await new Response((await fetch(m.under)).body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+      const uc = new Uint16Array(ub, 0, n2); let un = 0;
+      for (let i = 0; i < n2; i++) un += uc[i];
+      under = { counts: uc, runs: new Uint16Array(ub.slice(n2 * 3, n2 * 3 + un * 6)) };
+    }
     const t1 = performance.now();
-    const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs, detail, m.bld);
+    const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs, detail, m.bld, under);
     out.ms = [Math.round(t1 - t0), Math.round(performance.now() - t1)]; // fetch+unzip, mesh
     const transfer = [out.pos.buffer, out.attr.buffer, out.pal.buffer, out.idx.buffer];
     if (out.bld) transfer.push(out.bld.buffer);
@@ -41,7 +49,7 @@ self.onmessage = async (e) => {
 
 // bldIds (optional, N x N, 1 m nodes): which building each column belongs to (scripts/zones.py, 0: none). Faces never
 // merge across two buildings, and every vertex carries its face's building, so the viewer can show whole buildings.
-function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds) {
+function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds, under) {
   const S = N + 2;
   const offsets = new Uint32Array(S * S + 1);
   for (let i = 0; i < S * S; i++) offsets[i + 1] = offsets[i] + counts[i];
@@ -50,9 +58,21 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds) {
     const n = counts[c];
     if (n) { const r = (offsets[c] + n - 1) * 3, top = runs[r] + runs[r + 1]; if (top > zmax) zmax = top; }
   }
+  let uoff = null;
+  if (under) {
+    uoff = new Uint32Array(S * S + 1);
+    for (let i = 0; i < S * S; i++) uoff[i + 1] = uoff[i] + under.counts[i];
+    for (let c = 0; c < S * S; c++) { const n = under.counts[c]; if (n) { const r = (uoff[c] + n - 1) * 3, top = under.runs[r] + under.runs[r + 1]; if (top > zmax) zmax = top; } }
+  }
   const sx = S, sy = S, sz = zmax + 2;
   const vol = new Uint16Array(sx * sy * sz);
   const SOLID_BELOW = 65535;
+  const OCC = 65534; // the base tile under a foliage tile: solid for culling and AO, never meshed
+  if (under) for (let c = 0; c < S * S; c++)
+    for (let k = uoff[c], e = uoff[c] + under.counts[c]; k < e; k++) {
+      const z0 = under.runs[k * 3], len = under.runs[k * 3 + 1];
+      for (let z = z0; z < z0 + len; z++) vol[c + sx * sy * (z + 1)] = OCC;
+    }
   for (let c = 0; c < S * S; c++) {
     vol[c] = SOLID_BELOW; // z = -1 counts as solid so the slab bottom is never meshed
     for (let k = offsets[c], e = offsets[c] + counts[c]; k < e; k++) {
@@ -93,10 +113,10 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds) {
             p[d] = sl; p[u] = i; p[v] = j;
             const a = at(p[0] + 1, p[1] + 1, p[2] + 1);
             let key = 0;
-            if (a !== 0 && a !== SOLID_BELOW) {
+            if (a !== 0 && a !== SOLID_BELOW && a !== OCC) {
               const nx = p[0] + 1 + q[0] * dir, ny = p[1] + 1 + q[1] * dir, nz = p[2] + 1 + q[2] * dir;
               const nb = at(nx, ny, nz);
-              if (nb === 0 || (border && nb !== SOLID_BELOW)) {
+              if (nb === 0 || (border && nb !== SOLID_BELOW && nb !== OCC)) {
                 const U = [0, 0, 0], V = [0, 0, 0];
                 U[u] = 1; V[v] = 1;
                 const solid = (du, dv) => {

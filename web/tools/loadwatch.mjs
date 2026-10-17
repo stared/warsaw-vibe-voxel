@@ -11,7 +11,7 @@ page.on('console', (m) => { if (m.type() === 'error' || m.text().includes('whole
 const t0 = Date.now(), log = [];
 await page.goto('http://localhost:5173/', { waitUntil: 'commit' });
 let lastShot = -1e9;
-while (Date.now() - t0 < 40000) {
+while (Date.now() - t0 < 60000) {
   const s = await page.evaluate(() => {
     const c = document.querySelector('.caption'), l = document.querySelector('#loading');
     const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left * 10) / 10, Math.round(b.width * 10) / 10]; };

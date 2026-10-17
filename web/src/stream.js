@@ -56,6 +56,18 @@ export class TileStreamer {
     if (prio >= 1e8) n.pinned = performance.now() + 15000; // asked for explicitly (preload / ensure): don't drop it
     return n.ready;
   }
+  // a tile's foliage (tiles/1f: trees, trunks, grass), meshed over its base tile; resolves when its mesh is ready
+  requestFoliage(tx, ty, prio) {
+    const k = `f/${tx}_${ty}`;
+    let n = this.nodes.get(k);
+    if (!n) {
+      n = { s: 1, tx, ty, key: k, fol: true, state: 'queued', used: performance.now() };
+      n.ready = new Promise((r) => { n.resolve = r; });
+      this.nodes.set(k, n); this.queue.push(n);
+    }
+    n.prio = prio;
+    return n.ready;
+  }
   spawn() {
     const w = new Worker(new URL('./mesher.worker.js', import.meta.url), { type: 'module' });
     w.busy = 0; w.idle = performance.now();
@@ -85,6 +97,8 @@ export class TileStreamer {
         const { data, W } = this.bldMap, N = this.N; bld = new Uint16Array(N * N);
         for (let r = 0; r < N && y0 + r < this.meta.D; r++) bld.set(data.subarray((y0 + r) * W + x0, (y0 + r) * W + Math.min(x0 + N, W)), r * N);
       }
+      const file = (k) => new URL(`${this.base}/${k}.bin`, location.href).href;
+      if (n.fol) { w.postMessage({ type: 'node', key: n.key, url: file(`1f/${n.tx}_${n.ty}`), under: file(`1/${n.tx}_${n.ty}`), N: this.N, s: 1, x0, y0, keep: false, dataOnly: false, bld: null }); continue; }
       w.postMessage({ type: 'node', key: n.key, url: new URL(`${this.base}/${n.key}.bin`, location.href).href, N: this.N, s: n.s, x0, y0, keep: n.keep || n.s > 1, dataOnly: !!job.dataOnly, bld }, bld ? [bld.buffer] : []);
     }
   }

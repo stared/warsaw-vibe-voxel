@@ -3,7 +3,7 @@
 // tabular digits: nothing jumps. Nothing is timed or decorative: all1m.js calls show() with what has arrived.
 export function makeCaption() {
   const el = document.createElement('div');
-  el.className = 'caption';
+  el.className = 'caption off'; // shown with its first line (show), in place of the loading box
   el.innerHTML = '<span class="txt"><span class="st"></span><span class="n"></span></span><span class="bar"><i></i></span>';
   document.body.appendChild(el);
   const st = el.querySelector('.st'), num = el.querySelector('.n'), fill = el.querySelector('i');
@@ -15,7 +15,7 @@ export function makeCaption() {
     // stage on the left, count on the right (right-aligned, tabular digits): neither moves as the numbers change
     show(stage, done, total) {
       if (finished) return;
-      st.textContent = stage; num.textContent = `${done} / ${total} tiles`;
+      st.textContent = stage; num.textContent = `${done} / ${total} tiles`; el.classList.remove('off');
       fill.style.width = `${(100 * Math.min(1, done / Math.max(1, total))).toFixed(1)}%`;
     },
     finish(stage, total) {

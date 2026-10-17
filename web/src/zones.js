@@ -96,6 +96,8 @@ export async function installZones({ streamer: S, material, meta, paletteTex, co
   for (const n of S.nodes.values()) if (n.s === 8 && n.mesh) { n.mesh.material = clay; n.mesh.visible = true; n.clay = true; }
 
   const d1 = S.dims[1], T = 128;
+  const folMat = makeVoxelMaterial({ paletteTex, lampTex: U.uLampMap.value, W, D, shared: U }); // over the base's bare earth
+  folMat.polygonOffset = true; folMat.polygonOffsetFactor = -1; folMat.polygonOffsetUnits = -2;
   const bdist = (b, f) => Math.hypot(Math.max(b[3] - f.x, 0, f.x - b[5]), Math.max(b[4] - f.z, 0, f.z - b[6])); // bbox [cx, cy, n, x0, y0, x1, y1]
   const hash = (i) => { let h = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b); h ^= h >>> 13; return ((Math.imul(h, 0xc2b2ae35) >>> 0) % 1000) / 1000; };
   const tilesOf = (b, out) => { for (let ty = Math.floor(b[4] / T); ty <= Math.min(d1.ny - 1, Math.floor((b[6] - 1) / T)); ty++)
@@ -119,7 +121,8 @@ export async function installZones({ streamer: S, material, meta, paletteTex, co
       for (const [b, i] of zj.blocks.map((b, i) => [b, i]).sort((a, c) => bdist(a[0], f) - bdist(c[0], f))) {
         sum += b[7] || 0; if (sum > BUDGET * (onBlk.has(i + 1) ? 1.1 : 1)) break; wantBlk.push(i + 1); tilesOf(b, need); } }
     for (const k of need) { const [, r] = k.split('/'); const [tx, ty] = r.split('_').map(Number);
-      S.request(1, tx, ty, -Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z), false); }
+      const p = -Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z);
+      S.request(1, tx, ty, p, false); S.requestFoliage(tx, ty, p - 1e4); } // trees and grass are their own tiles (tiles.py)
     S.pump();
     const ready = (k) => S.nodes.get(k)?.state === 'ready';
     const allReady = (b) => { for (const k of tilesOf(b, new Set())) if (!ready(k)) return false; return true; };
@@ -134,13 +137,15 @@ export async function installZones({ streamer: S, material, meta, paletteTex, co
     let tris = 0;
     for (const n of [...S.nodes.values()]) {
       if (n.clay) { tris += n.tris || 0; continue; }
+      if (n.fol) { const base = S.nodes.get(S.key(1, n.tx, n.ty)), on = need.has(S.key(1, n.tx, n.ty)) && n.state === 'ready' && base?.state === 'ready';
+        if (n.mesh) { n.mesh.visible = on; n.mesh.material = folMat; } if (on) { tris += n.tris || 0; n.used = now; } else if (n.state === 'ready' && now - (n.used || 0) > 4000) S.free(n); continue; }
       const on = n.s === 1 && need.has(n.key) && n.state === 'ready';
       if (n.mesh) n.mesh.visible = on;
       if (on) { tris += n.tris || 0; n.used = now; }
       else if (n.state === 'ready' && n.s !== 8 && now - (n.used || 0) > 4000 && !(n.pinned > now)) S.free(n);
     }
     S.tris = tris;
-    S.queue = S.queue.filter((n) => need.has(n.key) || n.s === 8);
+    S.queue = S.queue.filter((n) => need.has(n.fol ? S.key(1, n.tx, n.ty) : n.key) || n.s === 8);
   };
   window.__zones = { onBlk, onBld };
   // the Experimental menu changes these live

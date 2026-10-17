@@ -569,8 +569,7 @@ function flyTo(v) {
   const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
   if (!zones) {
     const caption = (await import('./caption.js')).makeCaption();
-    $('#loading').classList.add('hidden'); // from here the caption tells what is arriving
-    await (await import('./all1m.js')).installAll1m({ streamer, material, meta, scene, controls, nav, caption, P });
+    await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, scene, controls, nav, caption, P });
   }
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
   // the real-area shape, radius and budget change live.
