@@ -991,6 +991,11 @@ for l in labels:
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
 vol = vol[:Hm]
 note("final height", Hm, "palette", len(pal.entries))
+# the ground as the tiles show it before the foliage (grass as bare earth), for terrain.py: the first moment of loading
+_ids = vol[g - 1, np.arange(D)[:, None], np.arange(W)[None, :]]
+_lut = np.array([e[:3] for e in pal.entries], np.uint8)
+_lut[[i for i, e in enumerate(pal.entries) if e[3] == M_GRASS]] = _lut[C["bare"]]
+np.savez_compressed("data/ground.npz", g=g.astype(np.int16), rgb=_lut[_ids])
 import tiles
 tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
                          skip_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},

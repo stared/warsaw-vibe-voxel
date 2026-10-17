@@ -630,7 +630,8 @@ function flyTo(v) {
   camera.updateProjectionMatrix();
   P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || 'custom';
   const qs = new URLSearchParams(location.search);
-  if (qs.get('tilt') === '0' || innerWidth < 600) P.tilt = false;
+  // clay has no blur of any kind by default (the miniature blur included): ?tilt=1 brings it back
+  if (qs.get('tilt') === '0' || innerWidth < 600 || (qs.get('shape') && qs.get('tilt') !== '1')) P.tilt = false;
   if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
   gui.controllersRecursive().forEach((c) => c.updateDisplay());
   $('#loading').classList.add('hidden');

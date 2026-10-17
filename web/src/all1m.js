@@ -25,16 +25,23 @@ export async function installAll1m({ streamer: S, material, meta, paletteTex, sc
   const tbuf = await gunzip(await fetchBytes('data/terrain.bin', () => {}));
   // one terrain piece per 128 m tile, dropped the moment that tile's voxels arrive: under real ground it would
   // z-fight (flicker when moving) and poke through the flattened river
-  const tw = Math.ceil(W / 4), th = Math.ceil(D / 4), hd = new Uint16Array(tbuf), C = T / 4;
-  const tmat = new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 0.95 }), terrainOf = new Array(total);
+  // (heights every 4 m, then the ground's colours every 2 m: roads, squares, water as the tiles will show them)
+  const tw = Math.ceil(W / 4), th = Math.ceil(D / 4), hd = new Uint16Array(tbuf, 0, tw * th), C = T / 4;
+  const cw = Math.floor(W / 2), ch = Math.floor(D / 2), rgb = new Uint8Array(tbuf, tw * th * 2, cw * ch * 3), rgba = new Uint8Array(cw * ch * 4);
+  for (let i = 0; i < cw * ch; i++) { rgba[4 * i] = rgb[3 * i]; rgba[4 * i + 1] = rgb[3 * i + 1]; rgba[4 * i + 2] = rgb[3 * i + 2]; rgba[4 * i + 3] = 255; }
+  const ttex = new THREE.DataTexture(rgba, cw, ch, THREE.RGBAFormat);
+  ttex.colorSpace = THREE.SRGBColorSpace; ttex.magFilter = THREE.NearestFilter; ttex.minFilter = THREE.LinearMipmapLinearFilter;
+  ttex.generateMipmaps = true; ttex.anisotropy = 8; ttex.needsUpdate = true;
+  const tmat = new THREE.MeshStandardMaterial({ map: ttex, roughness: 0.95 }), terrainOf = new Array(total);
   for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) {
     const c0 = tx * C, r0 = ty * C, nc = Math.min(C, tw - 1 - c0) + 1, nr = Math.min(C, th - 1 - r0) + 1;
     if (nc < 2 || nr < 2) continue;
-    const pos = new Float32Array(nc * nr * 3), idx = new Uint16Array((nc - 1) * (nr - 1) * 6);
-    for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) pos.set([(c0 + c) * 4, hd[(r0 + r) * tw + c0 + c] / 10, (r0 + r) * 4], (r * nc + c) * 3);
+    const pos = new Float32Array(nc * nr * 3), uv = new Float32Array(nc * nr * 2), idx = new Uint16Array((nc - 1) * (nr - 1) * 6);
+    for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) { const k = r * nc + c;
+      pos.set([(c0 + c) * 4, hd[(r0 + r) * tw + c0 + c] / 10, (r0 + r) * 4], k * 3); uv.set([(c0 + c) * 2 / cw, (r0 + r) * 2 / ch], k * 2); }
     for (let r = 0, k = 0; r < nr - 1; r++) for (let c = 0; c < nc - 1; c++, k += 6) { const i = r * nc + c; idx.set([i, i + nc, i + 1, i + 1, i + nc, i + nc + 1], k); }
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeVertexNormals();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeVertexNormals();
     const m = new THREE.Mesh(g, tmat); m.receiveShadow = true; m.matrixAutoUpdate = false;
     scene.add(m); terrainOf[ty * d.nx + tx] = m;
   }
@@ -112,17 +119,17 @@ export async function installAll1m({ streamer: S, material, meta, paletteTex, sc
     if (stage === 3 && folIn === total) { stage = 4; console.log(`whole city at 1 m with foliage: ${((performance.now() - t0) / 1000).toFixed(1)} s`); }
     // a tile's terrain piece goes once its own ground shows (stage 2); before, the hidden ground is folded under it
     if (stage >= 2) for (let i = 0; i < total; i++) if (inTile[i] && terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
+    if (stage >= 3 && ttex.image.data) { ttex.dispose(); ttex.image.data = null; } // the last terrain piece is gone
     if (changed) onTex.needsUpdate = true;
     if (window.__life) window.__life.group.visible = stage >= 4 && P.life;
     // the long building stage in named parts, each a set of tiles loaded in turn: what you see, then the rest of the
-    // city in rings around you; ticks on the bar where each part ends (same tile count as the bar)
+    // city in rings around you
     const RINGS = [['Buildings in view', 0], ['Buildings within 1 km', 1000], ['Buildings within 2 km', 2000], ['Buildings to the edge', 1e9]];
     const part = (i) => { if (seen[i]) return 0; const r = Math.hypot((i % d.nx + 0.5) * T - f.x, (Math.floor(i / d.nx) + 0.5) * T - f.z); return r < 1000 ? 1 : r < 2000 ? 2 : 3; };
     const size = [0, 0, 0, 0];
     let lmTiles = 0;
     for (let i = 0; i < total; i++) { if (lmPrio.has(i)) { lmTiles++; continue; } size[part(i)]++; }
     const ends = [lmTiles]; for (const n of size) ends.push(ends[ends.length - 1] + n);
-    cap.ticks(ends, 2 * total); // the last one: where the foliage tiles start
     // the part is the one whose stretch of the bar the count is in (a last straggler of a part loading late
     // doesn't hold its name while the next part fills)
     let now = 0; while (now < 3 && tilesIn >= ends[now + 1]) now++;

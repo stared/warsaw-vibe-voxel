@@ -124,6 +124,5 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .caption.off { opacity: 0; }
 .caption .txt { display: flex; justify-content: space-between; white-space: nowrap; }
 .caption .bar { position: relative; height: 2px; background: #333; }
-.caption .bar b { position: absolute; top: -2px; width: 1px; height: 6px; background: #888; }
 .caption .bar i { display: block; height: 100%; width: 0; background: #2fa1d6; transition: width .3s; }
 @media (max-width: 600px) { .caption { top: 8px; min-width: 0; width: calc(100vw - 32px); } }
