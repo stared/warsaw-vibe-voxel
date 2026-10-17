@@ -42,7 +42,7 @@ const nav = new Nav({ camera, controls, scene, dom: renderer.domElement, flyTo: 
 nav.cancelFly = () => { fly = null; };
 
 async function loadData() {
-  status('Building Warsaw…');
+  status('Loading the map data…');
   return { meta: await fetch('data/meta.json').then((r) => r.json()) };
 }
 
@@ -534,7 +534,6 @@ let fly = null;
 function flyTo(v) {
   const p0 = camera.position.clone(), t0v = controls.target.clone(), t0 = performance.now();
   const p1 = new THREE.Vector3(...v.pos), t1 = new THREE.Vector3(...v.target);
-  streamer?.prefetch(p1, t1, camera); // fetch the destination's tiles while we fly (no coarse blocks on arrival)
   fly = (now) => {
     const t = Math.min(1, (now - t0) / (v.ms || 1600)), e = t * t * (3 - 2 * t);
     camera.position.lerpVectors(p0, p1, e);
@@ -550,7 +549,7 @@ function flyTo(v) {
   const paletteTex = makePaletteTexture(meta.palette);
   const material = makeVoxelMaterial({ paletteTex, lampTex: makeLampMap(meta), W: meta.W, D: meta.D });
   uniforms = material.userData.uniforms;
-  // the city streams in as a quadtree of tiles (stream.js): coarse everywhere at once, finer near the camera
+  // the city's 1 m tiles (stream.js), loaded and shown by all1m.js (or the zones.js prototype)
   streamer = new TileStreamer({ meta, material, scene });
   window.__streamer = streamer;
   bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(meta.W, meta.H, meta.D));
@@ -560,25 +559,23 @@ function flyTo(v) {
   world = nav.world = streamer.world;
   nav.streamer = streamer;
   const qsp = new URLSearchParams(location.search);
-  // PROTOTYPE: the whole city at 1 m has no loading screen: the view and the light are set now, and a caption
-  // tells what is being built while the clay and then the real city fill in
-  let caption = null;
-  if (qsp.get('all1m')) {
-    caption = await (await import('./caption.js')).makeCaption({ meta });
-    caption.start('Laying the ground');
-    const v = VIEWS[qsp.get('view') || 'overview'] || VIEWS.overview;
-    camera.position.set(...v.pos); controls.target.set(...v.target);
-    if (qsp.get('cam')) { const c = qsp.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
-    applyTime(qsp.get('hour') ? +qsp.get('hour') : PRESETS['golden hour']);
-  }
-  status('Building Warsaw…');
-  if (caption) await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, controls, nav, caption, P });
-  else await streamer.preload();
+  // the view and the light are set at once: the city builds itself up in front of you, with a caption saying what
+  // is being built (all1m.js); ?shape= is the real-area-over-clay prototype instead
+  const v0 = VIEWS[qsp.get('view') || 'overview'] || VIEWS.overview;
+  camera.position.set(...v0.pos); controls.target.set(...v0.target);
+  if (qsp.get('cam')) { const c = qsp.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
+  applyTime(qsp.get('hour') ? +qsp.get('hour') : PRESETS['golden hour']);
+  status('Loading the map data…');
   const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
+  if (!zones) {
+    const caption = (await import('./caption.js')).makeCaption();
+    $('#loading').classList.add('hidden'); // from here the caption tells what is arriving
+    await (await import('./all1m.js')).installAll1m({ streamer, material, meta, scene, controls, nav, caption, P });
+  }
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
   // the real-area shape, radius and budget change live.
-  const ENGINES = { 'today (levels)': '', 'real area + clay': 'shape=budget&budget=2', 'whole city at 1 m': 'all1m=1' };
-  const engineOf = () => Object.keys(ENGINES).find((k) => ENGINES[k] && qsp.get(ENGINES[k].split('=')[0]) !== null) || 'today (levels)';
+  const ENGINES = { 'whole city at 1 m': '', 'real area + clay': 'shape=budget&budget=2' };
+  const engineOf = () => (zones ? 'real area + clay' : 'whole city at 1 m');
   const reloadWith = (q) => { const c = camera.position, t = controls.target, u = new URLSearchParams(q);
     u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
     location.search = u.toString(); };
@@ -596,10 +593,8 @@ function flyTo(v) {
     fExp.add(zones, 'outside', ['clay', 'colour']).name('outside').onChange(sync);
     fExp.add(zones, 'blur', 0, 24, 1).name('blur outside (m)').onChange(sync);
     show();
+    fExp.open();
   }
-  fExp.open(engineOf() !== 'today (levels)');
-  if (qsp.get('lens')) (await import('./lens.js')).installLens({ streamer, composer, n8, camera, renderer, controls, qs: qsp, tiltPass, P });
-  if (qsp.get('ghost')) await (await import('./proto.js')).installProto({ streamer, material, composer, n8, camera, renderer, meta, paletteTex, lampTex: material.userData.uniforms.uLampMap.value, controls, nav, qs: qsp });
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
@@ -633,18 +628,12 @@ function flyTo(v) {
   const statsEl = $('#stats');
   setInterval(() => { statsEl.textContent = `${(meta.W / 1000).toFixed(2)} × ${(meta.D / 1000).toFixed(2)} km · 1 m voxels · ${(streamer.tris / 1e6).toFixed(1)} M tris on screen`; }, 1000);
   $('#sources').innerHTML = `LiDAR, orthophoto: GUGiK 2025<br>map data © OpenStreetMap contributors, ${meta.sources.osm.slice(0, 10)}`;
-  const v = VIEWS[new URLSearchParams(location.search).get('view') || 'overview'] || VIEWS.overview;
-  camera.position.set(...v.pos);
-  controls.target.set(...v.target);
   camera.updateProjectionMatrix();
-  const qh = new URLSearchParams(location.search).get('hour');
-  applyTime(qh ? +qh : PRESETS['golden hour']);
   P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || 'custom';
   const qs = new URLSearchParams(location.search);
   if (qs.get('tilt') === '0' || innerWidth < 600) P.tilt = false;
   if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
   gui.controllersRecursive().forEach((c) => c.updateDisplay());
-  if (qs.get('cam')) { const c = qs.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
   $('#loading').classList.add('hidden');
   window.__ready = true;
 })();
@@ -660,7 +649,7 @@ renderer.setAnimationLoop((now) => {
   hud?.update();
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3; // height above the street (was absolute: the map's base moved with the Vistula)
-  tiltPass.enabled = P.tilt && camH > 60 && !window.__lens;
+  tiltPass.enabled = P.tilt && camH > 60;
   // ...and over the whole map (3+ km up) it would blur most of the city: widen the band again up there
   tilt.focusArea = 0.8 + 0.2 * (1 - Math.min(1, Math.max(0, (camH - 60) / 250))) + 0.2 * Math.min(1, Math.max(0, (camH - 1200) / 1500));
   if (scene.fog) { const d = camera.position.distanceTo(controls.target); scene.fog.near = Math.max(2500, d * 1.05); scene.fog.far = scene.fog.near + 4500; } // haze beyond what you look at
@@ -669,7 +658,7 @@ renderer.setAnimationLoop((now) => {
   if (fountains) fountains.update(tsec, state.night);
   if (life && life.group.visible) life.update(dtf, state.hour, state.night, nav.mode === 'orbit' ? controls.target : camera.position);
   sky.mesh.position.copy(camera.position);
-  if (streamer) { streamer.focus = nav.focusPoints(); streamer.update(camera); }
+  if (streamer) streamer.update(camera);
   fitShadow();
   composer.render();
   updateLabels();

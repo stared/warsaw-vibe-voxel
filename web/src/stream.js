@@ -1,14 +1,9 @@
 import * as THREE from 'three';
 
-// Streams the quadtree of voxel nodes (scripts/tiles.py): each node is N x N cells of s metres, s in {8, 4, 2, 1}.
-// Every refresh picks, for each part of the city, the coarsest level whose cells stay under ~ERR_PX pixels from
-// the camera (plus full detail around "focus" points: where you walk, who you ride with). Nodes are fetched and
-// meshed by a worker pool; a parent stays on screen until all its children are ready (and vice versa), so there
-// are no holes while streaming. Nodes off the wanted set for a while are disposed (geometry and column data).
-const ERR_PX = +(new URLSearchParams(location.search).get('err') || 3); // px a coarser cell may span (3: 0.4% of pixels differ from full detail, tools/cmpshots.mjs)
-const FOCUS_R = 260;     // full 1 m detail within this radius of focus points (street level, rides, landing)
-const KEEP_MS = 8000;    // unused nodes are freed after this long
-const CAP_MB = 150;      // and hidden ones are evicted (least recently used) beyond this much geometry + column data
+// Loads and meshes voxel tiles (scripts/tiles.py: N x N cells of s metres) with a worker pool, and answers voxel
+// queries over what is loaded (StreamWorld). What to load and show is decided by the engine on top: all1m.js (the
+// whole city at 1 m, the default) or zones.js (the real-area prototype), each replacing update().
+// (The level-of-detail engine that picked coarser levels by distance and swapped them is gone.)
 
 function releaseArray() { this.array = null; }
 
@@ -23,9 +18,6 @@ export class TileStreamer {
     this.group = new THREE.Group();
     scene.add(this.group);
     this.queue = [];
-    this.err = ERR_PX;
-    this.refined = new Set(); // nodes refined at the last pick (hysteresis)
-    this.focus = [];
     this.inflight = 0;
     this.tris = 0;
     this.version = 0;  // bumps when column data changes (for caches)
@@ -38,15 +30,6 @@ export class TileStreamer {
   }
   key(s, tx, ty) { return `${s}/${tx}_${ty}`; }
   bounds(s, tx, ty) { const L = this.N * s; return [tx * L, ty * L, Math.min((tx + 1) * L, this.meta.W), Math.min((ty + 1) * L, this.meta.D)]; }
-
-  // coarse levels are tiny: load all of the coarsest so every part of the map always has something to show
-  async preload() {
-    const s = this.levels[0], d = this.dims[s];
-    const ps = [];
-    for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) ps.push(this.request(s, tx, ty, 1e9));
-    this.pump();
-    await Promise.all(ps);
-  }
 
   request(s, tx, ty, prio, keep = false) {
     const k = this.key(s, tx, ty);
@@ -96,7 +79,13 @@ export class TileStreamer {
       const n = job.node || job;
       const [x0, y0] = this.bounds(n.s, n.tx, n.ty);
       // column data (collisions, ray casts) is kept for coarse nodes (small) and for full-detail ones near you
-      w.postMessage({ type: 'node', key: n.key, url: new URL(`${this.base}/${n.key}.bin`, location.href).href, N: this.N, s: n.s, x0, y0, keep: n.keep || n.s > 1, dataOnly: !!job.dataOnly });
+      // building ids of the tile's columns (all1m.js sets bldMap), so the mesher keeps buildings apart
+      let bld = null;
+      if (this.bldMap && n.s === 1 && !job.dataOnly) {
+        const { data, W } = this.bldMap, N = this.N; bld = new Uint16Array(N * N);
+        for (let r = 0; r < N && y0 + r < this.meta.D; r++) bld.set(data.subarray((y0 + r) * W + x0, (y0 + r) * W + Math.min(x0 + N, W)), r * N);
+      }
+      w.postMessage({ type: 'node', key: n.key, url: new URL(`${this.base}/${n.key}.bin`, location.href).href, N: this.N, s: n.s, x0, y0, keep: n.keep || n.s > 1, dataOnly: !!job.dataOnly, bld }, bld ? [bld.buffer] : []);
     }
   }
   onNode(m, w) {
@@ -114,6 +103,7 @@ export class TileStreamer {
       geo.setAttribute('position', new THREE.BufferAttribute(m.pos, 3));
       geo.setAttribute('vattr', new THREE.BufferAttribute(m.attr, 4));
       geo.setAttribute('vpal', new THREE.BufferAttribute(m.pal, 1));
+      if (m.bld) geo.setAttribute('vbld', new THREE.BufferAttribute(m.bld, 1));
       geo.setIndex(new THREE.BufferAttribute(m.idx, 1));
       geo.computeBoundingBox(); geo.computeBoundingSphere();
       // once on the GPU the CPU copy is not needed (culling uses the bounding sphere): don't hold every mesh twice
@@ -125,7 +115,7 @@ export class TileStreamer {
       this.group.add(mesh);
       n.mesh = mesh; n.tris = m.idx.length / 3;
       mesh.userData.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + m.idx.byteLength;
-      n.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + m.idx.byteLength; // GPU-side
+      n.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + m.idx.byteLength + (m.bld ? m.bld.byteLength : 0); // GPU-side
     }
     if (m.data) this.setData(n, m.data);
     n.state = 'ready';
@@ -144,121 +134,9 @@ export class TileStreamer {
     this.version++;
   }
 
-  nearFocus(s, tx, ty) {
-    const [x0, y0, x1, y1] = this.bounds(s, tx, ty);
-    return this.focus.some((f) => Math.max(x0 - f.x, 0, f.x - x1) ** 2 + Math.max(y0 - f.z, 0, f.z - y1) ** 2 < FOCUS_R * FOCUS_R);
-  }
-
-  // distance from the camera to a node's box, and the level it should be drawn at
-  pick(camera, track = true) {
-    const want = new Set(), cp = camera.position, refined = new Set();
-    const fov = camera.fov * Math.PI / 180, K = innerHeight / (2 * Math.tan(fov / 2)) / this.err;
-    // only what is (nearly) in view gets refined: a frustum ~1.35x wider than the camera's, so turning a little
-    // never shows coarse tiles; behind you the coarsest level is enough (and still casts the shadows)
-    const wide = camera.clone(); wide.fov = Math.min(150, camera.fov * 1.35); wide.aspect = camera.aspect; wide.far = 20000;
-    wide.updateProjectionMatrix(); wide.updateMatrixWorld();
-    const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(wide.projectionMatrix, wide.matrixWorldInverse));
-    const box = new THREE.Box3();
-    const fine = this.levels[this.levels.length - 1];
-    const walk = (s, tx, ty) => {
-      const [x0, y0, x1, y1] = this.bounds(s, tx, ty);
-      const dx = Math.max(x0 - cp.x, 0, cp.x - x1), dz = Math.max(y0 - cp.z, 0, cp.z - y1), dy = Math.max(0, cp.y - 150, -cp.y); // node boxes: ground ~20-60 m + buildings
-      const dist = Math.hypot(dx, dy, dz);
-      let near = false;
-      for (const f of this.focus) if (Math.max(x0 - f.x, 0, f.x - x1) ** 2 + Math.max(y0 - f.z, 0, f.z - y1) ** 2 < FOCUS_R * FOCUS_R) near = true;
-      const child = s / 2;
-      box.min.set(x0, 0, y0); box.max.set(x1, 330, y1);
-      const seen = dist < 30 || fr.intersectsBox(box);
-      // refine while a cell of this level would look bigger than ERR_PX (i.e. the finer level is visibly better)
-      // out of view: 4 m cells within 600 m (turning shows 4 m blocks for a moment, not 8 m ones; finer or farther would
-      // hold the whole circle around the camera in memory)
-      // hysteresis about the threshold (refine 7 % nearer, coarsen 7 % farther), so zooming about it can't flip a
-      // tile back and forth
-      const k = this.key(s, tx, ty), h = this.refined.has(k) ? 1.07 : 0.93;
-      if (s > fine && (near || (seen ? dist < s * K * h : s > 4 && dist < 600 * h))) {
-        if (track) refined.add(k);
-        const d = this.dims[child];
-        for (let cy = ty * 2; cy < Math.min(ty * 2 + 2, d.ny); cy++) for (let cx = tx * 2; cx < Math.min(tx * 2 + 2, d.nx); cx++) walk(child, cx, cy);
-      } else want.add(this.key(s, tx, ty) + '|' + dist.toFixed(0));
-    };
-    const top = this.levels[0], d = this.dims[top];
-    for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) walk(top, tx, ty);
-    if (track) this.refined = refined;
-    return want;
-  }
-
-  update(camera) {
-    const now = performance.now();
-    if (!this.dirty && now - (this._t || 0) < 150) return;
-    this.retire();
-    this._t = now; this.dirty = false;
-    const want = this.pick(camera);
-    const wanted = new Map();
-    for (const w of want) { const [k, d] = w.split('|'); wanted.set(k, +d); }
-    for (const [k, d] of wanted) { const [s, rest] = k.split('/'); const [tx, ty] = rest.split('_').map(Number); this.request(+s, tx, ty, -d, d < 450 || this.nearFocus(+s, tx, ty)); }
-    this.pump();
-    // what to show: each wanted node if ready, else the nearest ready ancestor (or all-ready descendants)
-    const show = new Set();
-    const ready = (k) => { const n = this.nodes.get(k); return n && n.state === 'ready'; };
-    const parentOf = (s, tx, ty) => this.key(s * 2, tx >> 1, ty >> 1);
-    const childrenOf = (s, tx, ty) => { const c = s / 2, d = this.dims[c], out = []; if (!d) return out;
-      for (let cy = ty * 2; cy < Math.min(ty * 2 + 2, d.ny); cy++) for (let cx = tx * 2; cx < Math.min(tx * 2 + 2, d.nx); cx++) out.push([c, cx, cy]); return out; };
-    const coveredBy = (s, tx, ty, acc) => { // all-ready descendants that tile this node
-      const k = this.key(s, tx, ty);
-      if (ready(k)) { acc.push(k); return true; }
-      const ch = childrenOf(s, tx, ty);
-      if (!ch.length) return false;
-      const sub = [];
-      for (const [c, cx, cy] of ch) if (!coveredBy(c, cx, cy, sub)) return false;
-      acc.push(...sub); return true;
-    };
-    for (const k of wanted.keys()) {
-      const n = this.nodes.get(k);
-      if (ready(k)) { show.add(k); continue; }
-      const acc = [];
-      if (coveredBy(n.s, n.tx, n.ty, acc)) { acc.forEach((a) => show.add(a)); continue; }
-      let s = n.s, tx = n.tx, ty = n.ty;
-      while (this.dims[s * 2]) { const pk = parentOf(s, tx, ty); s *= 2; tx >>= 1; ty >>= 1; if (ready(pk)) { show.add(pk); break; } }
-    }
-    // a shown ancestor hides its shown descendants (they would overlap)
-    for (const k of [...show]) {
-      const n = this.nodes.get(k);
-      let s = n.s, tx = n.tx, ty = n.ty;
-      while (this.dims[s * 2]) { s *= 2; tx >>= 1; ty >>= 1; if (show.has(this.key(s, tx, ty))) { show.delete(k); break; } }
-    }
-    let tris = 0;
-    for (const n of this.nodes.values()) {
-      const vis = show.has(n.key);
-      if (n.mesh) n.mesh.visible = vis;
-      if (vis || wanted.has(n.key)) n.used = now;
-      if (vis && n.tris) tris += n.tris;
-    }
-    this.tris = tris;
-    // free what has not been needed for a while, and the least recently used hidden nodes above the memory cap
-    // (never the coarsest level: it is the fallback everywhere)
-    const free = (n) => this.free(n);
-    const evictable = (n) => n.s !== this.levels[0] && n.state === 'ready' && !show.has(n.key) && !wanted.has(n.key) && !((n.pinned || 0) > now);
-    let bytes = 0;
-    for (const n of this.nodes.values()) bytes += n.bytes || 0;
-    for (const n of [...this.nodes.values()].filter(evictable).sort((a, b) => a.used - b.used)) {
-      if (now - n.used < KEEP_MS && bytes < CAP_MB * 2 ** 20) break;
-      bytes -= n.bytes || 0; free(n);
-    }
-    // drop queued requests nobody wants any more (the camera moved on before they were fetched)
-    const keep = (n) => wanted.has(n.key) || n.s === this.levels[0] || (n.pinned || 0) > now;
-    this.queue = this.queue.filter((j) => { const n = j.node || j; return this.nodes.get(n.key) === n && (j.dataOnly ? n.dataJob === j : keep(n)); });
-    const inQueue = new Set(this.queue);
-    for (const n of [...this.nodes.values()]) if (n.state === 'queued' && !inQueue.has(n)) this.nodes.delete(n.key);
-  }
+  update() {} // replaced by the engine
 
   free(n) { n.dataJob?.resolve(); n.dataJob = null; if (n.mesh) { n.mesh.geometry.dispose(); this.group.remove(n.mesh); } this.nodes.delete(n.key); if (n.data) this.version++; }
-
-  // request what a camera at pos looking at target will need (called when a flight starts)
-  prefetch(pos, target, like) {
-    const c = like.clone(); c.position.copy(pos); c.lookAt(target); c.updateMatrixWorld(); c.updateProjectionMatrix();
-    for (const w of this.pick(c, false)) { const [k, d] = w.split('|'); const [s, rest] = k.split('/'); const [tx, ty] = rest.split('_').map(Number); this.request(+s, tx, ty, -d - 50); }
-    this.pump();
-  }
 
   // make sure full detail is loaded around (x, z) (metres) before e.g. landing there; resolves when ready
   ensure(x, z, r = 120) {

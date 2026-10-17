@@ -15,9 +15,7 @@ for (const v of vs) {
   await page.waitForTimeout(7000);
   // settled: every tile the streamer wants is loaded (no stand-ins on screen)
   await page.waitForFunction(() => { const S = window.__streamer, cam = window.__three.camera;
-    if (S.inflight || S.queue.length) return false;
-    for (const w of S.pick(cam, false)) { const n = S.nodes.get(w.split('|')[0]); if (!n || n.state !== 'ready') return false; }
-    return true; }, null, { timeout: 120000, polling: 250 }).catch(() => console.log('  not settled'));
+    return !S.inflight && !S.queue.length; }, null, { timeout: 120000, polling: 250 }).catch(() => console.log('  not settled'));
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${out}/${name}.png` });
   console.log(name, 'ok');

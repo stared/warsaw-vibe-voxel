@@ -17,30 +17,21 @@ export function makePaletteTexture(palette) {
   return tex;
 }
 
-// PROTOTYPE (proto-ghost): the whole city loading from nothing (all1m.js). Each column has a time it became
-// complete (its 128 m tile; for a building, the last of its tiles); from then on, in the vertex shader, the ground
-// slides up into place, buildings rise from the ground, trees grow, details pop in. Shared by the depth material,
-// so shadows rise with the buildings. Nothing at all is drawn where the time has not come.
+// What of the whole city is shown while it loads (all1m.js): no timing, only what has arrived. Per vertex: foliage
+// (trees and grass) and details once every tile is in (uStage 3), a building once all its tiles are in and its turn has come
+// (uBldOn, set on the CPU: landmarks first), everything else once the landmarks are done (uStage 2). Hidden
+// geometry is folded below the bare terrain (terrain.bin), which lies under everything. Shared by the depth
+// material, so hidden things cast no shadows.
 const BUILD_PARS = `
-  uniform float uBT; uniform float uMeshT; uniform sampler2D uBldId; uniform sampler2D uBldT; uniform sampler2D uPalette;
-  attribute vec4 vattr; attribute float vpal;`;
-// uMeshT is the tile's own time, set per mesh (all corners of a face agree: a corner on a tile border never reads the
-// neighbour's time, which stretched faces into cliffs); a building waits for its last tile as a flat footprint
+  uniform float uStage; uniform sampler2D uBldOn; uniform sampler2D uPalette;
+  attribute vec4 vattr; attribute float vpal; attribute float vbld;`;
 const BUILD_VERTEX = (normal) => `
   {
-    vec3 cb = floor(position - (${normal}) * 0.5 + 1e-3);
-    ivec2 col = clamp(ivec2(cb.x, cb.z), ivec2(0), textureSize(uBldId, 0) - 1);
-    vec2 bb = texelFetch(uBldId, col, 0).rg;               // building id, two bytes (no integer texture)
-    int bid = int(bb.r * 255.0 + 0.5) + 256 * int(bb.g * 255.0 + 0.5);
-    float a = uBT - uMeshT, ab = bid > 0 ? uBT - texelFetch(uBldT, ivec2(bid % 128, bid / 128), 0).r : a;
-    float hgt = position.y - vattr.z;
+    int bid = int(vbld + 0.5);                            // the face's building (mesher.worker.js), 0: none
     int pi = int(vpal + 0.5), m = int(texelFetch(uPalette, ivec2(pi % 64, pi / 64), 0).a * 255.0 + 0.5);
-    bool detail = m == ${MAT.LAMP} || m == ${MAT.CAR} || m == ${MAT.SIGN} || m == ${MAT.SIGNBAND} || m == ${MAT.JET} || m == ${MAT.BRONZE};
-    vec3 gone = vec3(0.0, -1e5, 0.0);
-    if (detail && a < 1.4) transformed = gone;
-    else if (m == ${MAT.LEAF}) { float h = (a - 0.9) * 30.0; if (h <= 0.0) transformed = gone; else transformed.y = vattr.z + min(hgt, h); }
-    else if (bid == 0 && hgt <= 1.5) transformed.y -= 3.0 * (1.0 - smoothstep(0.0, 0.35, a));     // ground slides up
-    else transformed.y = vattr.z + min(hgt, max((ab - 0.35) * 90.0, 0.05));                         // buildings rise
+    bool late = m == ${MAT.LEAF} || m == ${MAT.GRASS} || m == ${MAT.LAMP} || m == ${MAT.CAR} || m == ${MAT.SIGN} || m == ${MAT.SIGNBAND} || m == ${MAT.JET} || m == ${MAT.BRONZE};
+    bool on = late ? uStage > 2.5 : bid > 0 ? texelFetch(uBldOn, ivec2(bid % 128, bid / 128), 0).r > 0.5 : uStage > 1.5;
+    if (!on) transformed.y = vattr.z - 3.0;
   }`;
 export function makeBuildDepthMaterial(uniforms) {
   const m = new THREE.MeshDepthMaterial();
@@ -77,11 +68,11 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
       uZFBlk: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) }, uZFBld: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) },
       uZMode: { value: 0 }, uZFocus: { value: new THREE.Vector2() }, uZRad: { value: 1e9 } });
   }
-  // PROTOTYPE (proto-ghost): ?all1m= -- the whole city builds itself up as it loads (BUILD_VERTEX, all1m.js)
-  if (!shared && new URLSearchParams(location.search).get('all1m')) {
+  // the whole city shows what has arrived as it loads (BUILD_VERTEX, all1m.js); not in the ?shape= prototype
+  if (!shared && !new URLSearchParams(location.search).get('shape')) {
     const one = (fmt, type, data) => { const t = new THREE.DataTexture(data, 1, 1, fmt, type); t.needsUpdate = true; return t; };
-    Object.assign(uniforms, { uBT: { value: 0 }, uMeshT: { value: 1e9 },
-      uBldId: { value: one(THREE.RGFormat, THREE.UnsignedByteType, new Uint8Array(2)) }, uBldT: { value: one(THREE.RedFormat, THREE.FloatType, new Float32Array([1e9])) } });
+    Object.assign(uniforms, { uStage: { value: 0 },
+      uBldOn: { value: one(THREE.RedFormat, THREE.UnsignedByteType, new Uint8Array(1)) } });
   }
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
   // PROTOTYPE (proto-ghost): the ghost city outside the real square; uMask marks 128 m cells drawn for real
@@ -126,8 +117,8 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
       .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalFromIdx(vattr.x);`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5);
-        ${'uBT' in uniforms ? BUILD_VERTEX('objectNormal') : ''}`);
-    if ('uBT' in uniforms) shader.vertexShader = shader.vertexShader.replace('attribute vec4 vattr;\n        attribute float vpal;', BUILD_PARS);
+        ${'uStage' in uniforms ? BUILD_VERTEX('objectNormal') : ''}`);
+    if ('uStage' in uniforms) shader.vertexShader = shader.vertexShader.replace('attribute vec4 vattr;\n        attribute float vpal;', BUILD_PARS);
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>

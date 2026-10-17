@@ -24,9 +24,10 @@ self.onmessage = async (e) => {
       return;
     }
     const t1 = performance.now();
-    const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs, detail);
+    const out = meshNode(m.N, m.s, m.x0, m.y0, counts, ground, runs, detail, m.bld);
     out.ms = [Math.round(t1 - t0), Math.round(performance.now() - t1)]; // fetch+unzip, mesh
     const transfer = [out.pos.buffer, out.attr.buffer, out.pal.buffer, out.idx.buffer];
+    if (out.bld) transfer.push(out.bld.buffer);
     let data = null;
     if (m.keep) { // the column data stays with the viewer for collisions / ray casts
       data = { counts: counts.slice(), ground: ground.slice(), runs };
@@ -38,7 +39,9 @@ self.onmessage = async (e) => {
   }
 };
 
-function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
+// bldIds (optional, N x N, 1 m nodes): which building each column belongs to (scripts/zones.py, 0: none). Faces never
+// merge across two buildings, and every vertex carries its face's building, so the viewer can show whole buildings.
+function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds) {
   const S = N + 2;
   const offsets = new Uint32Array(S * S + 1);
   for (let i = 0; i < S * S; i++) offsets[i + 1] = offsets[i] + counts[i];
@@ -58,8 +61,9 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
     }
   }
   const at = (x, y, z) => vol[x + sx * (y + sy * z)];
+  const bidAt = (x, y) => (bldIds ? bldIds[Math.min(N - 1, Math.max(0, y)) * N + Math.min(N - 1, Math.max(0, x))] : 0); // cell coords in the node
   // growable typed output (plain JS arrays cost 8 bytes per number and churn the worker's heap)
-  let cap = 1 << 14, pos = new Int16Array(cap * 3), attr = new Uint8Array(cap * 4), pal = new Uint16Array(cap), idx = new Uint32Array(cap * 1.5);
+  let cap = 1 << 14, pos = new Int16Array(cap * 3), attr = new Uint8Array(cap * 4), pal = new Uint16Array(cap), idx = new Uint32Array(cap * 1.5), bv = new Uint16Array(cap);
   let np = 0, ni = 0;
   const grow = () => {
     cap *= 2;
@@ -67,6 +71,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
     const a2 = new Uint8Array(cap * 4); a2.set(attr); attr = a2;
     const l2 = new Uint16Array(cap); l2.set(pal); pal = l2;
     const i2 = new Uint32Array(cap * 1.5); i2.set(idx); idx = i2;
+    const b2 = new Uint16Array(cap); b2.set(bv); bv = b2;
   };
   let vcount = 0;
   const dims = [N, N, zmax];
@@ -105,7 +110,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
                 // ground level of this column (metres) rides along as a vertex attribute for the facade shader;
                 // faces only merge over the same ground, so it is exact on every quad
                 const gm = ground[(p[0] + 1) + S * (p[1] + 1)];
-                key = ((a * 256 + aob) * 256 + gm) + 1;
+                key = (((a * 256 + aob) * 256 + gm) * 16384 + bidAt(p[0], p[1])) + 1; // < 2^53: palette < 4096, ids < 16384
                 any = true;
               }
             }
@@ -125,7 +130,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
               h++;
             }
             for (let jj = 0; jj < h; jj++) for (let ii = 0; ii < w; ii++) mask[i + ii + (j + jj) * nu] = 0;
-            const k1 = key - 1;
+            const k0 = key - 1, bid = k0 % 16384, k1 = Math.floor(k0 / 16384);
             const gm = k1 % 256, aoBits0 = Math.floor(k1 / 256) % 256, palIdx = Math.floor(k1 / 65536);
             const aoBits = aoBits0 === 255 ? 255 : aoBits0; // 255 = border skirt face: no AO darkening
             const aos = aoBits === 255 ? [3, 3, 3, 3] : [aoBits & 3, (aoBits >> 2) & 3, (aoBits >> 4) & 3, (aoBits >> 6) & 3];
@@ -144,7 +149,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
               const cc = corners[c], v3 = (vcount + c) * 3, v4 = (vcount + c) * 4;
               pos[v3] = cc[0] * s + x0; pos[v3 + 1] = cc[2] * s; pos[v3 + 2] = cc[1] * s + y0; // metres, three.js axes
               attr[v4] = normalIdx; attr[v4 + 1] = aos[c]; attr[v4 + 2] = gm; attr[v4 + 3] = s;
-              pal[vcount + c] = palIdx;
+              pal[vcount + c] = palIdx; bv[vcount + c] = bid;
             }
             const b = vcount;
             const flip = aos[0] + aos[2] < aos[1] + aos[3];
@@ -166,7 +171,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
     const have = new Set(), order = [];
     for (let k = 0; k < detail.length; k += 4) { have.add(key(detail[k], detail[k + 1], detail[k + 2])); order.push(k); }
     order.sort((a, b) => detail[a] - detail[b] || detail[a + 1] - detail[b + 1] || detail[a + 2] - detail[b + 2]);
-    const quad = (d, dir, base, w, h, palIdx, gm) => { // w along axis (d+1)%3, h along (d+2)%3
+    const quad = (d, dir, base, w, h, palIdx, gm, bid) => { // w along axis (d+1)%3, h along (d+2)%3
       const u = (d + 1) % 3, v = (d + 2) % 3;
       const corners = [base.slice(), base.slice(), base.slice(), base.slice()];
       corners[1][u] += w; corners[2][u] += w; corners[2][v] += h; corners[3][v] += h;
@@ -175,7 +180,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
         const cc = corners[c], v3 = (vcount + c) * 3, v4 = (vcount + c) * 4;
         pos[v3] = cc[0] + x0; pos[v3 + 1] = cc[2]; pos[v3 + 2] = cc[1] + y0;
         attr[v4] = d * 2 + (dir > 0 ? 1 : 0); attr[v4 + 1] = 3; attr[v4 + 2] = gm; attr[v4 + 3] = 1;
-        pal[vcount + c] = palIdx;
+        pal[vcount + c] = palIdx; bv[vcount + c] = bid;
       }
       const tri = dir > 0 ? [0, 3, 1, 1, 3, 2] : [0, 1, 3, 1, 2, 3];
       for (let t = 0; t < 6; t++) idx[ni + t] = vcount + tri[t];
@@ -186,21 +191,21 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail) {
       let j = i + 1;
       while (j < order.length && detail[order[j]] === x && detail[order[j] + 1] === y && detail[order[j] + 2] === z0 + (j - i) && detail[order[j] + 3] === p) j++;
       const h = j - i; i = j;
-      const gm = ground[(Math.floor(x / s) + 1) + S * (Math.floor(y / s) + 1)];
+      const gm = ground[(Math.floor(x / s) + 1) + S * (Math.floor(y / s) + 1)], bid = s === 1 ? bidAt(x, y) : 0;
       // sides: the whole run, unless a neighbouring column holds detail all along it
       for (const [dx, dy, d, dir] of [[-1, 0, 0, -1], [1, 0, 0, 1], [0, -1, 1, -1], [0, 1, 1, 1]]) {
         let covered = true;
         for (let z = z0; z < z0 + h && covered; z++) covered = have.has(key(x + dx, y + dy, z));
         if (covered) continue;
         const base = [x + (dir > 0 && d === 0 ? 1 : 0), y + (dir > 0 && d === 1 ? 1 : 0), z0];
-        if (d === 0) quad(0, dir, base, 1, h, p, gm); // x faces: u = y, v = z
-        else quad(1, dir, base, h, 1, p, gm);         // y faces: u = z, v = x
+        if (d === 0) quad(0, dir, base, 1, h, p, gm, bid); // x faces: u = y, v = z
+        else quad(1, dir, base, h, 1, p, gm, bid);         // y faces: u = z, v = x
       }
-      if (!have.has(key(x, y, z0 - 1))) quad(2, -1, [x, y, z0], 1, 1, p, gm);
-      if (!have.has(key(x, y, z0 + h))) quad(2, 1, [x, y, z0 + h], 1, 1, p, gm);
+      if (!have.has(key(x, y, z0 - 1))) quad(2, -1, [x, y, z0], 1, 1, p, gm, bid);
+      if (!have.has(key(x, y, z0 + h))) quad(2, 1, [x, y, z0 + h], 1, 1, p, gm, bid);
     }
   }
   const P = pos.slice(0, vcount * 3), A = attr.slice(0, vcount * 4), L = pal.slice(0, vcount);
   const I = vcount > 65535 ? idx.slice(0, ni) : Uint16Array.from(idx.subarray(0, ni));
-  return { pos: P, attr: A, pal: L, idx: I, zmax: zmax * s };
+  return { pos: P, attr: A, pal: L, idx: I, zmax: zmax * s, bld: bldIds ? bv.slice(0, vcount) : null };
 }
