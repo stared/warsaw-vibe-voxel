@@ -104,7 +104,7 @@
         "ring": 34,
         "bands": [
           {"to": 10, "colour": "#2b3540", "material": "glass"},
-          {"to": 25, "checker": ["#a8323a", "#c9ccd0"], "cell": [4, 3], "material": "metal", "p": 0.2, "dp": 0.45},
+          {"to": 33, "checker": ["#a8323a", "#c9ccd0"], "cell": [4, 3], "material": "metal", "p": 0.15, "dp": 0.5},
           {"colour": "#e6e6e1", "material": "solid"}
         ]
       },

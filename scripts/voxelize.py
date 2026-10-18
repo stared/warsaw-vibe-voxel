@@ -531,6 +531,9 @@ def wall_style(f):
 def roof_style(f):
     col = parse_colour(tag(f, "roof:colour"))
     h = float(np.median(top[f["rr"], f["cc"]]))
+    if pkin["geom"].contains(f["geom"].representative_point()) and col == hex_rgb("#666666"):
+        # OSM's dark grey: the ortho shows light stone-grey roofs (its own colours carry the tower's shadow)
+        return pal(soften(hex_rgb("#bab3a5"), 0.05), M_ROOF, q=12)
     if col is None and h < 40:
         cc = cellcol[f["rr"], f["cc"]]
         L = lum[f["rr"], f["cc"]]

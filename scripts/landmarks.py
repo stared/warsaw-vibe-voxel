@@ -212,8 +212,11 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
                 k = int(arc / st.get("width", 3)) % len(cols)
                 vol[z0:z1, r, c] = np.where(col != 0, cols[k], 0)
             n += 1
-        for r, c, z0, z1, col in masts:
-            vol[z0:z1, r, c] = col
+        lean = o.get("smooth", {}).get("lean", 8)  # the masts lean outward (photos: spikes round the rim from above)
+        for r, c, z0, z1, col, a in masts:
+            for zz in range(z0, z1):
+                t = lean * (zz - z0) / max(1, z1 - z0)
+                vol[zz, int(round(r + t * math.sin(a))), int(round(c + t * math.cos(a)))] = col
         note("stripes:", o.get("name", oid)[:40], n, "columns")
     return floods
 
@@ -233,15 +236,30 @@ def _smooth_bowl(vol, g, bmask, pal, rr, cc, cx, cy, sm, note):
     lab, nl = ndimage.label(mc)  # the bowl is the largest piece; islands in the pitch (the hub's LiDAR) are not
     ring_ = lab == 1 + int(np.argmax(ndimage.sum(mc, lab, range(1, nl + 1))))
     hole = ndimage.binary_fill_holes(ring_) & ~ring_  # the pitch stays open
+    yy, xx = np.mgrid[-6:7, -6:7]
+    hole = ndimage.binary_closing(np.pad(hole, 8), xx ** 2 + yy ** 2 <= 36)[8:-8, 8:-8]  # no roof spikes into it
+    # the opening is a rounded rectangle (ortho), a little smaller than the gap between the OSM stands
+    hy, hx = np.nonzero(hole)
+    a, b = (hx.max() - hx.min()) / 2 - sm.get("hole_shrink", 3), (hy.max() - hy.min()) / 2 - sm.get("hole_shrink", 3)
+    gy, gx = np.mgrid[0:hole.shape[0], 0:hole.shape[1]]
+    hole = (np.abs((gx - (hx.max() + hx.min()) / 2) / a) ** 4 + np.abs((gy - (hy.max() + hy.min()) / 2) / b) ** 4) <= 1
     inside = (m & ~hole)[rr - r0, cc - c0]
     in_hole = hole[rr - r0, cc - c0] & k
     hr_, hc_ = rr[hole[rr - r0, cc - c0]], cc[hole[rr - r0, cc - c0]]
-    for r, c in zip(rr[in_hole], cc[in_hole]):  # open to the sky but for a slim hub, 3 m across, from 45 m up
+    hubc = pal(_hex("#eceae4"), MAT_IDS["solid"])
+    for r, c in zip(rr[in_hole], cc[in_hole]):  # open to the sky but for a slim white hub hanging 45-60 m up
         hub = abs(r - hr_.mean()) <= 1.5 and abs(c - hc_.mean()) <= 1.5
-        vol[int(g[r, c]):int(g[r, c]) + 45 if hub else vol.shape[0], r, c] = 0
-        bmask[r, c] = hub
-    for r, c in zip(rr[k & ~inside], cc[k & ~inside]):  # outside the bowl: no more than the podium
-        vol[int(g[r, c]) + sm.get("podium", 8):, r, c] = 0
+        vol[int(g[r, c]):, r, c] = 0
+        if hub:
+            vol[int(g[r, c]) + 45:int(g[r, c]) + 60, r, c] = hubc
+        bmask[r, c] = False
+    concrete = pal(_hex(sm.get("podium_colour", "#a3a29d")), MAT_IDS["concrete"])
+    for r, c in zip(rr[k & ~inside & ~hole[rr - r0, cc - c0]], cc[k & ~inside & ~hole[rr - r0, cc - c0]]):
+        zp = int(g[r, c]) + sm.get("podium", 8)  # outside the bowl: no more than the podium, in concrete
+        vol[zp:, r, c] = 0
+        nz = np.nonzero(vol[:zp, r, c])[0]
+        if len(nz):
+            vol[nz[-1], r, c] = concrete
     fill = pal(_hex(sm.get("mast_colour", "#ecedee")), MAT_IDS["solid"])
     for r, c in zip(rr[~k & inside], cc[~k & inside]):  # gaps in the outline: part of the bowl
         vol[int(g[r, c]):int(g[r, c]) + 1, r, c] = fill
@@ -255,8 +273,19 @@ def _smooth_bowl(vol, g, bmask, pal, rr, cc, cx, cy, sm, note):
         v = tops[(depth == d) & orig]
         prof[d] = np.median(v) if len(v) else prof[d - 1]
     prof = np.maximum.accumulate(ndimage.median_filter(prof, 5))  # the membrane only rises inward
-    for r, c, d in zip(r_, c_, depth):
-        z0, zt = int(g[r, c]), int(g[r, c] + round(prof[d]))
+    n = sm.get("masts", 72)
+    # the membrane sags between the radial cables, one per mast (ortho: radial panels, not rings), grey along each
+    # cable; a translucent grey-blue ring round the opening
+    frac = ((np.arctan2(r_ + 0.5 - cy, c_ + 0.5 - cx) + math.pi) / (2 * math.pi) * n) % 1.0
+    sag = sm.get("sag", 1.5) * np.sin(math.pi * (frac - 0.5)) ** 2
+    rad = np.hypot(r_ + 0.5 - cy, c_ + 0.5 - cx)
+    on_cable = np.abs(frac - 0.5) * 2 * math.pi * rad / n < 0.6
+    in_d = ndimage.distance_transform_edt(~hole)[r_ - r0, c_ - c0]
+    memb, cable = pal(_hex("#eceae4"), MAT_IDS["solid"]), pal(_hex("#c3c6c8"), MAT_IDS["metal"])
+    seat, walk = pal(_hex("#b3343b"), 0), pal(_hex("#8f8f8c"), 0)
+    glass = pal(_hex(sm.get("ring_colour", "#8e9ca6")), MAT_IDS["glass"])
+    for i_, (r, c, d) in enumerate(zip(r_, c_, depth)):
+        z0, zt = int(g[r, c]), int(g[r, c] + round(prof[d] - sag[i_]))
         col = vol[:, r, c]
         nz = np.nonzero(col)[0]
         if not len(nz):
@@ -267,15 +296,23 @@ def _smooth_bowl(vol, g, bmask, pal, rr, cc, cx, cy, sm, note):
         elif top < zt:
             col[top:zt] = col[top - 1]
         col[z0 + 1:zt][col[z0 + 1:zt] == 0] = col[zt - 1]  # no hollows under the roof
+        col[zt - 1] = glass if in_d[i_] <= sm.get("ring", 8) else cable if on_cable[i_] else memb
+        # the stands: seating rakes up from the pitch under a thin roof (not a 50 m cliff round the opening)
+        if in_d[i_] <= sm.get("stands", 45):
+            zs = min(z0 + 2 + int(0.75 * in_d[i_]), zt - 5)
+            col[zt - 1 - 2:zt - 1] = col[zt - 1] if in_d[i_] <= sm.get("ring", 8) else memb
+            col[zs:zt - 3] = 0
+            for zz in range(z0 + 1, zs):
+                col[zz] = walk if (zz - z0) % 4 == 0 else seat
     white = pal(_hex(sm.get("mast_colour", "#ecedee")), MAT_IDS["metal"])
     rim = (depth == 1)
     ang = np.arctan2(r_[rim] + 0.5 - cy, c_[rim] + 0.5 - cx)
-    n, masts = sm.get("masts", 72), []
+    masts = []
     for kk in range(n):  # just outside the facade, from the ground to mast_h above the roof edge (photos)
         a = -math.pi + (kk + 0.5) * 2 * math.pi / n
         i = int(np.argmin(np.abs((ang - a + math.pi) % (2 * math.pi) - math.pi)))
         r, c = int(round(r_[rim][i] + 2 * math.sin(a))), int(round(c_[rim][i] + 2 * math.cos(a)))
-        masts.append((r, c, int(g[r, c]), int(g[r, c] + round(prof[1])) + sm.get("mast_h", 18), white))
+        masts.append((r, c, int(g[r, c]), int(g[r, c] + round(prof[1])) + sm.get("mast_h", 18), white, a))
     note(f"smooth bowl: roof {prof[1]:.0f}-{prof.max():.0f} m over {len(prof)} m depth, {n} masts")
     return masts
 
@@ -535,11 +572,95 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
     return views
 
 
+# porches found in the LiDAR (a 19 m roof a few metres deep in front of a taller block), grid rows/cols inclusive
+PKIN_PORTICOS = [dict(rows=(1216, 1240), cols=(796, 802), face="E", h=14),  # main entrance, Plac Defilad side
+                 dict(rows=(1157, 1161), cols=(740, 757), face="N", h=14)]  # north porch, Świętokrzyska side
+
+
+def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3, min_area=150):
+    """PKiN's walls are flat: the LiDAR outline wobbles by a metre from row to row, so each face carried full-height
+    1 m slots and ribs, and ornament points stood as rubble on the tiers. Layer by layer (up to where the tower
+    narrows below min_area cells), fill notches shorter than L m along a wall and drop anything narrower than
+    Lo m across (a cell stays only if it lies in an Lo-run both along rows and along columns; 3 m keeps the 4 m
+    deep porches). Round walls
+    (Sala Kongresowa) keep their shape: every cell of a staircase circle is in long runs both ways."""
+    box = vol[:, miny:maxy, minx:maxx]
+    foot = np.zeros(box.shape[1:], bool)
+    k = (pk["rr"] >= miny) & (pk["rr"] < maxy) & (pk["cc"] >= minx) & (pk["cc"] < maxx)
+    foot[pk["rr"][k] - miny, pk["cc"][k] - minx] = True
+    foot = ndimage.binary_dilation(foot, iterations=2)
+    # tier tops: LiDAR heights wobble 1-3 m from column to column (a rubble skyline); snap each column to the median
+    # of its 5x5 neighbourhood when within 3 m of it (real setbacks are bigger and stay)
+    occ = box != 0
+    H = occ.shape[0]
+    T = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0)
+    Tm = ndimage.median_filter(T, 5)
+    fix = foot & (T > g0 + 5) & (Tm > g0 + 5) & (T != Tm) & (np.abs(T - Tm) <= 3)
+    for r, c in zip(*np.nonzero(fix)):
+        t, tm = T[r, c], Tm[r, c]
+        if t > tm:
+            box[tm + 1:t + 1, r, c] = 0
+        else:
+            box[t + 1:tm + 1, r, c] = box[t, r, c]
+    note(f"PKiN tier tops snapped: {int(fix.sum())} columns")
+    v, h = np.ones((L, 1), bool), np.ones((1, L), bool)
+    vo, ho = np.ones((Lo, 1), bool), np.ones((1, Lo), bool)
+    added = removed = 0
+    for z in range(g0 + 2, box.shape[0]):
+        lay = box[z]
+        M = (lay != 0) & foot
+        if M.sum() < min_area:
+            break
+        P = np.pad(M, L)
+        Mc = ndimage.binary_closing(P, v) | ndimage.binary_closing(P, h)
+        Mo = (ndimage.binary_opening(Mc, vo) & ndimage.binary_opening(Mc, ho))[L:-L, L:-L] & foot
+        rem, add = M & ~Mo, Mo & ~M
+        if add.any():  # new cells take the nearest existing voxel's colour in this layer
+            _, (ir, ic) = ndimage.distance_transform_edt(~M, return_indices=True)
+            lay[add] = lay[ir[add], ic[add]]
+        lay[rem] = 0
+        added += int(add.sum()); removed += int(rem.sum())
+    note(f"PKiN walls regularized up to z={z}: +{added} -{removed} voxels")
+    # roof voxels left inside walls by the fills (dark specks on the faces): stone
+    mats = np.array([e[3] for e in pal.entries])
+    pk_ids, cnt = np.unique(box[(box != 0) & (mats[box] == M_PKIN)], return_counts=True)
+    stone = pk_ids[np.argmax(cnt)]
+    occ = box != 0
+    below_occ = np.zeros_like(occ)
+    below_occ[:-1] = occ[1:]  # something directly above
+    inner_roof = occ & below_occ & (mats[box] == 12) & foot[None]
+    box[inner_roof] = stone
+    # porticos: the LiDAR sees a porch's roof and the column below it fills solid; open each porch up to `h` m,
+    # leaving 1 m columns every 3 m along its front (photos: the main entrance's colonnade, east; the north porch)
+    plain = pal(tuple(pal.entries[stone][:3]), 0)  # columns and entablature: dressed stone, no windows
+    for pr in PKIN_PORTICOS:
+        (r0, r1), (c0, c1), face, hh = pr["rows"], pr["cols"], pr["face"], pr["h"]
+        blk = vol[:, r0:r1 + 1, c0:c1 + 1]
+        gz = int(g[r0:r1 + 1, c0:c1 + 1].min())
+        seg = blk[gz:gz + hh + 6]
+        seg[(seg != 0) & (mats[seg] == M_PKIN)] = plain
+        note(f"PKiN portico {face}: {int((seg != 0).sum())} voxels in the porch block before carving, ground {gz}")
+        for r in range(r0, r1 + 1):
+            for c in range(c0, c1 + 1):
+                along = r - r0 if face in "EW" else c - c0
+                front = (c >= c1 - 1) if face == "E" else (c <= c0 + 1) if face == "W" else \
+                    (r <= r0 + 1) if face == "N" else (r >= r1 - 1)
+                if front and along % 3 == 1:
+                    continue
+                vol[int(g[r, c]):int(g[r, c]) + hh, r, c] = 0
+    note(f"PKiN porticos: {len(PKIN_PORTICOS)}")
+    occ = box != 0  # debug: the final PKiN height map above ground (data/debug/pkin_top.npz)
+    Path("data/debug").mkdir(parents=True, exist_ok=True)
+    np.savez_compressed("data/debug/pkin_top.npz", top=np.where(occ.any(0), occ.shape[0] - 1 - np.argmax(occ[::-1], axis=0), 0)
+                        - g[miny:maxy, minx:maxx], miny=miny, minx=minx)
+
+
 def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
     """Millennium Clock (2000): four faces, 6 m across, ~165 m up the PKiN tower (research.md)."""
     pk = next(f for f in feats if f["tags"].get("name") == "Pałac Kultury i Nauki")
     minx, miny, maxx, maxy = (int(v) for v in pk["geom"].bounds)
     g0 = int(np.median(g[pk["rr"], pk["cc"]]))
+    pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note)
     # the published ~165 m lands on a setback in the LiDAR massing: centre the clock on the first
     # plain stretch of shaft (constant cross-section for >= 9 m) at or above it
     def area(zz):
@@ -563,30 +684,41 @@ def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
     r0, r1, c0, c1 = rows.min() + miny, rows.max() + miny, cols.min() + minx, cols.max() + minx
     rc, cc = (r0 + r1) / 2, (c0 + c1) / 2
     face = pal((246, 242, 228), M_CLOCK)
-    rim = pal((60, 56, 50), M_PKIN)
     hand = pal((35, 33, 30), M_PKIN)
     for axis, sign in ((0, -1), (0, 1), (1, -1), (1, 1)):
-        # fixed face plane: outermost wall at the clock centre, plus one voxel proud of it
+        # fixed face plane: the outermost wall at the clock centre (flush: a proud face showed its dark hands
+        # sticking out of the tower's silhouette from the sides)
         if axis == 0:
-            line = vol[z, r0 - 2:r1 + 3, int(round(cc))]
+            line = vol[z, r0 - 2:r1 + 3, int(math.floor(cc + 0.5))]
             idx = np.nonzero(line)[0]
-            plane = (r0 - 2 + idx[0] - 1) if sign < 0 else (r0 - 2 + idx[-1] + 1)
+            plane = (r0 - 2 + idx[0]) if sign < 0 else (r0 - 2 + idx[-1])
         else:
-            line = vol[z, int(round(rc)), c0 - 2:c1 + 3]
+            line = vol[z, int(math.floor(rc + 0.5)), c0 - 2:c1 + 3]
             idx = np.nonzero(line)[0]
-            plane = (c0 - 2 + idx[0] - 1) if sign < 0 else (c0 - 2 + idx[-1] + 1)
+            plane = (c0 - 2 + idx[0]) if sign < 0 else (c0 - 2 + idx[-1])
         for dz in range(-4, 5):
             for du in range(-4, 5):
                 d = (dz ** 2 + du ** 2) ** 0.5
-                if d > R + 0.6:
+                if d > R + 0.1:
                     continue
-                v = rim if d > R - 0.5 else face
-                if d < R - 0.6 and ((du == 0 and dz == 0) or (dz > 0 and abs(du) == dz and d < 2.3)):
-                    v = hand
+                # a plain white disc with two hands (minute up, hour right): at 1 m voxels a stone rim plus V-shaped
+                # hands read as a small window
+                v = hand if (du == 0 and 0 <= dz <= 2) or (dz == 0 and 0 <= du * sign <= 1) else face
+                # the face is the outermost voxel: clear any wall standing proud of the plane in front of it
                 if axis == 0:
-                    vol[z + dz, plane, int(round(cc + du))] = v
+                    cx_ = int(math.floor(cc + du + 0.5))  # not round(): halves go to even, skipping every other column
+                    if sign < 0:
+                        vol[z + dz, plane - 3:plane, cx_] = 0
+                    else:
+                        vol[z + dz, plane + 1:plane + 4, cx_] = 0
+                    vol[z + dz, plane, cx_] = v
                 else:
-                    vol[z + dz, int(round(rc + du)), plane] = v
+                    ry_ = int(math.floor(rc + du + 0.5))
+                    if sign < 0:
+                        vol[z + dz, ry_, plane - 3:plane] = 0
+                    else:
+                        vol[z + dz, ry_, plane + 1:plane + 4] = 0
+                    vol[z + dz, ry_, plane] = v
     pkin_crown(vol, pal, pk, z, minx, miny, maxx, maxy, note)
     note(f"PKiN clock at z={z} (rel {z - g0} m), tower {r1 - r0 + 1}x{c1 - c0 + 1} m")
 
