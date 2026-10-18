@@ -103,9 +103,29 @@
         "min_height": 15,
         "ring": 34,
         "bands": [
-          {"to": 10, "colour": "#2b3540", "material": "glass"},
-          {"to": 33, "checker": ["#a8323a", "#c9ccd0"], "cell": [4, 3], "material": "metal", "p": 0.15, "dp": 0.5},
-          {"colour": "#e6e6e1", "material": "solid"}
+          {
+            "to": 10,
+            "colour": "#2b3540",
+            "material": "glass"
+          },
+          {
+            "to": 33,
+            "checker": [
+              "#a8323a",
+              "#c9ccd0"
+            ],
+            "cell": [
+              4,
+              3
+            ],
+            "material": "metal",
+            "p": 0.15,
+            "dp": 0.5
+          },
+          {
+            "colour": "#e6e6e1",
+            "material": "solid"
+          }
         ]
       },
       "_note": "facade in the national colours, red and silver/white panels round the bowl, carried by the 72 roof columns; the pitch is grass (2025 ortho; the roof's shadow hides it from the green test); the inner roof edge OSM tags #3399cc glass reads light grey from above",
@@ -113,7 +133,10 @@
         "https://worldconstructionnetwork.com/projects/national-stadium-warsaw-poland",
         "https://www.inyourpocket.com/warsaw/pge-narodowy_119075v"
       ],
-      "smooth": {"masts": 72, "mast_h": 26},
+      "smooth": {
+        "masts": 72,
+        "mast_h": 26
+      },
       "infield": {
         "colour": "#6aa34a",
         "material": "grass"
@@ -156,6 +179,68 @@
       "sources": [
         "https://commons.wikimedia.org/wiki/File:59_Z%C5%82ota_Street_in_Warsaw_-_place_of_remembrance_-_01.JPG"
       ]
+    },
+    "Teatr Wielki": {
+      "wall": {
+        "colour": "#e2dac8",
+        "material": "classic"
+      },
+      "_note": "cream stone, classical facade (photos: Plac Teatralny front); no OSM colour",
+      "sources": [
+        "https://commons.wikimedia.org/wiki/Category:Grand_Theatre_in_Warsaw"
+      ]
+    },
+    "365216924": {
+      "name": "Aleja Jana Pawła II 13 (in front of Ilmet)",
+      "wall": {
+        "colour": "#5f9c98",
+        "material": "glass"
+      },
+      "_note": "teal glass curtain wall with light spandrel bands (Commons photos 2012, 2014); OSM has no colour, so it read as beige stone",
+      "sources": [
+        "https://commons.wikimedia.org/wiki/Category:Ilmet"
+      ]
+    },
+    "Ilmet": {
+      "wall": {
+        "colour": "#a46e58",
+        "material": "wall"
+      },
+      "_note": "salmon-brown cladding (photos); OSM #906030 rendered orange"
+    },
+    "Zachęta": {
+      "wall": {
+        "colour": "#e6dccb",
+        "material": "classic"
+      },
+      "_note": "cream neo-Renaissance stone: rusticated ground floor, tall arched windows, two storeys (Commons photos 2004-2019)",
+      "sources": [
+        "https://commons.wikimedia.org/wiki/Category:Building_of_the_Zach%C4%99ta_National_Gallery_of_Art"
+      ]
+    },
+    "Gmach Główny PW": {
+      "wall": {
+        "colour": "#ecdcd6",
+        "material": "classic"
+      },
+      "_note": "pale pink-cream neo-Renaissance stone (photos); OSM #ecdada kept, classical facade",
+      "sources": [
+        "https://commons.wikimedia.org/wiki/Category:Warsaw_University_of_Technology_main_building"
+      ]
+    },
+    "Hala Koszyki": {
+      "wall": {
+        "colour": "#a85a44",
+        "material": "wall"
+      },
+      "_note": "red-brick market hall with cream Art Nouveau gables (Commons photos 2019-2023); OSM has no colour"
+    },
+    "Q22": {
+      "wall": {
+        "colour": "#a3b8c6",
+        "material": "glass"
+      },
+      "_note": "light blue-grey glass with visible floor lines (Commons photo 2017); OSM 'lightgray' on some parts, none on the shaft, which went dark navy"
     }
   }
 }

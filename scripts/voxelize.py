@@ -112,7 +112,7 @@ C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "scrub": pal("#5f8f45", M_LEAF), "flower": pal("#d98fb3", M_GRASS), "flower2": pal("#e8c25e", M_GRASS),
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
     "ballast": pal("#8a8178"), "rail": pal("#55575d", M_METAL), "trambed": pal("#a9a59c"),
-    "platform": pal("#b7b1a6"), "water": pal("#5fa8c9", M_WATER), "mark": pal("#f1efe8", M_MARK),
+    "platform": pal("#b7b1a6"), "water": pal("#68654f", M_WATER), "mark": pal("#f1efe8", M_MARK),
     "bare": pal("#a8977c", M_SOIL),  # lawns before their grass arrives (tiles.py: grass is its own file)
     "soil": pal("#7a5c45", M_SOIL), "trunk": pal("#6b4f3a"), "lamp": pal("#ffe2a8", M_LAMP),
     "pole": pal("#3a3e42", M_METAL), "steps": pal("#a8a296"), "hatch": pal("#d9c860", M_MARK),
@@ -505,11 +505,29 @@ def flatten_roofs(top):
     n_f = n_c = 0
     for f in sorted(render, key=lambda f: -len(f["rr"])):  # parents first, their parts after
         rr, cc = f["rr"], f["cc"]
-        if len(rr) < 30:
-            continue
+        if len(rr) < 30 or (f.get("minh") or 0) >= 2.5:
+            continue  # parts on stilts (canopies, cantilevers): snapping their top under their bottom left fragments
         v = top[rr, cc]
         med = float(np.median(v))
-        if med < 3 or np.mean(np.abs(v - med) <= 1.5) < 0.6:
+        if med < 3:
+            continue
+        if np.mean(np.abs(v - med) <= 1.5) < 0.6:
+            # several roof levels (one OSM outline over a whole theatre or palace): snap each column to its 5x5
+            # neighbourhood's median within 2.5 m, so every terrace is flat and the real setbacks stay
+            if len(rr) >= 200:
+                r0, c0 = rr.min(), cc.min()
+                box = np.zeros((rr.max() - r0 + 3, cc.max() - c0 + 3), np.float32)
+                inside = np.zeros(box.shape, bool)
+                box[rr - r0 + 1, cc - c0 + 1] = v
+                inside[rr - r0 + 1, cc - c0 + 1] = True
+                # outside the outline: the nearest inside height (zeros there pulled the median down at every edge,
+                # notching the roofline)
+                _, (ir, ic) = ndimage.distance_transform_edt(~inside, return_indices=True)
+                lm = ndimage.median_filter(box[ir, ic], 5)[rr - r0 + 1, cc - c0 + 1]
+                k = (np.abs(v - lm) <= 2.5) & (lm > 3)
+                n_c += int((k & (v != lm)).sum())
+                top[rr[k], cc[k]] = lm[k]
+                n_f += 1
             continue
         r0, c0 = rr.min(), cc.min()
         off = np.zeros((rr.max() - r0 + 1, cc.max() - c0 + 1), bool)
@@ -562,6 +580,8 @@ def wall_style(f):
 
 def roof_style(f):
     col = parse_colour(tag(f, "roof:colour"))
+    if col is None and (f["tags"].get("roof:material") or "").lower() == "glass":
+        return pal(soften(hex_rgb("#93adbf"), 0.06), M_GLASS)  # glass atrium roofs (Politechnika's hall): blue-grey
     h = float(np.median(top[f["rr"], f["cc"]]))
     if pkin["geom"].contains(f["geom"].representative_point()) and col == hex_rgb("#666666"):
         # OSM's dark grey: the ortho shows light stone-grey roofs (its own colours carry the tower's shadow)
@@ -1025,6 +1045,57 @@ for l in labels:
     else:
         l["R"] = 0.0
 
+# ---------------------------------------------------------------- floating debris
+def drop_debris(vol, g, max_size=100, B=256, M=24):  # the stadium hub (135) stays
+    """Delete small clumps of voxels that touch neither the ground nor anything that does (LiDAR returns off cranes,
+    wires and canopy frames, leftovers of part cuts): 3D components (26-connected), per block with a margin; a clump is
+    debris if it is smaller than max_size voxels, its lowest voxel is 2 m or more above the ground there, and it does
+    not reach the block's margin."""
+    Hh, Dd, Ww = vol.shape
+    n = nv = 0
+    big = []
+    keep_ids = np.array([i for i, e in enumerate(pal.entries) if e[3] == M_LEAF] + [C["trunk"]], dtype=vol.dtype)
+    st = ndimage.generate_binary_structure(3, 3)  # 26-connected: diagonal cables and wires are chains of corner-touching voxels
+    for r0 in range(0, Dd, B):
+        for c0 in range(0, Ww, B):
+            ra, rb, ca, cb = max(0, r0 - M), min(Dd, r0 + B + M), max(0, c0 - M), min(Ww, c0 + B + M)
+            sub = vol[:, ra:rb, ca:cb]
+            occ = sub != 0
+            gg = g[ra:rb, ca:cb]
+            zz = np.arange(Hh)[:, None, None]
+            occ &= zz >= gg[None] - 1  # the ground itself is one big component; leave it out
+            occ &= ~np.isin(sub, keep_ids)  # trees: crowns hang on trunks drawn apart, small crowns are real
+            lab, k = ndimage.label(occ, st)
+            if k == 0:
+                continue
+            sizes = ndimage.sum(occ, lab, range(1, k + 1))
+            small = np.nonzero(sizes < 4000)[0] + 1
+            if not len(small):
+                continue
+            objs = ndimage.find_objects(lab)
+            for lid in small:
+                sl = objs[lid - 1]
+                zs, rs, cs = sl
+                if rs.start < (r0 - ra) or rs.stop > (r0 - ra) + B or cs.start < (c0 - ca) or cs.stop > (c0 - ca) + B:
+                    continue  # touches the margin: judged by the block that owns it
+                m = lab[sl] == lid
+                zi, ri, ci = np.nonzero(m)
+                zi, ri, ci = zi + zs.start, ri + rs.start, ci + cs.start
+                if (zi - gg[ri, ci]).min() < 2:
+                    continue  # stands on the ground (bollards, benches, lamps)
+                if len(zi) >= max_size:  # bigger floating clumps: listed for review (data/debug/floating.json)
+                    big.append(dict(x=int(ci.mean() + ca), y=int(ri.mean() + ra), z=int((zi - gg[ri, ci]).min()),
+                                    n=int(len(zi)), h=int(zi.max() - zi.min() + 1)))
+                    continue
+                sub[zi, ri, ci] = 0
+                n += 1; nv += len(zi)
+    note(f"floating debris removed: {n} clumps, {nv} voxels; {len(big)} bigger floating clumps listed")
+    Path("data/debug").mkdir(parents=True, exist_ok=True)
+    json.dump(sorted(big, key=lambda b: -b["n"]), open("data/debug/floating.json", "w"))
+
+
+drop_debris(vol, g)
+
 # ---------------------------------------------------------------- export
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
 vol = vol[:Hm]
@@ -1033,7 +1104,8 @@ note("final height", Hm, "palette", len(pal.entries))
 _ids = vol[g - 1, np.arange(D)[:, None], np.arange(W)[None, :]]
 _lut = np.array([e[:3] for e in pal.entries], np.uint8)
 _lut[[i for i, e in enumerate(pal.entries) if e[3] == M_GRASS]] = _lut[C["bare"]]
-np.savez_compressed("data/ground.npz", g=g.astype(np.int16), rgb=_lut[_ids])
+np.savez_compressed("data/ground.npz", g=g.astype(np.int16), rgb=_lut[_ids],
+                    b=np.where(bmask, topi, 0).astype(np.int16))  # building height above ground (photo-pose tools)
 import tiles
 tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
                          skip_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},

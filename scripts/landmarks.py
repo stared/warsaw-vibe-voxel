@@ -65,7 +65,7 @@ def adjust_heights(top, feats, note):
 
 
 MAT_IDS = {"solid": 0, "wall": 1, "glass": 2, "metal": 6, "pkin": 7, "grass": 8, "roof": 12, "concrete": 13,
-           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19}
+           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19, "classic": 20}
 VARSO = Point(244, 1414)  # Varso Tower spire, grid
 OVERRIDES = json.load(open(Path(__file__).with_name("overrides.json")))["buildings"]
 
@@ -423,6 +423,8 @@ def small_tree(vol, g, r, c, h, leaves, trunk, height=None):
 
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
     pkin_clock(vol, g, feats, pal, note)
+    regularize_walls(vol, g, feats, note)
+    apply_loggias(vol, g, pal, note)
     H = vol.shape[0]
 
     def top_at(r, c):
@@ -574,7 +576,99 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
 
 # porches found in the LiDAR (a 19 m roof a few metres deep in front of a taller block), grid rows/cols inclusive
 PKIN_PORTICOS = [dict(rows=(1216, 1240), cols=(796, 802), face="E", h=14),  # main entrance, Plac Defilad side
-                 dict(rows=(1157, 1161), cols=(740, 757), face="N", h=14)]  # north porch, Świętokrzyska side
+                 dict(rows=(1157, 1161), cols=(740, 757), face="N", h=14),  # north porch, Świętokrzyska side
+                 dict(rows=(1296, 1300), cols=(740, 757), face="S", h=14),  # south porch, Aleje Jerozolimskie side
+                 # the four wings' porches, 13-14 m roofs ~7 m deep: Teatr Dramatyczny (NE), Pałac Młodzieży (SW)...
+                 dict(rows=(1095, 1101), cols=(803, 827), face="N", h=11),
+                 dict(rows=(1095, 1102), cols=(668, 693), face="N", h=11),
+                 dict(rows=(1355, 1362), cols=(804, 828), face="S", h=11),
+                 dict(rows=(1356, 1363), cols=(670, 694), face="S", h=11)]
+
+
+# Loggias and colonnades on facades at any angle (grid x, y = column, row): the front line p0 -> p1, carved `depth` m
+# inward (the side where the building is) from z0 to z1 m above ground, leaving `col` m wide columns every `step` m
+# along the front, in the wall's own colour without windows. From the photos and the ortho (grid overlay).
+LOGGIAS = [
+    # Teatr Wielki, Plac Teatralny front: the two-storey colonnade over the ground-floor arcade
+    dict(name="Teatr Wielki colonnade", p0=(1440, 48.5), p1=(1480, 41.5), depth=4, z0=7, z1=21, step=4, col=1),
+    dict(name="Teatr Wielki arcade", p0=(1440, 48.5), p1=(1480, 41.5), depth=3, z0=1, z1=6, step=4, col=2),
+]
+
+
+# landmark buildings whose walls get the gentle cleanup (1 m slots filled, 1 m ribs dropped; PKiN has its own)
+REGULAR_WALLS = ["Teatr Wielki", "Zachęta", "Gmach Główny PW", "Sejm RP", "Hala Koszyki", "Biblioteka Uniwersytecka",
+                 "Elektrownia Powiśle", "Warszawa Centralna", "Muzeum Sztuki Nowoczesnej", "TR Warszawa", "Rotunda PKO",
+                 "Centrum Nauki Kopernik", "Astoria", "Złote Tarasy"]
+
+
+def regularize_walls(vol, g, feats, note, L=3, Lo=2, min_area=30):
+    """Per landmark (its OSM outlines and parts, by name), layer by layer: fill notches up to L-2 m wide along a wall,
+    drop bumps narrower than Lo m across. A clean diagonal staircase stays (its cells lie in runs of 2+ both ways)."""
+    v, h, vo, ho = np.ones((L, 1), bool), np.ones((1, L), bool), np.ones((Lo, 1), bool), np.ones((1, Lo), bool)
+    for name in REGULAR_WALLS:
+        fs = [f for f in feats if _name(f) == name]
+        if not fs:
+            note("regularize: no outline for", name); continue
+        rr = np.concatenate([f["rr"] for f in fs]); cc = np.concatenate([f["cc"] for f in fs])
+        r0, r1, c0, c1 = rr.min() - 3, rr.max() + 4, cc.min() - 3, cc.max() + 4
+        foot = np.zeros((r1 - r0, c1 - c0), bool); foot[rr - r0, cc - c0] = True
+        foot = ndimage.binary_dilation(foot, iterations=1)
+        box = vol[:, r0:r1, c0:c1]
+        g0 = int(np.median(g[rr, cc]))
+        added = removed = 0
+        for z in range(g0 + 2, box.shape[0]):
+            lay = box[z]
+            M = (lay != 0) & foot
+            if M.sum() < min_area:
+                break
+            P = np.pad(M, L)
+            Mc = ndimage.binary_closing(P, v) | ndimage.binary_closing(P, h)
+            Mo = (ndimage.binary_opening(Mc, vo) & ndimage.binary_opening(Mc, ho))[L:-L, L:-L] & foot
+            rem, add = M & ~Mo, Mo & ~M
+            if add.any():
+                _, (ir, ic) = ndimage.distance_transform_edt(~M, return_indices=True)
+                lay[add] = lay[ir[add], ic[add]]
+            lay[rem] = 0
+            added += int(add.sum()); removed += int(rem.sum())
+        note(f"walls regularized: {name} +{added} -{removed}")
+
+
+def apply_loggias(vol, g, pal, note):
+    mats = np.array([e[3] for e in pal.entries])
+    for lg in LOGGIAS:
+        (x0, y0), (x1, y1) = lg["p0"], lg["p1"]
+        L = math.hypot(x1 - x0, y1 - y0)
+        ux, uy = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = -uy, ux  # one normal; flip it toward the building
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        probe = lambda sx, sy: int(vol[int(g[int(my + sy * 3), int(mx + sx * 3)]) + lg["z0"] + 2, int(my + sy * 3), int(mx + sx * 3)] != 0)
+        if probe(-nx, -ny) > probe(nx, ny):
+            nx, ny = -nx, -ny
+        done = {}
+        for t in np.arange(0, L, 0.5):
+            # the true outer face here: the outermost wall cell within 8 m outside the drawn line, at mid height
+            o0 = -0.5
+            for o in np.arange(-8, 1, 0.5):
+                r, c = int(y0 + uy * t + ny * o), int(x0 + ux * t + nx * o)
+                if vol[int(g[r, c]) + (lg["z0"] + lg["z1"]) // 2, r, c]:
+                    o0 = o; break
+            for o in np.arange(o0, o0 + lg["depth"], 0.5):
+                r, c = int(y0 + uy * t + ny * o), int(x0 + ux * t + nx * o)
+                is_col = o < o0 + 1.0 and (t % lg["step"]) < lg["col"]
+                done[(r, c)] = done.get((r, c), False) or is_col  # any column sample keeps the cell a column
+        n_col = 0
+        for (r, c), is_col in done.items():
+            gz = int(g[r, c])
+            seg = vol[gz + lg["z0"]:gz + lg["z1"], r, c]
+            if is_col:
+                k = seg != 0
+                if k.any():
+                    rgb = pal.entries[int(seg[k][0])][:3]
+                    seg[k] = pal(tuple(rgb), 0)
+                    n_col += 1
+            else:
+                seg[:] = 0
+        note(f"loggia {lg['name']}: {len(done)} cells, {n_col} columns")
 
 
 def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3, min_area=150):
@@ -639,16 +733,44 @@ def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3
         gz = int(g[r0:r1 + 1, c0:c1 + 1].min())
         seg = blk[gz:gz + hh + 6]
         seg[(seg != 0) & (mats[seg] == M_PKIN)] = plain
-        note(f"PKiN portico {face}: {int((seg != 0).sum())} voxels in the porch block before carving, ground {gz}")
+        # the porch's real front, from the voxels at entablature height (the OSM footprint and the LiDAR can differ
+        # by a couple of metres)
+        ent = blk[gz + hh + 1] != 0
+        er, ec = np.nonzero(ent)
+        if not len(er):
+            note(f"PKiN portico {face}: nothing at {hh + 1} m"); continue
+        fr0, fr1, fc0, fc1 = r0 + er.min(), r0 + er.max(), c0 + ec.min(), c0 + ec.max()
+        note(f"PKiN portico {face}: rows {fr0}-{fr1}, cols {fc0}-{fc1}")
         for r in range(r0, r1 + 1):
             for c in range(c0, c1 + 1):
                 along = r - r0 if face in "EW" else c - c0
-                front = (c >= c1 - 1) if face == "E" else (c <= c0 + 1) if face == "W" else \
-                    (r <= r0 + 1) if face == "N" else (r >= r1 - 1)
+                front = (c >= fc1 - 1) if face == "E" else (c <= fc0 + 1) if face == "W" else \
+                    (r <= fr0 + 1) if face == "N" else (r >= fr1 - 1)
                 if front and along % 3 == 1:
                     continue
                 vol[int(g[r, c]):int(g[r, c]) + hh, r, c] = 0
     note(f"PKiN porticos: {len(PKIN_PORTICOS)}")
+    # Sala Kongresowa's curved colonnade (west): the 13-14 m ring 3-4 m wide round the drum, open to 10 m with
+    # 1 m columns every 3 m along the arc
+    kr0, kr1, kc0, kc1 = 1185, 1276, 608, 662
+    sub = vol[:, kr0:kr1, kc0:kc1]
+    occ2 = (sub != 0)
+    T2 = np.where(occ2.any(0), occ2.shape[0] - 1 - np.argmax(occ2[::-1], axis=0), 0) - g[kr0:kr1, kc0:kc1]
+    built = T2 > 3
+    dist = ndimage.distance_transform_edt(np.pad(built, 1))[1:-1, 1:-1]
+    ring = built & (T2 >= 11) & (T2 <= 16) & (dist <= 4)
+    rr_, cc_ = np.nonzero(ring)
+    kcy, kcx = 1230 - kr0, 662 - kc0  # the drum's centre lies east of the window
+    n_col = 0
+    for r, c in zip(rr_, cc_):
+        gz_ = int(g[kr0 + r, kc0 + c])
+        arc = math.atan2(r - kcy, c - kcx) * math.hypot(r - kcy, c - kcx)
+        if dist[r, c] <= 1 and (arc % 3.0) < 1.0:
+            sub[gz_:gz_ + 10, r, c] = plain
+            n_col += 1
+            continue
+        sub[gz_:gz_ + 10, r, c] = 0
+    note(f"Sala Kongresowa colonnade: {len(rr_)} cells, {n_col} column cells")
     occ = box != 0  # debug: the final PKiN height map above ground (data/debug/pkin_top.npz)
     Path("data/debug").mkdir(parents=True, exist_ok=True)
     np.savez_compressed("data/debug/pkin_top.npz", top=np.where(occ.any(0), occ.shape[0] - 1 - np.argmax(occ[::-1], axis=0), 0)

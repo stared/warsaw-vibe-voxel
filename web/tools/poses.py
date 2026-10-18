@@ -10,7 +10,7 @@ from commons import files, subcats, UA
 SP = os.environ["OUT"]  # work dir: refs/ (photos), shots.json, info.json
 T = Transformer.from_crs(4326, 2180, always_xy=True)
 meta = json.load(open("web/public/data/meta.json")); LAB = {l["name"]: l for l in meta["labels"]}
-g = np.load("data/ground.npz")["g"]
+_gz = np.load("data/ground.npz"); g = _gz["g"]; B = _gz["b"] if "b" in _gz.files else np.zeros_like(g)
 CATS = json.loads(sys.argv[1]); AIM = os.environ.get("AIM", "landmark"); NODIR = os.environ.get("NODIR"); PER = int(sys.argv[2]) if len(sys.argv) > 2 else 4
 def num(v):
     if v is None: return None
@@ -22,7 +22,7 @@ for name, cat in CATS.items():
     for s in subcats(cat)[:10]: cand += files(s, 100)
     seen, picked = set(), []
     for c in cand:
-        if c["t"] in seen or not (c["lat"] and (c["dir"] or NODIR) and c["url"]) or re.search(r"[Vv]iews? from|[Ii]nterior|panorama|night|[Nn]acht|noc", c["t"]): continue
+        if c["t"] in seen or not (c["lat"] and (c["dir"] or NODIR) and c["url"]) or re.search(r"[Vv]iews? from|[Ii]nterior|[Ww]nętrz|korytarz|[Ss]ala |[Hh]all|panorama|night|[Nn]acht|noc|posiedzen|[Ss]ession|[Cc]onference|[Kk]onferenc|[Ee]xpos|[Ss]culpt|[Rr]zeźb|[Pp]omnik|detal|[Dd]etail|tablica|plaque", c["t"]): continue
         seen.add(c["t"])
         i, j = (float(v) for v in to_grid(*T.transform(c["lon"], c["lat"])))
         if not (5 < i < W - 5 and 5 < j < D - 5): continue
@@ -41,8 +41,19 @@ for name, cat in CATS.items():
         if w > 1100: w = 1100; h = int(w / ar)
         hf = 2 * math.atan(36 / (2 * f)) if ar >= 1 else 2 * math.atan(24 / (2 * f))  # long side 36 mm
         vf = math.degrees(2 * math.atan(math.tan(hf / 2) / ar)) if ar >= 1 else math.degrees(2 * math.atan(36 / (2 * f)))
+        # GPS error put many cameras inside a wall: step back, away from the landmark, to the first open cell
+        if not (abs(i - 750) < 36 and abs(j - 1230) < 36):
+            ux, uz = (i - L["x"]) / max(dist, 1), (j - L["y"]) / max(dist, 1)
+            for step in range(0, 60):
+                ci, cj = int(i + ux * step), int(j + uz * step)
+                if 0 <= cj < D and 0 <= ci < W and B[cj, ci] < 2 and B[max(0, cj - 1):cj + 2, max(0, ci - 1):ci + 2].max() < 2:
+                    i, j = i + ux * step, j + uz * step
+                    break
         y0 = float(g[min(D - 1, int(j)), min(W - 1, int(i))]) + 1.6
-        pitch = max(0.0, min(28.0, math.degrees(math.atan((L["g"] + (L["z"] - L["g"]) * 0.5 - y0) / dist))))
+        if abs(i - 750) < 36 and abs(j - 1230) < 36:  # GPS inside PKiN's tower: the 30th-floor terrace, 114 m
+            y0 += 114
+            i, j = i + (i - 750) * 0.4, j + (j - 1230) * 0.4  # at the terrace parapet, not inside the shaft
+        pitch = max(-30.0 if y0 > 100 else 0.0, min(28.0, math.degrees(math.atan((L["g"] + (L["z"] - L["g"]) * 0.5 - y0) / dist))))
         hr = 17.0
         if c["date"]:
             m = re.search(r" (\d\d):(\d\d)", c["date"]); hr = int(m[1]) + int(m[2]) / 60 if m else 17

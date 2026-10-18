@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // material ids (must match scripts/voxelize.py)
-export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19 };
+export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19, CLASSIC: 20 };
 
 export function makePaletteTexture(palette) {
   const n = palette.length;
@@ -190,6 +190,28 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
               else if (lit < litFrac * 0.9) gEmissive = mix(vec3(0.8, 0.9, 1.0), vec3(1.0, 0.88, 0.7), step(0.7, hash12(zone + 1.7))) * 0.7 * uNight;
             }
           } else { gRough = 0.3; gMetal = 0.4; }
+        } else if (m == ${MAT.CLASSIC}) {
+          // classical stone facade (Teatr Wielki, Zachęta...): a rusticated ground floor with round-headed openings
+          // every 4 m, then tall windows 4 m apart on 5 m storeys, a darker head over each (photos)
+          gRough = 0.8;
+          if (vert) {
+            float bay = mod(u, 4.0);
+            if (lvl < 5.5) {
+              col *= mod(lvl, 2.0) < 1.0 ? 0.9 : 1.0;
+              if (bay > 1.5 && bay < 2.5 && lvl > 0.5 && lvl < 4.5) {
+                col = base * 0.28;
+                if (hash12(vec2(u, 1.0)) < 0.5) gEmissive = warm * 0.8 * uNight;
+              }
+            } else {
+              float s5 = mod(lvl - 6.0, 5.0);
+              if (bay > 1.5 && bay < 2.5 && s5 > 0.5 && s5 < 3.5) {
+                col = base * 0.3; gRough = 0.2;
+                if (hash12(vec2(u, floor((lvl - 6.0) / 5.0))) < litFrac) gEmissive = warm * 0.9 * uNight;
+              } else if (bay > 1.5 && bay < 2.5 && s5 > 3.5) {
+                col = base * 0.82;
+              }
+            }
+          }
         } else if (m == ${MAT.RIBBON}) {
           // ribbon windows: one continuous glass band per storey (4 m) between light spandrels (Skylight, Lumen)
           if (vert && mod(lvl, 4.0) > 1.5) {
@@ -203,8 +225,11 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           float wash = 0.55 + 0.45 * (1.0 - tier) ;
           if (vert) {
             // 3 m storeys; each window column a continuous vertical strip (photos): two window levels, a dark spandrel
-            bool strip = mod(u, 3.0) < 0.5 && lvl > 3.5;
-            bool win = strip && mod(lvl, 3.0) > 0.5;
+            // the low blocks (under 26 m): separate tall windows, 4 m apart on 5 m storeys (photos: Pałac Młodzieży)
+            bool low = lvl < 25.5;
+            bool strip = !low && mod(u, 3.0) < 0.5;
+            bool win = low ? (mod(u, 4.0) < 0.5 && lvl > 1.5 && mod(lvl, 5.0) > 0.5 && mod(lvl, 5.0) < 3.5)
+                           : (strip && mod(lvl, 3.0) > 0.5);
             if (win) {
               col = base * 0.3; gRough = 0.2;
               if (hash12(vec2(u, floor(lvl / 3.0))) < 0.45) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
@@ -226,7 +251,8 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           // a river mirrors the sky, more so at grazing angles (Fresnel): without it the Vistula read as grey concrete
           vec3 V = normalize(cameraPosition - vVox);
           float fres = pow(1.0 - max(dot(vN, V), 0.0), 4.0);
-          col = mix(col, uHorizon, clamp(0.18 + 0.7 * fres, 0.0, 0.85));
+          // the Vistula is murky (ortho #6F6448): a muted, darker mirror, never the bright horizon itself
+          col = mix(col, uHorizon * 0.72, clamp(0.06 + 0.5 * fres, 0.0, 0.5));
         } else if (m == ${MAT.LAMP}) {
           col = base; gEmissive = vec3(1.0, 0.82, 0.55) * (0.15 + 3.2 * uNight);
         } else if (m == ${MAT.METAL}) {
