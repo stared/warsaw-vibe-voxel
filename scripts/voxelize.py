@@ -496,6 +496,38 @@ interior = ndimage.binary_erosion(bmask, iterations=1)
 top_med = ndimage.median_filter(top, size=3)
 smooth_roof = interior & (top < 45) & (np.abs(top_med - top) < 4)
 top = np.where(smooth_roof, top_med, top)
+
+
+def flatten_roofs(top):
+    """Flat roofs flat: per building part, if most of the roof lies within 1.5 m of its median, snap every cell within
+    2.5 m to it, and snap blobs above or below it smaller than 15 cells (LiDAR speckle on the roof, a 1 m slot down a
+    wall where the edge returns came low). Rooftop structures bigger than that, pitched roofs and towers stay."""
+    n_f = n_c = 0
+    for f in sorted(render, key=lambda f: -len(f["rr"])):  # parents first, their parts after
+        rr, cc = f["rr"], f["cc"]
+        if len(rr) < 30:
+            continue
+        v = top[rr, cc]
+        med = float(np.median(v))
+        if med < 3 or np.mean(np.abs(v - med) <= 1.5) < 0.6:
+            continue
+        r0, c0 = rr.min(), cc.min()
+        off = np.zeros((rr.max() - r0 + 1, cc.max() - c0 + 1), bool)
+        off[rr - r0, cc - c0] = np.abs(v - med) > 2.5
+        lab, n = ndimage.label(off)
+        if n:
+            size = ndimage.sum(off, lab, range(1, n + 1))
+            keep = np.concatenate([[False], size >= 15])  # big blobs: real structures
+            snap = ~keep[lab[rr - r0, cc - c0]]
+        else:
+            snap = np.ones(len(rr), bool)
+        n_c += int((snap & (v != med)).sum())
+        top[rr[snap], cc[snap]] = med
+        n_f += 1
+    note(f"flat roofs: {n_f} parts, {n_c} cells snapped")
+
+
+flatten_roofs(top)
 topi = np.where(bmask, np.round(top), 0).astype(np.int32)
 boti = np.round(bot_rel).astype(np.int32)
 bmask &= topi >= 2
