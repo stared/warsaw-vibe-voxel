@@ -13,6 +13,12 @@ import { Hud } from './hud.js';
 import GUI from 'lil-gui';
 import './style.css';
 
+// Phones get the real area + clay (zones.js): the whole city at 1 m needs ~1 GB of GPU memory. Set in the address
+// before anything reads it; the menu's engine choice (?engine=full) overrides it.
+{ const u = new URLSearchParams(location.search);
+  if (Math.min(screen.width, screen.height) < 600 && !u.get('shape') && u.get('engine') !== 'full') {
+    u.set('shape', 'budget'); u.set('budget', '2'); history.replaceState(null, '', '?' + u); } }
+
 const $ = (s) => document.querySelector(s);
 const status = (t) => { $('#loading-text').textContent = t; };
 
@@ -573,7 +579,7 @@ function flyTo(v) {
   }
   // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
   // the real-area shape, radius and budget change live.
-  const ENGINES = { 'whole city at 1 m': '', 'real area + clay': 'shape=budget&budget=2' };
+  const ENGINES = { 'whole city at 1 m': 'engine=full', 'real area + clay': 'shape=budget&budget=2' };
   const engineOf = () => (zones ? 'real area + clay' : 'whole city at 1 m');
   const reloadWith = (q) => { const c = camera.position, t = controls.target, u = new URLSearchParams(q);
     u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
