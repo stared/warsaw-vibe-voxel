@@ -424,7 +424,9 @@ def small_tree(vol, g, r, c, h, leaves, trunk, height=None):
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
     pkin_clock(vol, g, feats, pal, note)
     regularize_walls(vol, g, feats, note)
+    teatr_wielki_centre(vol, g, pal, note)
     apply_loggias(vol, g, pal, note)
+    paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
     H = vol.shape[0]
 
     def top_at(r, c):
@@ -589,10 +591,125 @@ PKIN_PORTICOS = [dict(rows=(1216, 1240), cols=(796, 802), face="E", h=14),  # ma
 # inward (the side where the building is) from z0 to z1 m above ground, leaving `col` m wide columns every `step` m
 # along the front, in the wall's own colour without windows. From the photos and the ortho (grid overlay).
 LOGGIAS = [
-    # Teatr Wielki, Plac Teatralny front: the two-storey colonnade over the ground-floor arcade
-    dict(name="Teatr Wielki colonnade", p0=(1440, 48.5), p1=(1480, 41.5), depth=4, z0=7, z1=21, step=4, col=1),
-    dict(name="Teatr Wielki arcade", p0=(1440, 48.5), p1=(1480, 41.5), depth=3, z0=1, z1=6, step=4, col=2),
+    # Teatr Wielki, Plac Teatralny front (Commons photos 2023, frontal; LiDAR front edges): the portico of TEN giant
+    # columns 3.3 m apart over a balustrade, open 11-20 m, 4 m deep; under it SIX supports (two piers, four columns)
+    # 4.4 m apart across the middle 22 m, open 1-8 m in front of the three arched doors; the wings' ground-floor
+    # arcades, a column every 3 m, open 1-5 m
+    dict(name="Teatr Wielki west wing arcade", p0=(1380, 85.5), p1=(1432, 68.5), depth=3, z0=1, z1=5, step=3, col=1),
+    dict(name="Teatr Wielki east wing arcade", p0=(1484, 54.5), p1=(1544, 39.5), depth=3, z0=1, z1=5, step=3, col=1),
 ]
+# windows on facades at any angle: (p0, p1, centres in m along from p0, rows (z above ground, height), width)
+LINE_WINDOWS = [
+    # Teatr Wielki: four attic windows, two each side of the quadriga (9.3 and 6.2 m left of the middle, 5.9 and 9.0 m
+    # right), 24-27 m; the wings two rows, 9-10 and 12-13 m, one between each pair of arcade columns; the flanking
+    # sections of the centre block two ground-floor windows each
+    ((1380, 85.5), (1432, 68.5), [1.5 + 3 * k for k in range(18)], [(9, 2), (12, 2)], 1),
+    ((1484, 54.5), (1544, 39.5), [1.5 + 3 * k for k in range(20)], [(9, 2), (12, 2)], 1),
+    ((1435, 52.0), (1444, 50.5), [2.5, 6.5], [(2, 3), (13, 3)], 2),
+    ((1477, 44.5), (1484, 46.0), [2.0, 5.5], [(2, 3), (13, 3)], 2),
+]
+
+
+def teatr_wielki_centre(vol, g, pal, note):
+    """Teatr Wielki's centre block rebuilt as clean geometry in its own frame (front 10.6 deg off the grid; LiDAR left
+    a lumpy blob: broken pediment, jagged columns). Measured from frontal Commons photos (2023) scaled to the LiDAR
+    apex (34 m) and front (31.3 m): the portico of TEN columns 3.3 m apart, 9-20 m, on a balcony slab (8-9 m) with
+    a balustrade, under a 2 m entablature, 4 m deep; under the balcony SIX supports 4.4 m apart across the middle
+    22 m in front of three doors, solid rusticated piers at the ends; behind the columns five bays of stacked
+    windows (11-13 and 14-16 m); the main block to 22 m; the attic (26 m wide, to 28.6 m) with FOUR windows, two
+    each side of the quadriga, under the pediment and its gable roof (apex 34 m) running 29 m back."""
+    x0, y0, x1, y1 = 1444.7, 41.9, 1475.7, 37.7  # the column line: LiDAR front edge rows 37-42
+    L = math.hypot(x1 - x0, y1 - y0)
+    ux, uy = (x1 - x0) / L, (y1 - y0) / L
+    nx, ny = -uy, ux  # into the building (towards larger rows)
+    wall = pal(_hex("#e2dac8"), MAT_IDS["classic"])
+    stone = pal(_hex("#ddd4c1"), 0)
+    roof = pal(_hex("#8fa79c"), 12)  # grey-green metal (ortho)
+    win = pal((58, 70, 68), MAT_IDS["window"])
+    door = pal((40, 34, 30), MAT_IDS["window"])
+    mid = L / 2
+    n = 0
+    for r in range(int(y0) - 6, int(y0) + 45):
+        for c in range(int(x0) - 6, int(x1) + 8):
+            dx, dy = c + 0.5 - x0, r + 0.5 - y0
+            u, v = dx * ux + dy * uy, dx * nx + dy * ny
+            if not (-1 <= u <= L + 1 and -9 <= v <= 34):
+                continue
+            gz = int(g[r, c])
+            col = vol[:, r, c]
+            col[gz:gz + 40] = 0
+            n += 1
+            if v < 0:
+                continue
+            if v < 4 and 0 <= u <= L:  # the portico
+                col[gz + 20:gz + 22] = stone
+                col[gz + 22] = roof
+                col[gz + 8] = stone
+                if v < 1:
+                    col[gz + 9] = stone  # balustrade
+                    if (u % 3.3) < 1.0 and u < L - 0.3:
+                        col[gz + 9:gz + 20] = stone
+                if 4.6 <= u <= L - 4.7:
+                    if v < 1 and ((u - 4.6) % 4.4) < 1.0:
+                        col[gz:gz + 8] = stone
+                    elif v >= 3:
+                        col[gz:gz + 8] = wall
+                        if ((u - 4.6) % 4.4) > 1.5 and abs(u - mid) < 7:
+                            col[gz + 1:gz + 6] = door
+                else:
+                    col[gz:gz + 8] = wall
+                continue
+            if v >= 4 and -1 <= u <= L + 1:  # main block
+                col[gz:gz + 22] = wall
+                col[gz + 22] = roof
+                if v < 5 and 0.5 < u < L - 0.5:  # back of the portico: five bays of stacked windows
+                    for k in range(-2, 3):
+                        if abs(u - (mid + 3.3 * k + 1.65)) < 1.0:
+                            col[gz + 11:gz + 13] = win
+                            col[gz + 14:gz + 16] = win
+                a0, a1 = mid - 13.05, mid + 13.05
+                if a0 <= u <= a1 and v >= 5:  # attic and pediment
+                    ridge = 28.6 + (13.05 - abs(u - mid)) * 0.414
+                    col[gz + 22:gz + int(ridge)] = wall
+                    col[gz + int(ridge)] = roof if v >= 6 else stone
+                    if v < 6:
+                        for du in (-9.3, -6.2, 5.9, 9.0):
+                            if abs(u - (mid + du)) < 1.0:
+                                col[gz + 24:gz + 27] = win
+    note(f"Teatr Wielki centre rebuilt: {n} columns")
+
+
+def paint_line_windows(vol, g, win, note):
+    n = 0
+    for (x0, y0), (x1, y1), centres, rows, w in LINE_WINDOWS:
+        L = math.hypot(x1 - x0, y1 - y0)
+        ux, uy = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = -uy, ux
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        gz = int(g[int(my), int(mx)])
+        probe = lambda sx, sy: sum(int(vol[gz + 6, int(my + sy * k), int(mx + sx * k)] != 0) for k in (3, 5, 7))
+        if probe(-nx, -ny) > probe(nx, ny):
+            nx, ny = -nx, -ny  # n points into the building
+        for tc in centres:
+            for zr, hh in rows:
+                for t in np.arange(tc - w / 2 + 0.25, tc + w / 2, 0.5):
+                    bx, by = x0 + ux * t, y0 + uy * t
+                    for zz in range(hh):
+                        z = int(g[int(by), int(bx)]) + zr + zz
+                        hit = None
+                        for o in np.arange(-10, 6, 0.5):
+                            r, c = int(by + ny * o), int(bx + nx * o)
+                            if vol[z, r, c]:
+                                hit = o; break
+                        if hit is None:
+                            continue
+                        r, c = int(by + ny * hit), int(bx + nx * hit)
+                        r2, c2 = int(by + ny * (hit + 1)), int(bx + nx * (hit + 1))
+                        vol[z, r, c] = 0
+                        if vol[z, r2, c2]:
+                            vol[z, r2, c2] = win
+                n += 1
+    note(f"line windows: {n}")
 
 
 # landmark buildings whose walls get the gentle cleanup (1 m slots filled, 1 m ribs dropped; PKiN has its own)

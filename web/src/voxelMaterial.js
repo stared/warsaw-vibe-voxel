@@ -191,27 +191,10 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
             }
           } else { gRough = 0.3; gMetal = 0.4; }
         } else if (m == ${MAT.CLASSIC}) {
-          // classical stone facade (Teatr Wielki, Zachęta...): a rusticated ground floor with round-headed openings
-          // every 4 m, then tall windows 4 m apart on 5 m storeys, a darker head over each (photos)
+          // classical stone facade: rusticated ground floor (alternate courses a shade darker); its windows are
+          // voxels placed from the measured elevation (landmarks.py LINE_WINDOWS), not drawn here
           gRough = 0.8;
-          if (vert) {
-            float bay = mod(u, 4.0);
-            if (lvl < 5.5) {
-              col *= mod(lvl, 2.0) < 1.0 ? 0.9 : 1.0;
-              if (bay > 1.5 && bay < 2.5 && lvl > 0.5 && lvl < 4.5) {
-                col = base * 0.28;
-                if (hash12(vec2(u, 1.0)) < 0.5) gEmissive = warm * 0.8 * uNight;
-              }
-            } else {
-              float s5 = mod(lvl - 6.0, 5.0);
-              if (bay > 1.5 && bay < 2.5 && s5 > 0.5 && s5 < 3.5) {
-                col = base * 0.3; gRough = 0.2;
-                if (hash12(vec2(u, floor((lvl - 6.0) / 5.0))) < litFrac) gEmissive = warm * 0.9 * uNight;
-              } else if (bay > 1.5 && bay < 2.5 && s5 > 3.5) {
-                col = base * 0.82;
-              }
-            }
-          }
+          if (vert && lvl < 7.5) col *= mod(lvl, 2.0) < 1.0 ? 0.9 : 1.0;
         } else if (m == ${MAT.RIBBON}) {
           // ribbon windows: one continuous glass band per storey (4 m) between light spandrels (Skylight, Lumen)
           if (vert && mod(lvl, 4.0) > 1.5) {
