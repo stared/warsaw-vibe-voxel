@@ -241,6 +241,22 @@
         "material": "glass"
       },
       "_note": "light blue-grey glass with visible floor lines (Commons photo 2017); OSM 'lightgray' on some parts, none on the shaft, which went dark navy"
+    },
+    "13114286": {
+      "name": "Rotunda PKO, main drum",
+      "roof": {
+        "colour": "#aeb3b7",
+        "material": "metal"
+      },
+      "_note": "ribbed silver-grey metal roof (2025 ortho), not OSM's #F8F8F8 white"
+    },
+    "975317925": {
+      "name": "Rotunda PKO, oculus",
+      "roof": {
+        "colour": "#2f3a40",
+        "material": "glass"
+      },
+      "_note": "dark glass oculus in the middle (ortho); OSM #4B785C green read as a green dot"
     }
   }
 }

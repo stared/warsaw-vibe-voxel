@@ -46,7 +46,7 @@ for name, cat in CATS.items():
             ux, uz = (i - L["x"]) / max(dist, 1), (j - L["y"]) / max(dist, 1)
             for step in range(0, 60):
                 ci, cj = int(i + ux * step), int(j + uz * step)
-                if 0 <= cj < D and 0 <= ci < W and B[cj, ci] < 2 and B[max(0, cj - 1):cj + 2, max(0, ci - 1):ci + 2].max() < 2:
+                if 0 <= cj < D and 0 <= ci < W and B[max(0, cj - 5):cj + 6, max(0, ci - 5):ci + 6].max() < 2:  # 5 m clear
                     i, j = i + ux * step, j + uz * step
                     break
         y0 = float(g[min(D - 1, int(j)), min(W - 1, int(i))]) + 1.6

@@ -561,9 +561,9 @@ def wall_style(f):
     h = f["maxh"] or float(np.median(top[f["rr"], f["cc"]]))
     inside_pkin = pkin["geom"].contains(f["geom"].representative_point())
     if inside_pkin:
-        # OSM tags the stone #C6AE7F, a khaki; the sandstone in photos is a pale warm beige
+        # OSM tags the stone #C6AE7F, a khaki; in photos the weathered sandstone is a mid warm grey-beige (median 114,108,96 overcast)
         if col is None or col == hex_rgb("#c6ae7f"):
-            col = hex_rgb("#d6cab0")
+            col = hex_rgb("#ab9e86")
         return pal(soften(col, 0.05), M_PKIN)
     glass = "glass" in mat_tag or (not mat_tag and h > 45 and btype in ("office", "commercial", "hotel", "yes", "retail")
                                    and "building:colour" not in t)
@@ -1027,6 +1027,8 @@ landmarks.apply_zones(vol, g, feats, pal, bmask, note)
 floods = landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
 leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
+np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
+                    pal=np.array(pal.entries, np.int32))  # PKiN's block for facade work (r0=1080, c0=600)
 
 # label footprint radius (the viewer hides a label only when something *else* is in the way; a ray hitting the
 # labelled building itself doesn't count) -- computed here because the viewer streams and has no whole-city voxels

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // material ids (must match scripts/voxelize.py)
-export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19, CLASSIC: 20 };
+export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19, CLASSIC: 20, WINDOW: 21 };
 
 export function makePaletteTexture(palette) {
   const n = palette.length;
@@ -223,24 +223,12 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           // floodlit: warm gold washing up each tier from its base (photos: PKiN at dusk), plus lit rooms
           float tier = fract(lvl / 34.0);
           float wash = 0.55 + 0.45 * (1.0 - tier) ;
-          if (vert) {
-            // 3 m storeys; each window column a continuous vertical strip (photos): two window levels, a dark spandrel
-            // the low blocks (under 26 m): separate tall windows, 4 m apart on 5 m storeys (photos: Pałac Młodzieży)
-            bool low = lvl < 25.5;
-            bool strip = !low && mod(u, 3.0) < 0.5;
-            bool win = low ? (mod(u, 4.0) < 0.5 && lvl > 1.5 && mod(lvl, 5.0) > 0.5 && mod(lvl, 5.0) < 3.5)
-                           : (strip && mod(lvl, 3.0) > 0.5);
-            if (win) {
-              col = base * 0.3; gRough = 0.2;
-              if (hash12(vec2(u, floor(lvl / 3.0))) < 0.45) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
-            } else if (strip) {
-              col = base * 0.55;
-            } else {
-              gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * 0.85 * wash;
-            }
-          } else {
-            gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * 0.35;
-          }
+          // no shader windows: they are voxels of their own material, placed from the elevation (landmarks.py)
+          gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * (vert ? 0.85 * wash : 0.35);
+        } else if (m == ${MAT.WINDOW}) {
+          // a window placed from a measured elevation: dark glass, some rooms lit at night
+          gRough = 0.15; gMetal = 0.35;
+          if (hash13(floor(cell / vec3(2.0, 2.0, 2.0))) < litFrac * 1.3) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
         } else if (m == ${MAT.LEAF}) {
           col = base * (0.8 + 0.35 * h); gRough = 0.95;
         } else if (m == ${MAT.GRASS}) {

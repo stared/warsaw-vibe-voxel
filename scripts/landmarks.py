@@ -65,7 +65,7 @@ def adjust_heights(top, feats, note):
 
 
 MAT_IDS = {"solid": 0, "wall": 1, "glass": 2, "metal": 6, "pkin": 7, "grass": 8, "roof": 12, "concrete": 13,
-           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19, "classic": 20}
+           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19, "classic": 20, "window": 21}
 VARSO = Point(244, 1414)  # Varso Tower spire, grid
 OVERRIDES = json.load(open(Path(__file__).with_name("overrides.json")))["buildings"]
 
@@ -616,19 +616,22 @@ def regularize_walls(vol, g, feats, note, L=3, Lo=2, min_area=30):
         box = vol[:, r0:r1, c0:c1]
         g0 = int(np.median(g[rr, cc]))
         added = removed = 0
+        solid = np.ones(box.shape[1:], bool)  # filled from the ground up to this layer: a wall, not a canopy or roof
         for z in range(g0 + 2, box.shape[0]):
             lay = box[z]
+            solid &= lay != 0
             M = (lay != 0) & foot
             if M.sum() < min_area:
                 break
             P = np.pad(M, L)
             Mc = ndimage.binary_closing(P, v) | ndimage.binary_closing(P, h)
             Mo = (ndimage.binary_opening(Mc, vo) & ndimage.binary_opening(Mc, ho))[L:-L, L:-L] & foot
-            rem, add = M & ~Mo, Mo & ~M
+            rem, add = M & ~Mo & solid, Mo & ~M
             if add.any():
                 _, (ir, ic) = ndimage.distance_transform_edt(~M, return_indices=True)
                 lay[add] = lay[ir[add], ic[add]]
             lay[rem] = 0
+            solid &= lay != 0
             added += int(add.sum()); removed += int(rem.sum())
         note(f"walls regularized: {name} +{added} -{removed}")
 
@@ -842,6 +845,7 @@ def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
                         vol[z + dz, ry_, plane + 1:plane + 4] = 0
                     vol[z + dz, ry_, plane] = v
     pkin_crown(vol, pal, pk, z, minx, miny, maxx, maxy, note)
+    pkin_windows(vol, pal, g0, note)
     note(f"PKiN clock at z={z} (rel {z - g0} m), tower {r1 - r0 + 1}x{c1 - c0 + 1} m")
 
 
@@ -896,6 +900,136 @@ def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
     pkin_pinnacles(vol, pk, z_roof, minx, miny, maxx, maxy, note)
 
 
+def paint_windows(vol, win, faces, centres, rows, w=2, h=2, depth=1, plane_tol=3):
+    """Windows painted from a measured elevation instead of a shader rhythm. faces: (axis, plane, normal, u_centre)
+    with axis 0 = the face is a row plane (normal along rows), 1 = a column plane; centres: window centres along the
+    face in metres from u_centre; rows: (z, height) of each window row (absolute voxel z). For each window the wall
+    surface is found within plane_tol of the plane (one depth for the whole window, from its middle cell); if anything
+    stands further out (a lower block, a porch) the window is skipped. The surface voxels are cleared to `depth` and
+    the glass set behind them. Returns the number of windows cut."""
+    n = 0
+    for axis, plane, nrm, uc in faces:
+        get = (lambda zz, q, u: vol[zz, q, u]) if axis == 0 else (lambda zz, q, u: vol[zz, u, q])
+        def put(zz, q, u, v):
+            if axis == 0: vol[zz, q, u] = v
+            else: vol[zz, u, q] = v
+        for c in centres:
+            u0 = int(math.floor(uc + c - w / 2 + 0.5))
+            for z0, hh in rows:
+                um, zm = u0 + w // 2, z0 + hh // 2
+                surf = None
+                for t in range(plane_tol + 4, -plane_tol - 1, -1):  # from outside in
+                    if get(zm, plane + t * nrm, um):
+                        surf = t if t <= plane_tol else None
+                        break
+                if surf is None:
+                    continue
+                pl = plane + surf * nrm
+                for u in range(u0, u0 + w):
+                    for zz in range(z0, z0 + hh):
+                        if not get(zz, pl, u) or get(zz, pl + nrm, u):
+                            continue  # not flush with the window's surface here
+                        for d in range(depth):
+                            put(zz, pl - d * nrm, u, 0)
+                        if win is not None:
+                            put(zz, pl - depth * nrm, u, win)
+                n += 1
+    return n
+
+
+def _faces(r0, r1, c0, c1):
+    """The four faces of an axis-aligned block (inclusive grid bounds): N, S (row planes), W, E (column planes)."""
+    return [(0, r0, -1, (c0 + c1 + 1) / 2), (0, r1, 1, (c0 + c1 + 1) / 2),
+            (1, c0, -1, (r0 + r1 + 1) / 2), (1, c1, 1, (r0 + r1 + 1) / 2)]
+
+
+def pkin_windows(vol, pal, g0, note):
+    """PKiN's windows from its elevation (Commons photos of the east and north faces, 2015-2019, counted bay by bay):
+    the shaft: 11.5 m corner piers with ONE window column each, the 22 m middle with FIVE columns 4.8 m apart;
+    storeys 3.8 m below the 30th-floor terrace (114 m); at the top a band of small windows and the terrace loggia:
+    five tall openings in the middle, an arched one in each pier. Above: a stage with five small windows, a stage with
+    five arches. The four corner towers: three columns on each face, storeys 4 m, a band of small squares and a loggia
+    of three tall openings under the cornice. Grid bounds from the voxel massing (LiDAR)."""
+    win = pal((58, 70, 68), MAT_IDS["window"])
+    z = lambda hgt: g0 + int(round(hgt))
+    n = 0
+    shaft = _faces(1207, 1250, 727, 770)
+    cols = [-10.2, -5.1, 0, 5.1, 10.2, -17.1, 17.1]  # measured: 5.1 m apart; the pier column 4.9 m in from the edge
+    # the 23 m middle stands 1 m back from the piers
+    paint_windows(vol, None, shaft, [0], [(z(20), z(108) - z(20))], w=23, depth=1)
+    body = [(z(114 - k * 3.8 + 1), 2) for k in range(2, 30)]
+    n += paint_windows(vol, win, shaft, cols, body)
+    n += paint_windows(vol, win, shaft, cols, [(z(111), 1)], w=1)
+    n += paint_windows(vol, win, shaft, cols[:5], [(z(115), 7), (z(123), 1)], depth=2)
+    n += paint_windows(vol, win, shaft, cols[5:], [(z(115), 6), (z(123), 1)], depth=2)
+    n += paint_windows(vol, win, shaft, cols[5:], [(z(121), 1)], w=1, depth=2)  # the arch's crown
+    n += paint_windows(vol, win, _faces(1218, 1239, 738, 759), [-8, -4, 0, 4, 8], [(z(146), 2)], w=1)
+    n += paint_windows(vol, win, _faces(1219, 1238, 739, 758), [-7.2, -3.6, 0, 3.6, 7.2], [(z(157), 5)], depth=2)
+    towers = [(1194, 1212, 716, 736), (1194, 1212, 761, 782), (1244, 1264, 716, 736), (1244, 1264, 761, 782)]
+    trows = [(z(hh), 2) for hh in range(21, 52, 4)]
+    for r0, r1, c0, c1 in towers:
+        f = _faces(r0, r1, c0, c1)
+        n += paint_windows(vol, win, f, [-4.8, 0, 4.8], trows)
+        n += paint_windows(vol, win, f, [-4.8, 0, 4.8], [(z(54), 1)], w=1)
+        n += paint_windows(vol, win, f, [-4.8, 0, 4.8], [(z(57), 5)], depth=2)
+    # the north and south front blocks (30 m): one window column on each side of the porch, three windows over it
+    for flank, front, nrm in ((1166, 1162, -1), (1291, 1295, 1)):
+        n += paint_windows(vol, win, [(0, flank, nrm, 749.0)], [-15, 15],
+                           [(z(hh), 2) for hh in (4, 8.5, 13, 17.5, 22, 26)], plane_tol=4)
+        n += paint_windows(vol, win, [(0, front, nrm, 749.0)], [-4.5, 0, 4.5], [(z(23), 2)], plane_tol=2)
+    n += pkin_low_windows(vol, win, g0, note)
+    note(f"PKiN windows from the elevation: {n} windows")
+
+
+def pkin_low_windows(vol, win, g0, note, bay=6.3, lo=26):
+    """The low blocks (pavilions, wings, the courtyard sides; roofs under `lo` m): photos of the north front
+    (Pałac Młodzieży, 2018; 18 m wings measured at 27 px/m) show bays 6.3 m apart, each a tall frame holding two
+    windows (4.4-7.8 m and 8.6-11 m) and a single window on the top storey (12.8-14.6 m). Every straight wall run on the outline of the low blocks
+    gets as many bays as fit, centred, at least 3 m from its ends. The tower, the front blocks, Sala Kongresowa
+    (round: its colonnade) and the porches are left alone."""
+    box = vol[:, 1080:1380, 600:900]
+    occ = box != 0
+    H = occ.shape[0]
+    top = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0) - g0
+    low = (top > 12) & (top < lo)
+    low[:, :105] = False  # Sala Kongresowa and its drum (cols < 705)
+    low[1162 - 1080:1296 - 1080, 727 - 600:771 - 600] = False  # tower axis: front blocks, shaft
+    n = 0
+    zc = g0 + 9  # probe height
+    for axis in (0, 1):
+        for nrm in (-1, 1):
+            m = low & occ[zc]
+            out = np.roll(occ[zc], -nrm, axis=axis)  # the neighbour on the outside
+            face = m & ~out
+            lines = face if axis == 0 else face.T
+            for q in range(lines.shape[0]):  # q: the plane index
+                row = lines[q]
+                u = 0
+                while u < len(row):
+                    if not row[u]:
+                        u += 1; continue
+                    u1 = u
+                    while u1 < len(row) and row[u1]:
+                        u1 += 1
+                    L = u1 - u
+                    if L >= 8:
+                        k = max(1, int((L - 6) // bay) + 1)
+                        span = (k - 1) * bay
+                        cs = [-span / 2 + i * bay for i in range(k)]
+                        if axis == 0:
+                            fc = [(0, q + 1080, nrm, u + 600 + L / 2)]
+                        else:
+                            fc = [(1, q + 600, nrm, u + 1080 + L / 2)]
+                        ht = int(np.median(top[q, u:u1] if axis == 0 else top[u:u1, q]))
+                        rows = [(g0 + 4, 4), (g0 + 9, 2), (g0 + 13, 2)]
+                        if ht >= 21:
+                            rows.append((g0 + ht - 5, 2))
+                        n += paint_windows(vol, win, fc, cs, rows, depth=1, plane_tol=1)
+                    u = u1
+    note(f"PKiN low blocks: {n} windows")
+    return n
+
+
 def pkin_pinnacles(vol, pk, z_top, minx, miny, maxx, maxy, note):
     """Stone pinnacles along the parapets of every setback (photos: a crown of spikes at each tier's edge): a 1 m spike
     ~3 m tall on every fourth cell of a roof edge that drops 4 m or more, in the wall's colour (the stone below the
@@ -907,7 +1041,9 @@ def pkin_pinnacles(vol, pk, z_top, minx, miny, maxx, maxy, note):
     nb = np.minimum.reduce([np.pad(top, 1, mode="edge")[1 + dr:1 + dr + top.shape[0], 1 + dc:1 + dc + top.shape[1]]
                             for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1))])
     g0 = int(top[top > 0].min())
-    edge = (top - nb >= 4) & (top > g0 + 12) & (top < z_top - 2)
+    # only the tower's tiers (corner towers, shaft, stages: above 55 m); the low blocks have plain cornices with
+    # balustrades (photos), and spikes on every parapet read as battlements
+    edge = (top - nb >= 4) & (top > g0 + 55) & (top < z_top - 2)
     rr, cc = np.nonzero(edge & (((np.arange(top.shape[0])[:, None] + np.arange(top.shape[1])[None, :]) % 4) == 0))
     for r, c in zip(rr, cc):
         z = top[r, c]
