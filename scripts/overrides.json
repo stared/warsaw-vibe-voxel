@@ -1,5 +1,5 @@
 {
-  "_doc": "Per-building curation applied on top of LiDAR+OSM. Keyed by OSM element id (way/relation) or by name. Fields: wall/roof {colour, material}; zones: facade split along the footprint's long axis (from/to are fractions 0..1, measured from end 'origin': west|east|north|south); crown: facade band at the top {height, colour, material, sign_colour, tip: only the first fraction of the long axis from the origin end}; min_part_height: apply only to parts taller than this; label/note; sources. Materials: wall, glass, concrete, metal, pkin, bronze_grid, sign. Areas (any OSM area id, e.g. a stadium): stripes {colours, width (m along the perimeter), material, min_height} paint the walls of every building part inside it in vertical bands by angle around the area's centre.",
+  "_doc": "Per-building curation applied on top of LiDAR+OSM. Keyed by OSM element id (way/relation) or by name. Fields: wall/roof {colour, material}; zones: facade split along the footprint's long axis (from/to are fractions 0..1, measured from end 'origin': west|east|north|south); crown: facade band at the top {height, colour, material, sign_colour, tip: only the first fraction of the long axis from the origin end}; min_part_height: apply only to parts taller than this; label/note; sources. Materials: wall, glass, concrete, metal, pkin, bronze_grid, sign. Areas (any OSM area id, e.g. a stadium): stripes {colours, width (m along the perimeter), material, min_height} paint the walls of every building part inside it in vertical bands by angle around the area's centre; stripes.bands [{to (m above ground), colour | checker [two colours] + cell [w, h m] + p/dp (share of the second colour, rising with height), material}] paint by height instead; smooth {masts, mast_h, outline, podium} rebuilds a stadium roof as one surface (median height by distance from the smoothed outer edge) with thin masts round the rim.",
   "buildings": {
     "306124863": {
       "name": "Astoria Premium Offices (Brokla 2, formerly Przeskok 2)",
@@ -101,13 +101,19 @@
         "width": 3,
         "material": "metal",
         "min_height": 15,
-        "ring": 34
+        "ring": 34,
+        "bands": [
+          {"to": 10, "colour": "#2b3540", "material": "glass"},
+          {"to": 25, "checker": ["#a8323a", "#c9ccd0"], "cell": [4, 3], "material": "metal", "p": 0.2, "dp": 0.45},
+          {"colour": "#e6e6e1", "material": "solid"}
+        ]
       },
       "_note": "facade in the national colours, red and silver/white panels round the bowl, carried by the 72 roof columns; the pitch is grass (2025 ortho; the roof's shadow hides it from the green test); the inner roof edge OSM tags #3399cc glass reads light grey from above",
       "sources": [
         "https://worldconstructionnetwork.com/projects/national-stadium-warsaw-poland",
         "https://www.inyourpocket.com/warsaw/pge-narodowy_119075v"
       ],
+      "smooth": {"masts": 72, "mast_h": 26},
       "infield": {
         "colour": "#6aa34a",
         "material": "grass"

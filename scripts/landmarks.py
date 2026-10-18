@@ -119,6 +119,15 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
         cx, cy = geom.centroid.x, geom.centroid.y
         R = math.sqrt(geom.area / math.pi)
         cols = [pal(_hex(c), MAT_IDS[st.get("material", "wall")]) for c in st["colours"]]
+        # "bands": horizontal bands by height above ground instead of vertical stripes, [{to (m), colour | checker, material}],
+        # the last without "to" running to the top
+        bands, chk = [], None
+        for b in st.get("bands", []):
+            if "checker" in b:
+                chk = [pal(_hex(c), MAT_IDS[b.get("material", "wall")]) for c in b["checker"]]
+                bands.append((b.get("to", 10 ** 4), "checker"))
+            else:
+                bands.append((b.get("to", 10 ** 4), pal(_hex(b["colour"]), MAT_IDS[b.get("material", "wall")])))
         rr, cc = cells_of(geom)
         # recolour by palette colour within the area (e.g. OSM's #3399cc "glass" inner roof edge)
         for src, dst in o.get("recolour", {}).items():
@@ -145,9 +154,12 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
             hr, hc = hr + r0_ - 1, hc + c0_ - 1
             gi = pal(_hex(inf["colour"]), MAT_IDS[inf.get("material", "grass")])
             vol[g[hr, hc] - 1, hr, hc] = gi
-            # open above the pitch up to 40 m: the spire hub hangs on its cables (the LiDAR column stood on the grass)
+            # open above the pitch: the LiDAR column there (the hub and its cables) left a fat cylinder; keep only a
+            # slim hub, 3 m across, hanging from 45 m up
+            hcr, hcc = hr.mean(), hc.mean()
             for r_, c_ in zip(hr, hc):
-                vol[g[r_, c_]:g[r_, c_] + 40, r_, c_] = 0
+                hub = abs(r_ - hcr) <= 1.5 and abs(c_ - hcc) <= 1.5
+                vol[g[r_, c_]:g[r_, c_] + 45 if hub else vol.shape[0], r_, c_] = 0
             # the inner face of the bowl: seating tiers (red seat rows, grey walkways), not office windows
             seat, walk = pal(_hex("#b3343b"), 0), pal(_hex("#8f8f8c"), 0)
             depth_in = ndimage.distance_transform_edt(~hole)
@@ -161,6 +173,7 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
                         vol[z_, r_, c_] = walk if (z_ - g[r_, c_]) % 4 == 0 else seat
             floods.append([round(float(hc.mean()) + 0.5, 1), round(float(hr.mean()) + 0.5, 1), round(math.sqrt(len(hr) / math.pi), 1)])
             note("infield:", o.get("name", oid)[:30], len(hr), "cells")
+        masts = _smooth_bowl(vol, g, bmask, pal, rr, cc, cx, cy, o["smooth"], note) if o.get("smooth") else []
         k_ = bmask[rr, cc]
         ring = st.get("ring", 1e9)  # only the facade: cells within this many metres of the building mass's outer edge
         r0, c0 = rr.min(), cc.min()
@@ -177,12 +190,94 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
             z0, z1 = int(g[r, c]) + 3, int(nz[-1])
             if z1 <= z0:
                 continue
-            k = int((math.atan2(r + 0.5 - cy, c + 0.5 - cx) + math.pi) * R / st.get("width", 3)) % len(cols)
+            arc = (math.atan2(r + 0.5 - cy, c + 0.5 - cx) + math.pi) * R  # metres along the perimeter
             col = vol[z0:z1, r, c]
-            vol[z0:z1, r, c] = np.where(col != 0, cols[k], 0)
+            if bands:
+                hz = np.arange(z0, z1) - int(g[r, c])  # height above ground
+                out = np.zeros_like(col)
+                lo = 0
+                for b, (to, kind) in zip(st["bands"], bands):
+                    sel = (hz >= lo) & (hz < to)
+                    if kind == "checker":  # panels of cell[0] m along x cell[1] m up, more of the second colour higher up
+                        cw, ch = b["cell"]
+                        rows = (hz[sel] - lo) // ch
+                        t = rows / max(1, (to - lo) // ch - 1)
+                        hsh = (np.int64(arc // cw) * 73856093 ^ rows.astype(np.int64) * 19349663) % 1000 / 1000
+                        out[sel] = np.where(hsh < b.get("p", 0.25) + b.get("dp", 0.4) * t, chk[1], chk[0])
+                    else:
+                        out[sel] = kind
+                    lo = to
+                vol[z0:z1, r, c] = np.where(col != 0, out, 0)
+            else:
+                k = int(arc / st.get("width", 3)) % len(cols)
+                vol[z0:z1, r, c] = np.where(col != 0, cols[k], 0)
             n += 1
+        for r, c, z0, z1, col in masts:
+            vol[z0:z1, r, c] = col
         note("stripes:", o.get("name", oid)[:40], n, "columns")
     return floods
+
+
+def _smooth_bowl(vol, g, bmask, pal, rr, cc, cx, cy, sm, note):
+    """A stadium's roof as one smooth surface: its height is the median LiDAR height at each distance from the outer
+    edge (1 m steps), so the masts and cable points no longer stand as radial fins round the facade; then
+    sm["masts"] thin masts evenly round the rim, sm["mast_h"] m above the roof edge."""
+    k = bmask[rr, cc]
+    r0, c0 = rr.min() - 8, cc.min() - 8
+    m = np.zeros((rr.max() - r0 + 9, cc.max() - c0 + 9), bool)
+    m[rr[k] - r0, cc[k] - c0] = True
+    # the bowl's outline smoothed: the masts' and stair cores' LiDAR footprints made a comb of fins round it
+    sm_it = sm.get("outline", 6)
+    mc = ndimage.binary_closing(m, iterations=sm_it)
+    m = ndimage.binary_opening(ndimage.binary_fill_holes(mc), iterations=sm_it)
+    lab, nl = ndimage.label(mc)  # the bowl is the largest piece; islands in the pitch (the hub's LiDAR) are not
+    ring_ = lab == 1 + int(np.argmax(ndimage.sum(mc, lab, range(1, nl + 1))))
+    hole = ndimage.binary_fill_holes(ring_) & ~ring_  # the pitch stays open
+    inside = (m & ~hole)[rr - r0, cc - c0]
+    in_hole = hole[rr - r0, cc - c0] & k
+    hr_, hc_ = rr[hole[rr - r0, cc - c0]], cc[hole[rr - r0, cc - c0]]
+    for r, c in zip(rr[in_hole], cc[in_hole]):  # open to the sky but for a slim hub, 3 m across, from 45 m up
+        hub = abs(r - hr_.mean()) <= 1.5 and abs(c - hc_.mean()) <= 1.5
+        vol[int(g[r, c]):int(g[r, c]) + 45 if hub else vol.shape[0], r, c] = 0
+        bmask[r, c] = hub
+    for r, c in zip(rr[k & ~inside], cc[k & ~inside]):  # outside the bowl: no more than the podium
+        vol[int(g[r, c]) + sm.get("podium", 8):, r, c] = 0
+    fill = pal(_hex(sm.get("mast_colour", "#ecedee")), MAT_IDS["solid"])
+    for r, c in zip(rr[~k & inside], cc[~k & inside]):  # gaps in the outline: part of the bowl
+        vol[int(g[r, c]):int(g[r, c]) + 1, r, c] = fill
+        bmask[r, c] = True
+    r_, c_ = rr[inside], cc[inside]
+    orig = k[inside]  # measured columns (the gap cells just filled carry no height)
+    depth = np.round(ndimage.distance_transform_edt(m)[r_ - r0, c_ - c0]).astype(int)
+    tops = np.array([(np.nonzero(vol[:, r, c])[0][-1] + 1 if vol[:, r, c].any() else int(g[r, c])) for r, c in zip(r_, c_)]) - g[r_, c_]
+    prof = np.zeros(depth.max() + 1)
+    for d in range(len(prof)):
+        v = tops[(depth == d) & orig]
+        prof[d] = np.median(v) if len(v) else prof[d - 1]
+    prof = np.maximum.accumulate(ndimage.median_filter(prof, 5))  # the membrane only rises inward
+    for r, c, d in zip(r_, c_, depth):
+        z0, zt = int(g[r, c]), int(g[r, c] + round(prof[d]))
+        col = vol[:, r, c]
+        nz = np.nonzero(col)[0]
+        if not len(nz):
+            continue
+        top = nz[-1] + 1
+        if top > zt:
+            col[zt:] = 0
+        elif top < zt:
+            col[top:zt] = col[top - 1]
+        col[z0 + 1:zt][col[z0 + 1:zt] == 0] = col[zt - 1]  # no hollows under the roof
+    white = pal(_hex(sm.get("mast_colour", "#ecedee")), MAT_IDS["metal"])
+    rim = (depth == 1)
+    ang = np.arctan2(r_[rim] + 0.5 - cy, c_[rim] + 0.5 - cx)
+    n, masts = sm.get("masts", 72), []
+    for kk in range(n):  # just outside the facade, from the ground to mast_h above the roof edge (photos)
+        a = -math.pi + (kk + 0.5) * 2 * math.pi / n
+        i = int(np.argmin(np.abs((ang - a + math.pi) % (2 * math.pi) - math.pi)))
+        r, c = int(round(r_[rim][i] + 2 * math.sin(a))), int(round(c_[rim][i] + 2 * math.cos(a)))
+        masts.append((r, c, int(g[r, c]), int(g[r, c] + round(prof[1])) + sm.get("mast_h", 18), white))
+    note(f"smooth bowl: roof {prof[1]:.0f}-{prof.max():.0f} m over {len(prof)} m depth, {n} masts")
+    return masts
 
 
 def apply_zones(vol, g, feats, pal, bmask, note):
@@ -498,7 +593,7 @@ def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
 
 def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
     """Above the clock storey (photo 23.09.2026, visual_ref.md): a short verdigris pyramidal cap, a small open
-    stage, a dark bronze sphere and a long, thin gilded spire. The LiDAR blob there is replaced by clean geometry."""
+    stage, a dark bronze sphere and a long gilded spire, a lattice tapering to a needle. The LiDAR blob there is replaced by clean geometry."""
     verd, bronze, gold = pal((78, 127, 106), M_PKIN), pal((70, 56, 42), 6), pal((190, 160, 62), 6)
     box = vol[:, miny:maxy, minx:maxx]
     occ = (box != 0).reshape(box.shape[0], -1).sum(1)
@@ -529,7 +624,20 @@ def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
             for dc in range(-1, 2):
                 if abs(dz) + abs(dr) + abs(dc) <= 2:
                     box[zs + dz, ri + dr, ci + dc] = bronze
-    box[zs + 2:top + 1, ri, ci] = gold  # needle up to the measured 237 m
+    # gilded spire up to the measured 237 m: a lattice that tapers (photos; LiDAR 6 m wide to ~215 m, 4 m to ~228 m):
+    # 3 m square, its corners solid and its faces ringed every other metre, then a cross, then a needle
+    z0 = zs + 2
+    for zz in range(z0, top + 1):
+        t = (zz - z0) / max(1, top - z0)
+        box[zz, ri, ci] = gold
+        if t < 0.45:
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    if (dr and dc) or (zz - z0) % 2 == 0:
+                        box[zz, ri + dr, ci + dc] = gold
+        elif t < 0.7 and (zz - z0) % 2 == 0:
+            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                box[zz, ri + dr, ci + dc] = gold
     note(f"PKiN crown: cap {z_roof}-{z_roof + cap_h}, sphere {zs}, gilded spire to {top}")
     pkin_pinnacles(vol, pk, z_roof, minx, miny, maxx, maxy, note)
 

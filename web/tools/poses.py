@@ -11,7 +11,7 @@ SP = os.environ["OUT"]  # work dir: refs/ (photos), shots.json, info.json
 T = Transformer.from_crs(4326, 2180, always_xy=True)
 meta = json.load(open("web/public/data/meta.json")); LAB = {l["name"]: l for l in meta["labels"]}
 g = np.load("data/ground.npz")["g"]
-CATS = json.loads(sys.argv[1]); AIM = os.environ.get("AIM", "landmark"); PER = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+CATS = json.loads(sys.argv[1]); AIM = os.environ.get("AIM", "landmark"); NODIR = os.environ.get("NODIR"); PER = int(sys.argv[2]) if len(sys.argv) > 2 else 4
 def num(v):
     if v is None: return None
     if isinstance(v, (int, float)): return float(v)
@@ -22,14 +22,16 @@ for name, cat in CATS.items():
     for s in subcats(cat)[:10]: cand += files(s, 100)
     seen, picked = set(), []
     for c in cand:
-        if c["t"] in seen or not (c["lat"] and c["dir"] and c["url"]) or re.search(r"[Vv]iews? from|[Ii]nterior|panorama|night|[Nn]acht|noc", c["t"]): continue
+        if c["t"] in seen or not (c["lat"] and (c["dir"] or NODIR) and c["url"]) or re.search(r"[Vv]iews? from|[Ii]nterior|panorama|night|[Nn]acht|noc", c["t"]): continue
         seen.add(c["t"])
         i, j = (float(v) for v in to_grid(*T.transform(c["lon"], c["lat"])))
         if not (5 < i < W - 5 and 5 < j < D - 5): continue
-        b = math.radians(num(c["dir"])); v = np.array([math.sin(b), math.cos(b)])
-        di, dj = v @ EU, v @ EV; yaw = math.degrees(math.atan2(di, -dj))
-        dx, dz = L["x"] - i, L["y"] - j; dist = math.hypot(dx, dz)
-        toward = math.degrees(math.atan2(dx, -dz)); off = (yaw - toward + 540) % 360 - 180
+        dx, dz = L["x"] - i, L["y"] - j; dist = math.hypot(dx, dz); toward = math.degrees(math.atan2(dx, -dz))
+        if c["dir"]:
+            b = math.radians(num(c["dir"])); v = np.array([math.sin(b), math.cos(b)])
+            di, dj = v @ EU, v @ EV; yaw = math.degrees(math.atan2(di, -dj))
+        else: yaw = toward  # NODIR=1: GPS only, assume it faces the landmark (check by eye)
+        off = (yaw - toward + 540) % 360 - 180
         if not (25 < dist < 900 and abs(off) < 30): continue
         f = num(c["f35"]) or 28; f = f if f > 10 else 28
         picked.append((abs(off) + dist / 50, c, i, j, yaw, dist, f, off))

@@ -511,7 +511,10 @@ def wall_style(f):
     h = f["maxh"] or float(np.median(top[f["rr"], f["cc"]]))
     inside_pkin = pkin["geom"].contains(f["geom"].representative_point())
     if inside_pkin:
-        return pal(soften(col or hex_rgb("#d9c9a6"), 0.05), M_PKIN)
+        # OSM tags the stone #C6AE7F, a khaki; the sandstone in photos is a pale warm beige
+        if col is None or col == hex_rgb("#c6ae7f"):
+            col = hex_rgb("#d6cab0")
+        return pal(soften(col, 0.05), M_PKIN)
     glass = "glass" in mat_tag or (not mat_tag and h > 45 and btype in ("office", "commercial", "hotel", "yes", "retail")
                                    and "building:colour" not in t)
     if glass:

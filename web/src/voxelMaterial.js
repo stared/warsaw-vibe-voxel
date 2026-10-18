@@ -202,10 +202,14 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           float tier = fract(lvl / 34.0);
           float wash = 0.55 + 0.45 * (1.0 - tier) ;
           if (vert) {
-            bool win = mod(lvl, 4.0) > 0.5 && mod(lvl, 4.0) < 2.5 && mod(u, 3.0) < 0.5;
+            // 3 m storeys; each window column a continuous vertical strip (photos): two window levels, a dark spandrel
+            bool strip = mod(u, 3.0) < 0.5 && lvl > 3.5;
+            bool win = strip && mod(lvl, 3.0) > 0.5;
             if (win) {
-              col = base * 0.35; gRough = 0.2;
-              if (hash12(vec2(u, floor(lvl / 4.0))) < 0.45) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
+              col = base * 0.3; gRough = 0.2;
+              if (hash12(vec2(u, floor(lvl / 3.0))) < 0.45) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
+            } else if (strip) {
+              col = base * 0.55;
             } else {
               gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * 0.85 * wash;
             }
