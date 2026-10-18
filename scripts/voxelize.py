@@ -113,6 +113,7 @@ C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
     "ballast": pal("#8a8178"), "rail": pal("#55575d", M_METAL), "trambed": pal("#a9a59c"),
     "platform": pal("#b7b1a6"), "water": pal("#5fa8c9", M_WATER), "mark": pal("#f1efe8", M_MARK),
+    "bare": pal("#a8977c", M_SOIL),  # lawns before their grass arrives (tiles.py: grass is its own file)
     "soil": pal("#7a5c45", M_SOIL), "trunk": pal("#6b4f3a"), "lamp": pal("#ffe2a8", M_LAMP),
     "pole": pal("#3a3e42", M_METAL), "steps": pal("#a8a296"), "hatch": pal("#d9c860", M_MARK),
     "fence": pal("#dfe3e6", M_METAL), "crane": pal("#e7b23c", M_METAL), "crane_d": pal("#3d4249", M_METAL),
@@ -990,10 +991,17 @@ for l in labels:
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
 vol = vol[:Hm]
 note("final height", Hm, "palette", len(pal.entries))
+# the ground as the tiles show it before the foliage (grass as bare earth), for terrain.py: the first moment of loading
+_ids = vol[g - 1, np.arange(D)[:, None], np.arange(W)[None, :]]
+_lut = np.array([e[:3] for e in pal.entries], np.uint8)
+_lut[[i for i, e in enumerate(pal.entries) if e[3] == M_GRASS]] = _lut[C["bare"]]
+np.savez_compressed("data/ground.npz", g=g.astype(np.int16), rgb=_lut[_ids])
 import tiles
 tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
                          skip_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
-                         face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK})
+                         face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK},
+                         fol_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
+                         grass_ids={i for i, e in enumerate(pal.entries) if e[3] == M_GRASS}, bare_id=C["bare"])
 # tram routes for the animated trams: merged open-air tram tracks, sampled every metre with ground z
 from shapely.ops import linemerge
 tram_lines = linemerge([l for oid, t, l in osm.lines_with("railway", ("tram",)) if not tunnelish(t)])

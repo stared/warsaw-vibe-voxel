@@ -13,6 +13,12 @@ import { Hud } from './hud.js';
 import GUI from 'lil-gui';
 import './style.css';
 
+// Phones get the real area + clay (zones.js): the whole city at 1 m needs ~1 GB of GPU memory. Set in the address
+// before anything reads it; the menu's engine choice (?engine=full) overrides it.
+{ const u = new URLSearchParams(location.search);
+  if (Math.min(screen.width, screen.height) < 600 && !u.get('shape') && u.get('engine') !== 'full') {
+    u.set('shape', 'budget'); u.set('budget', '2'); history.replaceState(null, '', '?' + u); } }
+
 const $ = (s) => document.querySelector(s);
 const status = (t) => { $('#loading-text').textContent = t; };
 
@@ -42,7 +48,7 @@ const nav = new Nav({ camera, controls, scene, dom: renderer.domElement, flyTo: 
 nav.cancelFly = () => { fly = null; };
 
 async function loadData() {
-  status('Loading the city…');
+  status('Loading the map data…');
   return { meta: await fetch('data/meta.json').then((r) => r.json()) };
 }
 
@@ -253,7 +259,7 @@ function updateLabels() {
     let x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
     if (!L.w) { L.w = L.txt.offsetWidth || 160; L.h = L.txt.offsetHeight || 30; }
     let vis = false, side = 'r', pinned = false;
-    if (!L.occluded && inFront && x > -20 && x < innerWidth + 20) {
+    if (!L.occluded && inFront && x > -20 && x < innerWidth + 20 && (!window.__labelGate || window.__labelGate(L.p.x, L.p.z))) {
       // roof above the screen but the building itself in view: pin the label to the top edge
       if (y < TOP + STEM + L.h && y > -innerHeight * 0.8) {
         v.copy(L.base).project(camera);
@@ -534,7 +540,6 @@ let fly = null;
 function flyTo(v) {
   const p0 = camera.position.clone(), t0v = controls.target.clone(), t0 = performance.now();
   const p1 = new THREE.Vector3(...v.pos), t1 = new THREE.Vector3(...v.target);
-  streamer?.prefetch(p1, t1, camera); // fetch the destination's tiles while we fly (no coarse blocks on arrival)
   fly = (now) => {
     const t = Math.min(1, (now - t0) / (v.ms || 1600)), e = t * t * (3 - 2 * t);
     camera.position.lerpVectors(p0, p1, e);
@@ -550,7 +555,7 @@ function flyTo(v) {
   const paletteTex = makePaletteTexture(meta.palette);
   const material = makeVoxelMaterial({ paletteTex, lampTex: makeLampMap(meta), W: meta.W, D: meta.D });
   uniforms = material.userData.uniforms;
-  // the city streams in as a quadtree of tiles (stream.js): coarse everywhere at once, finer near the camera
+  // the city's 1 m tiles (stream.js), loaded and shown by all1m.js (or the zones.js prototype)
   streamer = new TileStreamer({ meta, material, scene });
   window.__streamer = streamer;
   bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(meta.W, meta.H, meta.D));
@@ -559,8 +564,42 @@ function flyTo(v) {
   meta0 = meta;
   world = nav.world = streamer.world;
   nav.streamer = streamer;
-  status('Loading the city…');
-  await streamer.preload();
+  const qsp = new URLSearchParams(location.search);
+  // the view and the light are set at once: the city builds itself up in front of you, with a caption saying what
+  // is being built (all1m.js); ?shape= is the real-area-over-clay prototype instead
+  const v0 = VIEWS[qsp.get('view') || 'overview'] || VIEWS.overview;
+  camera.position.set(...v0.pos); controls.target.set(...v0.target);
+  if (qsp.get('cam')) { const c = qsp.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
+  applyTime(qsp.get('hour') ? +qsp.get('hour') : PRESETS['golden hour']);
+  status('Loading the map data…');
+  const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
+  if (!zones) {
+    const caption = (await import('./caption.js')).makeCaption();
+    await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, scene, controls, nav, caption, P });
+  }
+  // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
+  // the real-area shape, radius and budget change live.
+  const ENGINES = { 'whole city at 1 m': 'engine=full', 'real area + clay': 'shape=budget&budget=2' };
+  const engineOf = () => (zones ? 'real area + clay' : 'whole city at 1 m');
+  const reloadWith = (q) => { const c = camera.position, t = controls.target, u = new URLSearchParams(q);
+    u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
+    location.search = u.toString(); };
+  const fExp = gui.addFolder('Experimental').close();
+  gui.$children.insertBefore(fExp.domElement, fKeys.domElement);
+  fExp.add({ engine: engineOf() }, 'engine', Object.keys(ENGINES)).name('engine').onChange((k) => reloadWith(ENGINES[k]));
+  if (zones) {
+    const sync = () => { const u = new URLSearchParams(location.search); u.set('shape', zones.shape); u.set('r', zones.r); u.set('budget', zones.budget); u.set('outside', zones.outside); u.set('blur', zones.blur);
+      history.replaceState(null, '', '?' + u); };
+    const SHAPES = { 'blocks, triangle budget': 'budget', 'blocks within radius': 'block', 'whole buildings': 'building', 'circle': 'circle', 'square': 'square', 'ragged': 'ragged' };
+    const show = () => { budgetCtl.show(zones.shape === 'budget'); rCtl.show(zones.shape !== 'budget'); };
+    fExp.add(zones, 'shape', SHAPES).name('real area').onChange(() => { show(); sync(); });
+    const budgetCtl = fExp.add(zones, 'budget', 0.5, 8, 0.25).name('budget (M tris)').onChange(sync);
+    const rCtl = fExp.add(zones, 'r', 100, 800, 10).name('radius (m)').onChange(sync);
+    fExp.add(zones, 'outside', ['clay', 'colour']).name('outside').onChange(sync);
+    fExp.add(zones, 'blur', 0, 24, 1).name('blur outside (m)').onChange(sync);
+    show();
+    fExp.open();
+  }
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
@@ -594,18 +633,13 @@ function flyTo(v) {
   const statsEl = $('#stats');
   setInterval(() => { statsEl.textContent = `${(meta.W / 1000).toFixed(2)} × ${(meta.D / 1000).toFixed(2)} km · 1 m voxels · ${(streamer.tris / 1e6).toFixed(1)} M tris on screen`; }, 1000);
   $('#sources').innerHTML = `LiDAR, orthophoto: GUGiK 2025<br>map data © OpenStreetMap contributors, ${meta.sources.osm.slice(0, 10)}`;
-  const v = VIEWS[new URLSearchParams(location.search).get('view') || 'overview'] || VIEWS.overview;
-  camera.position.set(...v.pos);
-  controls.target.set(...v.target);
   camera.updateProjectionMatrix();
-  const qh = new URLSearchParams(location.search).get('hour');
-  applyTime(qh ? +qh : PRESETS['golden hour']);
   P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || 'custom';
   const qs = new URLSearchParams(location.search);
-  if (qs.get('tilt') === '0' || innerWidth < 600) P.tilt = false;
+  // clay has no blur of any kind by default (the miniature blur included): ?tilt=1 brings it back
+  if (qs.get('tilt') === '0' || innerWidth < 600 || (qs.get('shape') && qs.get('tilt') !== '1')) P.tilt = false;
   if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
   gui.controllersRecursive().forEach((c) => c.updateDisplay());
-  if (qs.get('cam')) { const c = qs.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
   $('#loading').classList.add('hidden');
   window.__ready = true;
 })();
@@ -630,7 +664,7 @@ renderer.setAnimationLoop((now) => {
   if (fountains) fountains.update(tsec, state.night);
   if (life && life.group.visible) life.update(dtf, state.hour, state.night, nav.mode === 'orbit' ? controls.target : camera.position);
   sky.mesh.position.copy(camera.position);
-  if (streamer) { streamer.focus = nav.focusPoints(); streamer.update(camera); }
+  if (streamer) streamer.update(camera);
   fitShadow();
   composer.render();
   updateLabels();

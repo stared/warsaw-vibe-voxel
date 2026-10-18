@@ -72,8 +72,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .edge small { font: 500 10.5px Inter, system-ui, sans-serif; color: #fff; }
 .edge i { font-style: normal; display: inline-block; width: 14px; text-align: center; }
 
-#loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; background: #e9e4da; color: #555; font-size: 13px; transition: opacity .6s; z-index: 10; }
-#loading.hidden { opacity: 0; pointer-events: none; }
+#loading { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
+/* PROTOTYPE: the first moments look like the loading caption that follows (caption.js), not a separate page */
+#loading-text { box-sizing: border-box; margin-top: 14px; width: 300px; padding: 7px 12px 13px; text-align: left !important; background: rgba(0,0,0,.78); color: #fff; text-align: center;
+  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+#loading .spinner { display: none; }
+@media (max-width: 600px) { #loading-text { margin-top: 8px; min-width: 0; width: calc(100vw - 32px); } }
+#loading.hidden { display: none; } /* at once: the caption takes over in the same place */
 .spinner { width: 28px; height: 28px; border: 3px solid rgba(0,0,0,.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .noui #labels { display: none !important; }
@@ -112,3 +117,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
   #hud button { height: 34px; }
 }
 .noui #hud { display: none; }
+/* PROTOTYPE: what the city is building while it fills in (caption.js) */
+.caption { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;
+  width: 300px; font-variant-numeric: tabular-nums; max-width: calc(100vw - 32px); padding: 7px 12px 6px; background: rgba(0,0,0,.78); color: #fff;
+  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; text-align: center; transition: opacity .6s; }
+.caption.off { opacity: 0; }
+.caption .txt { display: flex; justify-content: space-between; white-space: nowrap; }
+.caption .bar { position: relative; height: 2px; background: #333; }
+.caption .bar i { display: block; height: 100%; width: 0; background: #2fa1d6; transition: width .3s; }
+@media (max-width: 600px) { .caption { top: 8px; min-width: 0; width: calc(100vw - 32px); } }

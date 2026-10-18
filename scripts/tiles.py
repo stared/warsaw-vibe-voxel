@@ -9,6 +9,10 @@ Node file  tiles/{s}/{nx}_{ny}.bin, gzip of:
   runs    uint16[3 * sum]   (z0, len, palette) per run, z in cells of the level, bottom -> top
   detail  uint16[4 * n]     (x, y, z, palette) 1 m voxels in metres from the node's corner (levels 2 and 4)
 
+Foliage at level 1 is its own file, loaded after every building (web/src/all1m.js): tiles/1f/{nx}_{ny}.bin, the same
+format, holding only trees, trunks and grass (`fol_ids`, `grass_ids`); in tiles/1/ trees and trunks are left out and
+grass is bare earth (`bare_id`), the surface the grass is then drawn on.
+
 Coarser levels (s > 1): a cell is solid when at least a quarter (a third at s = 2) of its block is; its colour
 is the topmost voxel in the block, so roofs stay roofs and the street stays paving when seen from above.
 Thin things (spires, masts, cable stays, parapets, street lamps: one voxel across) would vanish in a coarse block or
@@ -105,7 +109,7 @@ def thin_voxels(vol, skip_ids, keep_ids, note, most=9, band=96):
     return z.astype(np.int64), r.astype(np.int64), c.astype(np.int64), v.astype(np.uint16)
 
 
-def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=()):
+def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=(), fol_ids=(), grass_ids=(), bare_id=0):
     """vol (H, D, W) level-1 voxels, g (D, W) ground level -> node files; returns the manifest for meta.json."""
     D, W = g.shape
     info = dict(N=N, levels=[], bytes=0)
@@ -116,7 +120,12 @@ def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=()):
         Hs, Ds, Ws = vs.shape
         nx, ny = -(-Ws // N), -(-Ds // N)
         (out / str(s)).mkdir(parents=True, exist_ok=True)
-        tot, nruns, ndet = 0, 0, 0
+        split = s == 1 and len(fol_ids)
+        if split:
+            (out / "1f").mkdir(parents=True, exist_ok=True)
+            is_fol = np.zeros(65536, bool); is_fol[list(fol_ids)] = True; is_fol[list(grass_ids)] = True
+            is_grass = np.zeros(65536, bool); is_grass[list(grass_ids)] = True
+        tot, nruns, ndet, ftot = 0, 0, 0, 0
         if 1 < s < 8:  # thin voxels whose coarse block is empty (at 8 m cells a 1 m pole is under half a pixel)
             lost = vs[tz // s, tr // s, tc // s] == 0
             dz, dr, dc, dv = tz[lost], tr[lost], tc[lost], tv[lost]
@@ -131,7 +140,16 @@ def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=()):
                     win[:, rr0 - r0:rr1 - r0, cc0 - c0:cc1 - c0] = vs[:, rr0:rr1, cc0:cc1]
                     gw[rr0 - r0:rr1 - r0, cc0 - c0:cc1 - c0] = np.clip(gs[rr0:rr1, cc0:cc1], 0, 255)
                 top = int(np.nonzero(win.reshape(Hs, -1).any(1))[0].max()) + 1 if win.any() else 1
-                counts, runs = column_runs(win[:top])
+                win = win[:top]
+                if split:
+                    f = is_fol[win]
+                    fol = np.where(f, win, 0).astype(np.uint16)
+                    win = np.where(f, np.where(is_grass[win], bare_id, 0), win).astype(np.uint16)
+                    fc, fr = column_runs(fol)
+                    with gzip.GzipFile(out / "1f" / f"{tx}_{ty}.bin", "wb", compresslevel=9, mtime=0) as fh:
+                        fh.write(fc.tobytes() + gw.tobytes() + fr.tobytes())
+                    ftot += (out / "1f" / f"{tx}_{ty}.bin").stat().st_size
+                counts, runs = column_runs(win)
                 blob = counts.tobytes() + gw.tobytes() + runs.tobytes()
                 if 1 < s < 8:
                     k = dnode == ty * nx + tx
@@ -143,6 +161,7 @@ def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=()):
                 nruns += len(runs)
         info["levels"].append(dict(s=s, nx=nx, ny=ny))
         info["bytes"] += tot
-        note(f"tiles level {s}: {nx}x{ny} nodes, {nruns} runs, {ndet} detail voxels, {tot / 2 ** 20:.1f} MB gz")
+        note(f"tiles level {s}: {nx}x{ny} nodes, {nruns} runs, {ndet} detail voxels, {tot / 2 ** 20:.1f} MB gz"
+             + (f", foliage {ftot / 2 ** 20:.1f} MB gz" if split else ""))
         del vs
     return info
