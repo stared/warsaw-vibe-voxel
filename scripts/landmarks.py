@@ -65,7 +65,8 @@ def adjust_heights(top, feats, note):
 
 
 MAT_IDS = {"solid": 0, "wall": 1, "glass": 2, "metal": 6, "pkin": 7, "grass": 8, "roof": 12, "concrete": 13,
-           "bronze_grid": 15, "sign": 16, "sign_band": 18}
+           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19}
+VARSO = Point(244, 1414)  # Varso Tower spire, grid
 OVERRIDES = json.load(open(Path(__file__).with_name("overrides.json")))["buildings"]
 
 
@@ -94,6 +95,10 @@ def _style(pal, spec):
 def wall_override(f, pal):
     if _name(f) == "Złote Tarasy" and f["tags"].get("building:colour", "").lower() == "#336699":
         return pal((198, 212, 216), M_GLASS)  # canopy glass, see roof_override
+    # Varso Tower's own glass is tagged the same dark #334E6B as the Varso 1/2 blocks beside it; in photos the tower
+    # reads light blue-grey (visual_ref.md #8DA0B2, photo comparison Sep 2024): the parts within 50 m of its spire
+    if f["tags"].get("building:colour", "").lower() == "#334e6b" and f["geom"].distance(VARSO) < 50:
+        return pal((141, 160, 178), M_GLASS)
     o = override_for(f)
     return _style(pal, o["wall"]) if o and "wall" in o else None
 
@@ -504,17 +509,21 @@ def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
     rc, cc = (rows.min() + rows.max()) / 2, (cols.min() + cols.max()) / 2
     half = (min(rows.max() - rows.min(), cols.max() - cols.min()) + 1) / 2
     box[z_roof:top + 1] = 0
-    # pyramidal cap: from the full tower width down to ~2 m over ~11 m
-    cap_h = 11
+    # pyramidal cap: low, from the tower's width down to ~3 m over ~5 m (photo comparison, Aug 2019: it is a quarter
+    # the height of the clock storey, not a dome; 11 m read as a green helmet)
+    cap_h = 5
     for k in range(cap_h):
-        hw = half * (1 - k / cap_h) + 1.0 * (k / cap_h)
+        hw = half * (1 - k / cap_h) + 1.5 * (k / cap_h)
         r0, r1 = int(np.floor(rc - hw + 0.5)), int(np.ceil(rc + hw - 0.5))
         c0, c1 = int(np.floor(cc - hw + 0.5)), int(np.ceil(cc + hw - 0.5))
         box[z_roof + k, r0:r1 + 1, c0:c1 + 1] = verd
     ri, ci = int(round(rc)), int(round(cc))
     z = z_roof + cap_h
-    box[z:z + 3, ri, ci] = gold  # open stage / mast foot
-    zs = z + 4  # bronze sphere, ~3 m
+    for dr in (-1, 1):  # open bronze lantern, ~6 m: four posts round the mast foot
+        for dc in (-1, 1):
+            box[z:z + 6, ri + dr, ci + dc] = bronze
+    box[z:z + 7, ri, ci] = gold
+    zs = z + 8  # bronze sphere, ~3 m
     for dz in range(-1, 2):
         for dr in range(-1, 2):
             for dc in range(-1, 2):
@@ -522,3 +531,23 @@ def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
                     box[zs + dz, ri + dr, ci + dc] = bronze
     box[zs + 2:top + 1, ri, ci] = gold  # needle up to the measured 237 m
     note(f"PKiN crown: cap {z_roof}-{z_roof + cap_h}, sphere {zs}, gilded spire to {top}")
+    pkin_pinnacles(vol, pk, z_roof, minx, miny, maxx, maxy, note)
+
+
+def pkin_pinnacles(vol, pk, z_top, minx, miny, maxx, maxy, note):
+    """Stone pinnacles along the parapets of every setback (photos: a crown of spikes at each tier's edge): a 1 m spike
+    ~3 m tall on every fourth cell of a roof edge that drops 4 m or more, in the wall's colour (the stone below the
+    roof voxel, not the grey roof)."""
+    box = vol[:, miny:maxy, minx:maxx]
+    occ = box != 0
+    H = occ.shape[0]
+    top = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0)
+    nb = np.minimum.reduce([np.pad(top, 1, mode="edge")[1 + dr:1 + dr + top.shape[0], 1 + dc:1 + dc + top.shape[1]]
+                            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1))])
+    g0 = int(top[top > 0].min())
+    edge = (top - nb >= 4) & (top > g0 + 12) & (top < z_top - 2)
+    rr, cc = np.nonzero(edge & (((np.arange(top.shape[0])[:, None] + np.arange(top.shape[1])[None, :]) % 4) == 0))
+    for r, c in zip(rr, cc):
+        z = top[r, c]
+        box[z + 1:z + 4, r, c] = box[z - 1, r, c] or box[z, r, c]
+    note(f"PKiN pinnacles: {len(rr)}")

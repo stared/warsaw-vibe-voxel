@@ -130,6 +130,26 @@
       "sources": [
         "https://www.muratorplus.pl/galeria/centrum-nauki-kopernik-warszawa-zdjecia/gg-7th5-qGga-s3Cn/gp-zZgs-JkXS-WzPu"
       ]
+    },
+    "Skylight": {
+      "wall": {
+        "colour": "#c4ccd2",
+        "material": "ribbon"
+      },
+      "_note": "ribbon windows: a continuous glass band on every storey between light metal spandrels (photo: 59 Złota Street, 2012)",
+      "sources": [
+        "https://commons.wikimedia.org/wiki/File:59_Z%C5%82ota_Street_in_Warsaw_-_place_of_remembrance_-_01.JPG"
+      ]
+    },
+    "Lumen": {
+      "wall": {
+        "colour": "#c4ccd2",
+        "material": "ribbon"
+      },
+      "_note": "ribbon windows: a continuous glass band on every storey between light metal spandrels (photo: 59 Złota Street, 2012)",
+      "sources": [
+        "https://commons.wikimedia.org/wiki/File:59_Z%C5%82ota_Street_in_Warsaw_-_place_of_remembrance_-_01.JPG"
+      ]
     }
   }
 }

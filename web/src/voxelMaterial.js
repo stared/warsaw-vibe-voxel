@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // material ids (must match scripts/voxelize.py)
-export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18 };
+export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11, ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19 };
 
 export function makePaletteTexture(palette) {
   const n = palette.length;
@@ -190,6 +190,13 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
               else if (lit < litFrac * 0.9) gEmissive = mix(vec3(0.8, 0.9, 1.0), vec3(1.0, 0.88, 0.7), step(0.7, hash12(zone + 1.7))) * 0.7 * uNight;
             }
           } else { gRough = 0.3; gMetal = 0.4; }
+        } else if (m == ${MAT.RIBBON}) {
+          // ribbon windows: one continuous glass band per storey (4 m) between light spandrels (Skylight, Lumen)
+          if (vert && mod(lvl, 4.0) > 1.5) {
+            col = mix(base * 0.4, vec3(0.12, 0.16, 0.2), 0.6) + 0.02 * h; gRough = 0.08; gMetal = 0.55;
+            vec2 zone = vec2(floor(u / 12.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
+            if (hash12(zone) < litFrac * 0.9) gEmissive = vec3(0.8, 0.9, 1.0) * 0.7 * uNight;
+          } else { gRough = 0.4; gMetal = 0.3; }
         } else if (m == ${MAT.PKIN}) {
           // floodlit: warm gold washing up each tier from its base (photos: PKiN at dusk), plus lit rooms
           float tier = fract(lvl / 34.0);
