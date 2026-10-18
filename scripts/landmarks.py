@@ -753,27 +753,34 @@ def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3
                     continue
                 vol[int(g[r, c]):int(g[r, c]) + hh, r, c] = 0
     note(f"PKiN porticos: {len(PKIN_PORTICOS)}")
-    # Sala Kongresowa's curved colonnade (west): the 13-14 m ring 3-4 m wide round the drum, open to 10 m with
-    # 1 m columns every 3 m along the arc
-    kr0, kr1, kc0, kc1 = 1185, 1276, 608, 662
-    sub = vol[:, kr0:kr1, kc0:kc1]
-    occ2 = (sub != 0)
-    T2 = np.where(occ2.any(0), occ2.shape[0] - 1 - np.argmax(occ2[::-1], axis=0), 0) - g[kr0:kr1, kc0:kc1]
-    built = T2 > 3
-    dist = ndimage.distance_transform_edt(np.pad(built, 1))[1:-1, 1:-1]
-    ring = built & (T2 >= 11) & (T2 <= 16) & (dist <= 4)
-    rr_, cc_ = np.nonzero(ring)
-    kcy, kcx = 1230 - kr0, 662 - kc0  # the drum's centre lies east of the window
-    n_col = 0
-    for r, c in zip(rr_, cc_):
-        gz_ = int(g[kr0 + r, kc0 + c])
-        arc = math.atan2(r - kcy, c - kcx) * math.hypot(r - kcy, c - kcx)
-        if dist[r, c] <= 1 and (arc % 3.0) < 1.0:
-            sub[gz_:gz_ + 10, r, c] = plain
-            n_col += 1
-            continue
-        sub[gz_:gz_ + 10, r, c] = 0
-    note(f"Sala Kongresowa colonnade: {len(rr_)} cells, {n_col} column cells")
+    # Sala Kongresowa (west), rebuilt as the clean concentric tiers the LiDAR profile and the photos show (Commons
+    # 2019): a ring colonnade 3 m deep, open to 10 m, columns every 3 m round the arc, under a 14 m cornice with a band
+    # of small square windows (one every 4 m at 11 m); then plain drums stepping back: 18 m out to r 36.5, 23 m to
+    # r 26.5, 26 m inside with a 27 m cap to r 10. The rounded LiDAR left a staircase of rings.
+    kcy, kcx = 1230, 662
+    roof_c = pal(tuple(pal.entries[stone][:3]), 12)
+    win_k = pal((58, 70, 68), MAT_IDS["window"])
+    tiers = [(10, 27), (23, 26), (26.5, 23), (36.5, 18), (39.5, 14)]
+    n_k = 0
+    for r in range(kcy - 41, kcy + 42):
+        for c in range(kcx - 41, min(kcx + 42, 703)):
+            d = math.hypot(r + 0.5 - kcy, c + 0.5 - kcx)
+            if d > 39.5:
+                continue
+            ht = next(h_ for rr0, h_ in tiers if d <= rr0)
+            gz_ = int(g[r, c])
+            col = vol[:, r, c]
+            col[gz_ + ht:] = 0
+            col[gz_:gz_ + ht - 1] = plain if d > 36.5 else stone
+            col[gz_ + ht - 1] = roof_c
+            if d > 36.5:  # the colonnade ring
+                arc = math.atan2(r + 0.5 - kcy, c + 0.5 - kcx) * 38.5
+                if not (d > 38.5 and (arc % 3.0) < 1.0):
+                    col[gz_:gz_ + 10] = 0
+                if d > 38.5 and (arc % 4.0) < 1.0:
+                    col[gz_ + 11] = win_k
+            n_k += 1
+    note(f"Sala Kongresowa rebuilt: {n_k} columns")
     occ = box != 0  # debug: the final PKiN height map above ground (data/debug/pkin_top.npz)
     Path("data/debug").mkdir(parents=True, exist_ok=True)
     np.savez_compressed("data/debug/pkin_top.npz", top=np.where(occ.any(0), occ.shape[0] - 1 - np.argmax(occ[::-1], axis=0), 0)
