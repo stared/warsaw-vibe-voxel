@@ -434,6 +434,7 @@ def details_geometry(vol, g, feats, pal, note):
     zlota44_crown(vol, g, pal, note)
     msn(vol, g, feats, pal, note)
     saski_site(vol, g, pal, note)
+    sejm(vol, g, feats, pal, note)
 
 
 def classic_buildings(vol, g, feats, pal, note):
@@ -1998,3 +1999,47 @@ def saski_site(vol, g, pal, note):
                 continue  # vegetation: leave it
             vol[gz - 1, r, c] = pal(tuple(int(v) for v in px), 0, q=12); m += 1
     note(f"Saski site: tents {n} columns, excavation {m} ground cells from the ortho")
+
+
+def sejm(vol, g, feats, pal, note):
+    """The Sejm (Commons 2010 from Wiejska, the AK monument and the courtyard): the plenary hall is a cream drum
+    with pilasters under a low green copper dome and a small lantern, beside the cream-peach tower block; the
+    LiDAR's dome came out as green 1 m terraces from the eaves down (a ziggurat) and everything was the city's
+    default grey-white. Drum walls cream to the 16 m eaves, the dome smooth green above, a 3 m lantern at its top;
+    the complex's walls cream."""
+    hall = next((f for f in feats if f["tags"].get("name") == "Sala posiedzeń Sejmu RP"), None)
+    sj = [f for f in feats if f["tags"].get("name") == "Sejm RP"]
+    cream, peach = pal(_hex("#e9e1cf"), MAT_IDS["classic"]), pal(_hex("#e6cdb3"), MAT_IDS["classic"])
+    green = pal(_hex("#7fae98"), 12)
+    win = pal((58, 70, 68), MAT_IDS["window"])
+    D, W = g.shape
+    for f in sj:
+        recolour_walls(vol, g, f["geom"], pal, "#e9e1cf", MAT_IDS["classic"], note, "Sejm")
+    if hall is None:
+        return
+    rr, cc = _cells_geom(hall["geom"].buffer(1.5), D, W)
+    T = _top_rel(vol, g, rr, cc)
+    top = T.max()
+    k = np.argmax(T)
+    cy, cx = rr[T >= top - 1].mean() + 0.5, cc[T >= top - 1].mean() + 0.5
+    for r, c, t in zip(rr, cc, T):
+        gz = int(g[r, c]); col = vol[:, r, c]
+        if t < 13:
+            continue
+        col[gz:gz + 16] = np.where(col[gz:gz + 16] != 0, cream, 0)
+        col[gz + 16:gz + t + 1] = np.where(col[gz + 16:gz + t + 1] != 0, green, 0)
+        if t < 16:
+            col[gz + t] = green
+        d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+        if d < 3.2:  # lantern
+            col[gz + top + 1:gz + top + 4] = cream if d < 2.6 else 0
+            col[gz + top + 4] = green
+        # pilasters and tall windows round the drum, every 3 m of arc
+        if t <= 17 and int(math.atan2(r - cy, c - cx) * d) % 3 == 0:
+            col[gz + 4:gz + 12] = win
+    # the tower block beside the hall: peach, as the photos show
+    for r in range(2397, 2410):
+        for c in range(1884, 1900):
+            gz = int(g[r, c]); col = vol[gz:gz + 25, r, c]
+            col[(col != 0) & (np.arange(25) < 20)] = peach
+    note(f"Sejm: hall drum and dome, centre ({cy:.1f}, {cx:.1f}), top {top} m")
