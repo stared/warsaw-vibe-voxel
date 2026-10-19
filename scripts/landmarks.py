@@ -431,6 +431,7 @@ def details_geometry(vol, g, feats, pal, note):
     paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
     classic_buildings(vol, g, feats, pal, note)
     poniatowski(vol, g, pal, note)
+    zlota44_crown(vol, g, pal, note)
 
 
 def classic_buildings(vol, g, feats, pal, note):
@@ -1893,3 +1894,29 @@ def teatr_wielki_wings(vol, g, pal, note, depth=17, H=18):
                     col[gz + 16] = stone  # frieze / cornice line
         n = 0
     note(f"Teatr Wielki wings rebuilt: {len(TW_WINGS)}")
+
+
+def zlota44_crown(vol, g, pal, note, box=(1175, 1225, 450, 500)):
+    """Złota 44's crown (Commons 2017-2019): the glass skin runs up past the 180 m roof as a screen whose top slopes
+    from the north-west corner to the 192 m peak at the south-east one, the sail's slanted silhouette; the LiDAR saw
+    the flat roof inside it (and the screen only at the peak)."""
+    r0, r1, c0, c1 = box
+    sub = vol[:, r0:r1, c0:c1]
+    occ = sub != 0
+    Hh = occ.shape[0]
+    T = np.where(occ.any(0), Hh - 1 - np.argmax(occ[::-1], axis=0), 0) - g[r0:r1, c0:c1]
+    tw = T >= 150
+    edge = tw & ~ndimage.binary_erosion(tw)
+    rr, cc = np.nonzero(tw)
+    p = (rr - rr.min()) / max(1, rr.max() - rr.min()) * 0.5 + (cc - cc.min()) / max(1, cc.max() - cc.min()) * 0.5
+    pmap = np.zeros(tw.shape); pmap[rr, cc] = p
+    glass = pal(_hex("#c4ced4"), M_GLASS)
+    n = 0
+    for r, c in zip(*np.nonzero(edge)):
+        gz = int(g[r + r0, c + c0])
+        h = int(round(178 + 14 * pmap[r, c]))
+        t = gz + int(T[r, c])
+        if h + gz > t:
+            sub[t + 1:gz + h + 1, r, c] = glass
+            n += 1
+    note(f"Złota 44 crown: {n} screen columns")
