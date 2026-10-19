@@ -655,7 +655,7 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
 
 
 # porches found in the LiDAR (a 19 m roof a few metres deep in front of a taller block), grid rows/cols inclusive
-PKIN_PORTICOS = [dict(rows=(1216, 1240), cols=(796, 802), face="E", h=14),  # main entrance, Plac Defilad side
+PKIN_PORTICOS = [  # all rebuilt: pkin_east, pkin_fronts, pkin_pavilion_porticos
                  ]  # the front blocks' porticos: pkin_fronts; the pavilions': pkin_pavilion_porticos
 
 
@@ -1023,6 +1023,7 @@ def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
     stone = pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note)
     pkin_tower(vol, g0, pal, stone, note)
     pkin_fronts(vol, g0, pal, stone, note)
+    pkin_east(vol, g0, pal, stone, note)
     pkin_pavilion_porticos(vol, g0, pal, stone, note)
     pkin_balustrades(vol, g0, stone, note)
     # the published ~165 m lands on a setback in the LiDAR massing: centre the clock on the first
@@ -2043,3 +2044,50 @@ def sejm(vol, g, feats, pal, note):
             gz = int(g[r, c]); col = vol[gz:gz + 25, r, c]
             col[(col != 0) & (np.arange(25) < 20)] = peach
     note(f"Sejm: hall drum and dome, centre ({cy:.1f}, {cx:.1f}), top {top} m")
+
+
+def pkin_east(vol, g0, pal, stone, note):
+    """The main entrance on Plac Defilad (east; Commons photos from the steps and the square): between the corner
+    towers a 25 m block (rows 1213-1244 up to col 795) with a heavy cornice and the coat-of-arms attic, three tall
+    windows over the portico; in front (cols 796-801) the portico: EIGHT 2 m columns 3.7 m apart, 13 m tall, under a
+    4 m entablature bearing the red 'PAŁAC KULTURY I NAUKI' letters, its roof at 18 m; doors behind. The LiDAR made
+    the portico a block that the old carve turned into giant fins."""
+    z = lambda h: g0 + h
+    roof = pal((186, 179, 165), 12)
+    dark = pal((40, 40, 38), MAT_IDS["window"])
+    win = pal((64, 84, 84), MAT_IDS["window"])
+    red = pal((176, 40, 40), MAT_IDS["sign"])
+    R0, R1 = 1213, 1244
+    vol[z(1):z(40), R0:R1 + 1, 771:808] = 0
+    vol[z(0):z(17), R0:R1 + 1, 771:796] = stone
+    vol[z(17):z(19), R0:R1 + 1, 771:797] = stone  # cornice over the entrance
+    vol[z(19), R0:R1 + 1, 771:796] = roof
+    vol[z(19):z(22), 1225:1233, 771:774] = stone  # the arms group against the shaft
+    vol[z(22):z(24), 1227:1231, 771:773] = stone
+    # the shaft's east face down to the entrance roof: its window bands as above (pkin_tower starts them at 30 m)
+    glass = pal((64, 84, 84), MAT_IDS["window"]); spand = pal((120, 110, 94), M_PKIN)
+    vol[z(20):z(30), 1207:1251, 770] = stone
+    vol[z(20):z(30), 1219:1239, 770] = 0  # the middle 1 m back
+    for h in range(20, 30):
+        v = glass if (h - 58) % 4 in (0, 1) else spand
+        for o in (-8, -4, 0, 4, 8):
+            r = int(round(1228.5 + o - 0.5))
+            vol[z(h), r:r + 2, 769] = v
+        for o in (-15, 15):
+            r = int(round(1228.5 + o - 0.5))
+            vol[z(h), r:r + 2, 770] = v
+    # portico
+    vol[z(13):z(16), R0 + 1:R1, 796:802] = stone
+    vol[z(16), R0 + 1:R1, 796:802] = roof
+    vol[z(0), R0:R1 + 1, 796:805] = stone  # steps
+    for k in range(8):
+        r = int(round(R0 + 2 + k * 3.7))
+        vol[z(1):z(13), r:r + 2, 800:802] = stone
+    for k in range(7):  # doors between the columns
+        r = int(round(R0 + 4 + k * 3.7))
+        vol[z(1):z(6), r:r + 2, 795] = dark
+    red = pal((150, 46, 44), MAT_IDS["sign"])
+    for r in range(R0 + 3, R1 - 2):  # the lettering: one 1 m line of letters on the entablature
+        if (r - R0) % 4 != 3:
+            vol[z(14), r, 802] = red
+    note("PKiN east entrance rebuilt: portico of 8 columns, lettering")
