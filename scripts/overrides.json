@@ -268,6 +268,38 @@
         "material": "glass"
       },
       "_note": "silver-white glass with white floor bands (Commons 2017-2019, 14 photos side by side; OSM 'glass' alone went dark teal)"
+    },
+    "238127692": {
+      "name": "The Westin, stone grid",
+      "wall": {
+        "colour": "#cbc3b4",
+        "material": "wall"
+      },
+      "_note": "light beige-grey stone grid (Commons photo side by side); OSM #9f948b rendered dark brown"
+    },
+    "238127693": {
+      "name": "The Westin, stone grid",
+      "wall": {
+        "colour": "#cbc3b4",
+        "material": "wall"
+      },
+      "_note": "light beige-grey stone grid (Commons photo side by side); OSM #9f948b rendered dark brown"
+    },
+    "966808228": {
+      "name": "The Westin, stone grid",
+      "wall": {
+        "colour": "#cbc3b4",
+        "material": "wall"
+      },
+      "_note": "light beige-grey stone grid (Commons photo side by side); OSM #9f948b rendered dark brown"
+    },
+    "234820603": {
+      "name": "Novotel Centrum",
+      "wall": {
+        "colour": "#dccfb6",
+        "material": "wall"
+      },
+      "_note": "cream facade (Commons photo); OSM #F4F3E6 rendered white"
     }
   }
 }

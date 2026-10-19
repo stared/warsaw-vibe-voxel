@@ -432,6 +432,7 @@ def details_geometry(vol, g, feats, pal, note):
     classic_buildings(vol, g, feats, pal, note)
     poniatowski(vol, g, pal, note)
     zlota44_crown(vol, g, pal, note)
+    msn(vol, g, feats, pal, note)
 
 
 def classic_buildings(vol, g, feats, pal, note):
@@ -1920,3 +1921,31 @@ def zlota44_crown(vol, g, pal, note, box=(1175, 1225, 450, 500)):
             sub[t + 1:gz + h + 1, r, c] = glass
             n += 1
     note(f"Złota 44 crown: {n} screen columns")
+
+
+def msn(vol, g, feats, pal, note, r0=1104, r1=1208, c0=961, c1=1001):
+    """Muzeum Sztuki Nowoczesnej (Thomas Phifer, 2024; Commons 2024-2025 from Marszałkowska and Plac Defilad): a
+    white box, but not blank: a ground-floor colonnade 3 m deep under the whole east front (slender piers every
+    6 m), long ribbon windows on the first floor, and two deep cut-outs higher up on the east front near its ends
+    (glazed at the back); the roof is glass bays and two skylight lanterns (ortho)."""
+    win = pal((70, 86, 92), MAT_IDS["window"])
+    for r in range(r0, r1):
+        for c in range(c1 - 3, c1):  # colonnade
+            gz = int(g[r, c])
+            if (r - r0) % 6 != 3 or c < c1 - 1:
+                vol[gz:gz + 5, r, c] = 0
+            if c == c1 - 3:
+                vol[gz:gz + 5, r, c] = win if (r - r0) % 6 not in (2, 3, 4) else vol[gz:gz + 5, r, c - 1]
+        for c, step in ((c1 - 1, -1), (c0, 1)):  # ribbon windows, east and west
+            gz = int(g[r, c])
+            if r0 + 2 < r < r1 - 3 and (r - r0) % 8 != 0:
+                vol[gz + 7:gz + 9, r, c] = win
+    for ra, rb in ((r0 + 8, r0 + 26), (r1 - 30, r1 - 12)):  # the deep cut-outs
+        for r in range(ra, rb):
+            gz = int(g[r, c1 - 1])
+            vol[gz + 12:gz + 19, r, c1 - 4:c1] = 0
+            vol[gz + 12:gz + 19, r, c1 - 5] = win
+    f = _feat(feats, "Muzeum Sztuki Nowoczesnej")
+    if f is not None:
+        ortho_roof(vol, g, f["geom"], pal, note, "MSN", min_rel=10, glass_hex="#a9bccb")
+    note("MSN facade: colonnade, ribbon windows, cut-outs")
