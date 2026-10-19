@@ -428,6 +428,37 @@ def details_geometry(vol, g, feats, pal, note):
     teatr_wielki_centre(vol, g, pal, note)
     apply_loggias(vol, g, pal, note)
     paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
+    classic_buildings(vol, g, feats, pal, note)
+
+
+def classic_buildings(vol, g, feats, pal, note):
+    """Masonry landmarks rebuilt from footprint + photos (classic_rebuild)."""
+    z = _feat(feats, "Zachęta")
+    if z is not None:  # Commons 2008 (east front and south side), 2025 ortho: patina hips round a glass pyramid
+        # the east front's pediment (ridge 21-22 m in the LiDAR) over the portico, its gable roof running 14 m back
+        classic_rebuild(vol, g, pal, z["geom"], eave=17, slope=0.5, wall_hex="#e0d2b0", roof_hex="#7f9a8a",
+                        glass_hex="#c9d3d6", glass_above=22, rows=[(1, 1), (3, 4), (9, 4)], bay=4.5,
+                        gables=[(555, 573, 1383, 1398, "c", 23)], attic=1, cap=23, pure_hip=True, note=note,
+                        name="Zachęta")
+    holy_trinity(vol, g, feats, pal, note)
+    pw = _feat(feats, "Gmach Główny PW")
+    if pw is not None:  # Commons 2019 (the curved front on Plac Politechniki): pale pink, five storeys, flat 23 m roof,
+        # the glazed atrium's pyramid to 32 m
+        classic_rebuild(vol, g, pal, pw["geom"], eave=23, slope=0, wall_hex="#e8d5d0", roof_hex="#9a9fa3",
+                        glass_hex="#b9c8d0", glass_above=24, keep_above=24.5, rows=[(2, 3), (7, 4), (12, 4), (18, 2)],
+                        bay=4.2, attic=1, note=note, name="Gmach Główny PW")
+        # over the curved front: the attic and the sculpture group (Commons 2019)
+        wall = pal(_hex("#e8d5d0"), MAT_IDS["classic"]); bronze = pal((96, 98, 90), 6)
+        for r in range(2524, 2536):
+            for c in range(583, 599):
+                gz = int(g[r, c]); col = vol[:, r, c]
+                if col[gz + 22] == 0:
+                    continue
+                col[gz + 23:gz + 26] = wall
+                if 2528 <= r <= 2532 and 587 <= c <= 594:
+                    col[gz + 26:gz + 28] = wall
+                    if 589 <= c <= 592 and 2529 <= r <= 2531:
+                        col[gz + 28:gz + 32] = bronze
 
 
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
@@ -1474,3 +1505,157 @@ def pkin_balustrades(vol, g0, stone, note, box=(1080, 1380, 600, 900)):
             b[t + 2, r, c] = stone
         n += 1
     note(f"PKiN balustrades: {n} edge cells")
+
+
+def _feat(feats, name):
+    return next((f for f in feats if f["tags"].get("name") == name), None)
+
+
+def _cells_geom(geom, D, W):
+    """Grid cells whose centre lies inside the polygon -> (rows, cols)."""
+    import shapely
+    minx, miny, maxx, maxy = geom.bounds
+    c0, r0 = max(int(minx), 0), max(int(miny), 0)
+    c1, r1 = min(int(maxx) + 1, W), min(int(maxy) + 1, D)
+    cc, rr = np.meshgrid(np.arange(c0, c1), np.arange(r0, r1))
+    m = shapely.contains_xy(geom, cc + 0.5, rr + 0.5)
+    return rr[m], cc[m]
+
+
+def _top_rel(vol, g, rr, cc):
+    occ = vol[:, rr, cc] != 0
+    H = occ.shape[0]
+    return np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0) - g[rr, cc]
+
+
+def edge_windows(vol, g, geom, win, rows, bay, w=2, margin=2.5, min_len=6, depth=1, skip=()):
+    """Windows on every straight outer edge of a footprint, at any angle: as many bays (`bay` m apart) as fit
+    between `margin` m from the ends, centred; rows (z above ground, height) the same on every edge. Each window
+    cell walks in from outside to the first wall voxel at its height; that voxel (and depth-1 behind) is cleared and
+    the next one set to glass. Edges listed by index in `skip` are left alone."""
+    n = 0
+    geom = geom.simplify(1.2)  # OSM outlines carry every pilaster step: one straight run per facade
+    xs, ys = geom.exterior.coords.xy
+    pts = list(zip(xs, ys))
+    for k in range(len(pts) - 1):
+        if k in skip:
+            continue
+        (x0, y0), (x1, y1) = pts[k], pts[k + 1]
+        L = math.hypot(x1 - x0, y1 - y0)
+        if L < min_len:
+            continue
+        ux, uy = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = -uy, ux
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        if not geom.contains(Point(mx + nx * 2, my + ny * 2)):
+            nx, ny = -nx, -ny  # n points into the building
+        nb = int((L - 2 * margin) // bay) + 1
+        if nb < 1:
+            continue
+        span = (nb - 1) * bay
+        for i in range(nb):
+            tc = L / 2 - span / 2 + i * bay
+            for t in np.arange(tc - w / 2 + 0.25, tc + w / 2, 0.5):
+                bx, by = x0 + ux * t, y0 + uy * t
+                r_, c_ = int(by + ny), int(bx + nx)
+                gz = int(g[r_, c_])
+                for zr, hh in rows:
+                    for zz in range(hh):
+                        z = gz + zr + zz
+                        hit = None
+                        for o in np.arange(-3, 4, 0.5):
+                            r, c = int(by + ny * o), int(bx + nx * o)
+                            if vol[z, r, c]:
+                                hit = o; break
+                        if hit is None:
+                            continue
+                        for d in range(depth):
+                            vol[z, int(by + ny * (hit + d)), int(bx + nx * (hit + d))] = 0
+                        vol[z, int(by + ny * (hit + depth)), int(bx + nx * (hit + depth))] = win
+            n += 1
+    return n
+
+
+def classic_rebuild(vol, g, pal, geom, eave, slope, wall_hex, roof_hex, note, name, glass_hex=None, glass_above=None,
+                    rows=(), bay=4.5, gables=(), cap=None, attic=0, pure_hip=False, keep_above=None):
+    """A masonry building rebuilt from its footprint: plain walls to the eave, a hipped roof rising `slope` m per m
+    from every edge (never above the smoothed LiDAR top, so towers, ridges and courts keep their height; `cap`
+    limits it), a 1 m cornice course at the eave, roof cells above `glass_above` m in glass (skylights), windows on
+    every edge (edge_windows). `gables`: boxes (r0, r1, c0, c1) where the LiDAR's own roof stays (a pediment), its
+    outer face in wall stone."""
+    D, W = g.shape
+    rr, cc = _cells_geom(geom, D, W)
+    T = _top_rel(vol, g, rr, cc)
+    r0, c0 = rr.min() - 2, cc.min() - 2
+    Mk = np.zeros((rr.max() - r0 + 3, cc.max() - c0 + 3), bool)
+    Mk[rr - r0, cc - c0] = True
+    Tm = np.zeros(Mk.shape, float); Tm[rr - r0, cc - c0] = T
+    Ts = ndimage.median_filter(Tm, 5)[rr - r0, cc - c0]
+    d = ndimage.distance_transform_edt(Mk)[rr - r0, cc - c0]
+    Hh = eave + slope * (d - 0.5) if pure_hip else np.minimum(eave + slope * (d - 0.5), np.maximum(Ts, eave))
+    if cap is not None:
+        Hh = np.minimum(Hh, cap)
+    gab = np.zeros(len(rr), bool)
+    for a0, a1, b0, b1, axis, apex in gables:  # a gable roof over the box, ridge along `axis`, rising to apex m
+        m = (rr >= a0) & (rr <= a1) & (cc >= b0) & (cc <= b1)
+        half = ((a1 - a0) if axis == "c" else (b1 - b0)) / 2 + 0.5
+        off = np.abs(rr + 0.5 - (a0 + a1 + 1) / 2) if axis == "c" else np.abs(cc + 0.5 - (b0 + b1 + 1) / 2)
+        Hh = np.where(m, np.maximum(Hh, eave + (apex - eave) * (1 - off / half)), Hh)
+        gab |= m
+    Hh = np.where(Ts < eave - 3, Ts, Hh)  # courtyards, low annexes
+    if keep_above is not None:
+        Hh = np.where(Ts >= keep_above, Ts, Hh)  # an atrium's glass roof standing over a flat roof
+    wall = pal(_hex(wall_hex), MAT_IDS["classic"])
+    roof = pal(_hex(roof_hex), 12)
+    glass = pal(_hex(glass_hex), M_GLASS) if glass_hex else roof
+    edge = d < 1.5
+    for k in range(len(rr)):
+        r, c, gz = rr[k], cc[k], int(g[rr[k], cc[k]])
+        h = int(round(Hh[k]))
+        col = vol[:, r, c]
+        col[gz + 1:gz + 70] = 0
+        if h <= 0:
+            continue
+        e = min(h, eave)
+        col[gz:gz + e] = wall
+        if h > e:
+            col[gz + e:gz + h] = wall if (gab[k] and edge[k]) else roof
+        col[gz + h - 1] = glass if (glass_above and h >= glass_above and not gab[k]) else \
+            (wall if gab[k] and edge[k] else (roof if h > eave else roof))
+        if attic and edge[k] and h >= eave:
+            col[gz + eave:gz + eave + attic] = wall
+    # cornice: one course 1 m proud at the eave
+    ring = ndimage.binary_dilation(Mk) & ~Mk
+    for r, c in zip(*np.nonzero(ring)):
+        r, c = r + r0, c + c0
+        z = int(g[r, c]) + eave - 1
+        if vol[z, r, c] == 0:
+            vol[z, r, c] = wall
+    n = 0
+    if rows:
+        n = edge_windows(vol, g, geom, pal((58, 70, 68), MAT_IDS["window"]), rows, bay)
+    note(f"{name} rebuilt: {len(rr)} columns, {n} windows")
+
+
+def holy_trinity(vol, g, feats, pal, note):
+    """Kościół Świętej Trójcy (the Lutheran rotunda by Zachęta): white walls and porticos, a green copper dome, a
+    white lantern with a green cap (Commons photos); the LiDAR shape is good, it only had one dark grey."""
+    f = _feat(feats, "Kościół Świętej Trójcy")
+    if f is None:
+        return
+    D, W = g.shape
+    rr, cc = _cells_geom(f["geom"].buffer(2), D, W)
+    white, green = pal(_hex("#e9e4d8"), MAT_IDS["classic"]), pal(_hex("#6f9c86"), 12)
+    cy, cx = 637.5, 1347.0
+    n = 0
+    for r, c in zip(rr, cc):
+        gz = int(g[r, c])
+        col = vol[gz:gz + 80, r, c]
+        dist = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+        for z in np.nonzero(col)[0]:
+            if dist <= 16 and z >= 20 and not (dist < 6.5 and 36 <= z < 50):
+                col[z] = green  # the dome and the lantern's cap
+            else:
+                col[z] = white
+            n += 1
+    note(f"Holy Trinity recoloured: {n} voxels")

@@ -18,6 +18,8 @@ import tiles
 
 BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "pkin": (1080, 1380, 600, 900),
+    "zacheta": (525, 675, 1310, 1410),
+    "pw": (2400, 2545, 495, 640),
 }
 OUT = Path("web/public/data")
 t0 = time.time()
