@@ -58,11 +58,11 @@
     "Centrum LIM": {
       "min_part_height": 20,
       "wall": {
-        "colour": "#464a50",
+        "colour": "#58776f",
         "material": "glass"
       },
       "sources": [
-        "Marriott tower: dark smoked glass (photo Warszawa_LIM_i_Ch8_23.09.2026)"
+        "teal-green glass (4 Commons photos 2011-2019 side by side; #464a50 rendered black)"
       ]
     },
     "Varso Tower": {
@@ -300,6 +300,14 @@
         "material": "wall"
       },
       "_note": "cream facade (Commons photo); OSM #F4F3E6 rendered white"
+    },
+    "Central Point": {
+      "min_part_height": 40,
+      "wall": {
+        "colour": "#4d7396",
+        "material": "glass"
+      },
+      "_note": "mid-blue glass tower (8 Commons photos 2023 side by side; OSM #476563 rendered dark teal)"
     }
   }
 }
