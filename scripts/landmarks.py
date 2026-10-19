@@ -421,12 +421,17 @@ def small_tree(vol, g, r, c, h, leaves, trunk, height=None):
                     vol[zz, rr, cc] = leaf if (dr + dc + k) % 3 else leaf2
     vol[z0 + tr:z0 + H - 1, r, c] = trunk  # leader through the crown
 
-def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
+def details_geometry(vol, g, feats, pal, note):
+    """Every curated change to the landmarks' voxels (also run alone by patch.py on the cached volume)."""
     pkin_clock(vol, g, feats, pal, note)
     regularize_walls(vol, g, feats, note)
     teatr_wielki_centre(vol, g, pal, note)
     apply_loggias(vol, g, pal, note)
     paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
+
+
+def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
+    details_geometry(vol, g, feats, pal, note)
     H = vol.shape[0]
 
     def top_at(r, c):
@@ -578,13 +583,7 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
 
 # porches found in the LiDAR (a 19 m roof a few metres deep in front of a taller block), grid rows/cols inclusive
 PKIN_PORTICOS = [dict(rows=(1216, 1240), cols=(796, 802), face="E", h=14),  # main entrance, Plac Defilad side
-                 dict(rows=(1157, 1161), cols=(740, 757), face="N", h=14),  # north porch, Świętokrzyska side
-                 dict(rows=(1296, 1300), cols=(740, 757), face="S", h=14),  # south porch, Aleje Jerozolimskie side
-                 # the four wings' porches, 13-14 m roofs ~7 m deep: Teatr Dramatyczny (NE), Pałac Młodzieży (SW)...
-                 dict(rows=(1095, 1101), cols=(803, 827), face="N", h=11),
-                 dict(rows=(1095, 1102), cols=(668, 693), face="N", h=11),
-                 dict(rows=(1355, 1362), cols=(804, 828), face="S", h=11),
-                 dict(rows=(1356, 1363), cols=(670, 694), face="S", h=11)]
+                 ]  # the front blocks' porticos: pkin_fronts; the pavilions': pkin_pavilion_porticos
 
 
 # Loggias and colonnades on facades at any angle (grid x, y = column, row): the front line p0 -> p1, carved `depth` m
@@ -791,6 +790,10 @@ def apply_loggias(vol, g, pal, note):
         note(f"loggia {lg['name']}: {len(done)} cells, {n_col} columns")
 
 
+def mats_of(pal, v):
+    return pal.entries[int(v)][3]
+
+
 def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3, min_area=150):
     """PKiN's walls are flat: the LiDAR outline wobbles by a metre from row to row, so each face carried full-height
     1 m slots and ribs, and ornament points stood as rubble on the tiers. Layer by layer (up to where the tower
@@ -817,6 +820,44 @@ def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3
         else:
             box[t + 1:tm + 1, r, c] = box[t, r, c]
     note(f"PKiN tier tops snapped: {int(fix.sum())} columns")
+    # the low blocks' roofs are flat terraces (2025 ortho: plain flat roofs with a parapet), but the LiDAR tops sit
+    # a metre apart across each one (23 and 24 m over half a pavilion each): contour lines on every roof. Levels by
+    # region growing: the most common height takes every connected patch (20+ cells) within 1 m of it, then the next;
+    # leftovers take the nearest terrace's level.
+    T = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0)
+    rel = T - g0
+    low = foot & (rel >= 8) & (rel < 40)
+    lev = np.zeros_like(T)
+    todo = low.copy()
+    while todo.any():
+        vals, cnt = np.unique(rel[todo], return_counts=True)
+        done_any = False
+        for h_ in vals[np.argsort(-cnt)]:
+            lab, n = ndimage.label(todo & (np.abs(rel - h_) <= 1))
+            if n == 0:
+                continue
+            sz = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1))
+            big = np.isin(lab, np.nonzero(sz >= 20)[0] + 1)
+            if big.any():
+                lev[big] = h_; todo &= ~big; done_any = True
+                break
+        if not done_any:
+            break
+    if (lev > 0).any():
+        _, (ir, ic) = ndimage.distance_transform_edt(lev == 0, return_indices=True)
+        lev = np.where(low & (lev == 0), lev[ir, ic], lev)
+    roof_id = pal((186, 179, 165), 12)
+    nfix = 0
+    for r, c in zip(*np.nonzero(low)):
+        t, tn = T[r, c], g0 + lev[r, c]
+        col = box[:, r, c]
+        if tn < t:
+            col[tn + 1:t + 1] = 0
+        elif tn > t:
+            col[t:tn] = col[t - 1] if mats_of(pal, col[t - 1]) == M_PKIN else col[t]
+        col[tn] = roof_id
+        nfix += tn != t
+    note(f"PKiN low roofs levelled: {int(low.sum())} columns, {nfix} moved")
     v, h = np.ones((L, 1), bool), np.ones((1, L), bool)
     vo, ho = np.ones((Lo, 1), bool), np.ones((1, Lo), bool)
     added = removed = 0
@@ -902,6 +943,7 @@ def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3
     Path("data/debug").mkdir(parents=True, exist_ok=True)
     np.savez_compressed("data/debug/pkin_top.npz", top=np.where(occ.any(0), occ.shape[0] - 1 - np.argmax(occ[::-1], axis=0), 0)
                         - g[miny:maxy, minx:maxx], miny=miny, minx=minx)
+    return stone
 
 
 def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
@@ -909,7 +951,11 @@ def pkin_clock(vol, g, feats, pal, note, z_rel=165, R=3.2):
     pk = next(f for f in feats if f["tags"].get("name") == "Pałac Kultury i Nauki")
     minx, miny, maxx, maxy = (int(v) for v in pk["geom"].bounds)
     g0 = int(np.median(g[pk["rr"], pk["cc"]]))
-    pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note)
+    stone = pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note)
+    pkin_tower(vol, g0, pal, stone, note)
+    pkin_fronts(vol, g0, pal, stone, note)
+    pkin_pavilion_porticos(vol, g0, pal, stone, note)
+    pkin_balustrades(vol, g0, stone, note)
     # the published ~165 m lands on a setback in the LiDAR massing: centre the clock on the first
     # plain stretch of shaft (constant cross-section for >= 9 m) at or above it
     def area(zz):
@@ -1021,7 +1067,6 @@ def pkin_crown(vol, pal, pk, z_clock, minx, miny, maxx, maxy, note):
             for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                 box[zz, ri + dr, ci + dc] = gold
     note(f"PKiN crown: cap {z_roof}-{z_roof + cap_h}, sphere {zs}, gilded spire to {top}")
-    pkin_pinnacles(vol, pk, z_roof, minx, miny, maxx, maxy, note)
 
 
 def paint_windows(vol, win, faces, centres, rows, w=2, h=2, depth=1, plane_tol=3):
@@ -1068,7 +1113,7 @@ def _faces(r0, r1, c0, c1):
 
 
 def pkin_windows(vol, pal, g0, note):
-    """PKiN's windows from its elevation (Commons photos of the east and north faces, 2015-2019, counted bay by bay):
+    """PKiN low-block windows from the elevation (the tower: pkin_tower). Kept from the earlier survey (Commons photos of the east and north faces, 2015-2019):
     the shaft: 11.5 m corner piers with ONE window column each, the 22 m middle with FIVE columns 4.8 m apart;
     storeys 3.8 m below the 30th-floor terrace (114 m); at the top a band of small windows and the terrace loggia:
     five tall openings in the middle, an arched one in each pier. Above: a stage with five small windows, a stage with
@@ -1077,30 +1122,6 @@ def pkin_windows(vol, pal, g0, note):
     win = pal((58, 70, 68), MAT_IDS["window"])
     z = lambda hgt: g0 + int(round(hgt))
     n = 0
-    shaft = _faces(1207, 1250, 727, 770)
-    cols = [-10.2, -5.1, 0, 5.1, 10.2, -17.1, 17.1]  # measured: 5.1 m apart; the pier column 4.9 m in from the edge
-    # the 23 m middle stands 1 m back from the piers
-    paint_windows(vol, None, shaft, [0], [(z(20), z(108) - z(20))], w=23, depth=1)
-    body = [(z(114 - k * 3.8 + 1), 2) for k in range(2, 30)]
-    n += paint_windows(vol, win, shaft, cols, body)
-    n += paint_windows(vol, win, shaft, cols, [(z(111), 1)], w=1)
-    n += paint_windows(vol, win, shaft, cols[:5], [(z(115), 7), (z(123), 1)], depth=2)
-    n += paint_windows(vol, win, shaft, cols[5:], [(z(115), 6), (z(123), 1)], depth=2)
-    n += paint_windows(vol, win, shaft, cols[5:], [(z(121), 1)], w=1, depth=2)  # the arch's crown
-    n += paint_windows(vol, win, _faces(1218, 1239, 738, 759), [-8, -4, 0, 4, 8], [(z(146), 2)], w=1)
-    n += paint_windows(vol, win, _faces(1219, 1238, 739, 758), [-7.2, -3.6, 0, 3.6, 7.2], [(z(157), 5)], depth=2)
-    towers = [(1194, 1212, 716, 736), (1194, 1212, 761, 782), (1244, 1264, 716, 736), (1244, 1264, 761, 782)]
-    trows = [(z(hh), 2) for hh in range(21, 52, 4)]
-    for r0, r1, c0, c1 in towers:
-        f = _faces(r0, r1, c0, c1)
-        n += paint_windows(vol, win, f, [-4.8, 0, 4.8], trows)
-        n += paint_windows(vol, win, f, [-4.8, 0, 4.8], [(z(54), 1)], w=1)
-        n += paint_windows(vol, win, f, [-4.8, 0, 4.8], [(z(57), 5)], depth=2)
-    # the north and south front blocks (30 m): one window column on each side of the porch, three windows over it
-    for flank, front, nrm in ((1166, 1162, -1), (1291, 1295, 1)):
-        n += paint_windows(vol, win, [(0, flank, nrm, 749.0)], [-15, 15],
-                           [(z(hh), 2) for hh in (4, 8.5, 13, 17.5, 22, 26)], plane_tol=4)
-        n += paint_windows(vol, win, [(0, front, nrm, 749.0)], [-4.5, 0, 4.5], [(z(23), 2)], plane_tol=2)
     n += pkin_low_windows(vol, win, g0, note)
     note(f"PKiN windows from the elevation: {n} windows")
 
@@ -1173,3 +1194,283 @@ def pkin_pinnacles(vol, pk, z_top, minx, miny, maxx, maxy, note):
         z = top[r, c]
         box[z + 1:z + 4, r, c] = box[z - 1, r, c] or box[z, r, c]
     note(f"PKiN pinnacles: {len(rr)}")
+
+
+PK_R0, PK_C0, PK_L = 1190, 710, 78  # the tower's local frame: rows 1190-1267, cols 710-787 (centre 1228.5, 748.5)
+PK_SHAFT_LO = (1207, 1250, 727, 770)  # 44 m square below the 56 m ledge (LiDAR)
+PK_SHAFT = (1209, 1248, 729, 768)     # 40 m square above it
+PK_TOWERS = [(1193, 1212, 716, 735), (1193, 1212, 762, 781), (1245, 1264, 716, 735), (1245, 1264, 762, 781)]
+
+
+def pkin_tower(vol, g0, pal, stone, note):
+    """PKiN's tower rebuilt as clean geometry (the LiDAR outline wobbled by a metre or two from storey to storey:
+    staircase edges, stray ledges, a rubble of ornament on every tier). Massing from the LiDAR, everything else from
+    photos (Commons: north face 2017, east face from Marszałkowska, close-ups of the crown 2019): the 40 m shaft
+    (44 m below a ledge at 56 m), corner piers of 10 m with one window column each and a middle of 20 m set 1 m back
+    with five; the windows stacked in continuous recessed bands (glass over dark spandrels) between pilasters, storeys
+    4 m; at the top a cornice, a mezzanine of small windows, the terrace loggia (five tall openings, a taller one in
+    each pier) on a 1 m projection, an attic with small windows, the main cornice and a parapet of pinnacles; then a
+    28 m podium, the 22 m stage with five arches on each face, a 16 m stage and the 14 m clock storey. The four corner
+    towers (20 m, to 65 m): three window columns per face, 4 m storeys, a cornice, a band of small windows, a loggia
+    of three tall openings, the main cornice, and a crown of pinnacles round a cartouche on each face."""
+    L = PK_L
+    H = vol.shape[0]
+    T = np.zeros((H, L, L), np.uint16)
+    loc = lambda b: (b[0] - PK_R0, b[1] - PK_R0, b[2] - PK_C0, b[3] - PK_C0)
+    z = lambda h: g0 + h
+    roof = pal((186, 179, 165), 12)
+    dark = pal((120, 110, 94), M_PKIN)  # spandrels in the window bands
+    glass = pal((64, 84, 84), MAT_IDS["window"])
+    void = pal((40, 40, 38), MAT_IDS["window"])  # open loggias: the dark inside
+
+    def fill(b, h0, h1, v=stone, grow=0):
+        r0, r1, c0, c1 = loc(b)
+        T[z(h0):z(h1) + 1, r0 - grow:r1 + 1 + grow, c0 - grow:c1 + 1 + grow] = v
+
+    def top(b, h):  # the roof layer of a tier
+        r0, r1, c0, c1 = loc(b)
+        T[z(h), r0:r1 + 1, c0:c1 + 1] = roof
+
+    def rot(b):  # a box in the frame turned 90 degrees (np.rot90 over rows -> cols): V[i, j] = T[j, L-1-i]
+        r0, r1, c0, c1 = b
+        return (L - 1 - c1, L - 1 - c0, r0, r1)
+
+    def faces(b):  # (view, box in the view) for the four faces; the face is the view's smallest row
+        out, bb = [], loc(b)
+        for k in range(4):
+            out.append((np.rot90(T, k, axes=(1, 2)), bb))
+            bb = rot(bb)
+        return out
+
+    def carve(V, bb, offs, h0, h1, depth, behind, plane=0, need_air=True):
+        """On the face (row bb[0] - plane of view V): at the cell offsets `offs` from the face's centre, heights
+        h0..h1, clear `depth` cells inward and put `behind` after them; only where the face is open air."""
+        r0, _, c0, c1 = bb
+        p = r0 - plane
+        uc = (c0 + c1) / 2
+        for o in offs:
+            u = int(round(uc + o))
+            for zz in range(z(h0), z(h1) + 1):
+                if need_air and (V[zz, p - 1, u] != 0 or V[zz, p, u] == 0):
+                    continue
+                V[zz, p:p + depth, u] = 0
+                if behind:
+                    V[zz, p + depth, u] = behind
+
+    def band(V, bb, h, grow=1, v=None):  # a cornice: a course standing `grow` m proud of the face
+        r0, _, c0, c1 = bb
+        V[z(h), r0 - grow:r0, c0 - grow:c1 + 1 + grow] = v or stone
+
+    mid = [-8, -4, 0, 4, 8]
+    pier = [-15, 15]
+    # ---- massing
+    fill(PK_SHAFT_LO, 18, 56)
+    fill(PK_SHAFT, 57, 131)
+    fill(PK_SHAFT, 109, 124, grow=1)       # the loggia storey stands 1 m proud
+    fill(PK_SHAFT, 132, 132, roof)
+    st2b = (1215, 1242, 735, 762); st2 = (1218, 1239, 738, 759); st3 = (1221, 1236, 741, 756); clk = (1222, 1235, 742, 755)
+    fill(st2b, 133, 138); top(st2b, 138)
+    fill(st2, 139, 162); top(st2, 162)
+    fill(st3, 163, 165); top(st3, 165)
+    fill(clk, 166, 181); top(clk, 181)
+    top(PK_SHAFT_LO, 56)
+    # ---- shaft faces
+    for V, bb in faces(PK_SHAFT):
+        r0, _, c0, c1 = bb
+        mids = [o + d for o in mid for d in (-0.5, 0.5)]
+        piers = [o + d for o in pier for d in (-0.5, 0.5)]
+        midzone = [x - 9.5 for x in range(20)]
+        carve(V, bb, midzone, 57, 104, 1, None)  # the middle 1 m behind the piers
+        for h in range(57, 105):  # the window bands: glass rows of 2 m every 4 m, dark spandrels between
+            v = glass if (h - 58) % 4 in (0, 1) else dark
+            carve(V, bb, mids, h, h, 1, v, plane=-1, need_air=False)
+            carve(V, bb, piers, h, h, 1, v, need_air=False)
+        band(V, bb, 105)
+        carve(V, bb, mids + piers, 107, 107, 1, glass)  # mezzanine
+        V[z(109):z(125), r0 - 1, c0 - 1:c1 + 2] = stone  # loggia storey, 1 m proud
+        carve(V, bb, mids, 112, 118, 2, void, plane=1)
+        carve(V, bb, mids, 120, 121, 1, glass, plane=1)
+        carve(V, bb, piers, 111, 120, 2, void, plane=1)
+        band(V, bb, 110, 2)  # its balustrade and its cornice
+        band(V, bb, 124, 2)
+        carve(V, bb, mids + piers, 127, 127, 1, glass)  # attic
+        band(V, bb, 130); band(V, bb, 131)
+        V[z(132):z(134), r0, c0:c1 + 1] = stone  # balustrade
+        uc = (c0 + c1) / 2
+        for o, hh in ((-19.5, 7), (-18.5, 5), (-17.5, 4), (19.5, 7), (18.5, 5), (17.5, 4)) + tuple(
+                (o, 3) for o in (-14.5, -11.5, -8.5, -5.5, -2.5, 2.5, 5.5, 8.5, 11.5, 14.5)):  # pinnacles
+            u = int(round(uc + o))
+            V[z(134):z(134 + hh - 1) + 1, r0, u] = stone
+    for V, bb in faces(PK_SHAFT_LO):  # the lower shaft (above the wings and the front blocks)
+        mids = [o + d for o in mid for d in (-0.5, 0.5)]
+        piers = [o + d for o in pier for d in (-0.5, 0.5)]
+        carve(V, bb, [x - 9.5 for x in range(20)], 30, 55, 1, None)  # (below 30 m: the wings and front blocks)
+        for h in range(30, 56):
+            v = glass if (h - 58) % 4 in (0, 1) else dark
+            carve(V, bb, mids, h, h, 1, v, plane=-1, need_air=False)
+            carve(V, bb, piers, h, h, 1, v, need_air=False)
+    # ---- the stages above
+    for V, bb in faces(st2):  # the arcade stage: five tall arches on a plain base
+        carve(V, bb, [o + d for o in mid for d in (-0.5, 0.5)], 151, 157, 2, void)
+        carve(V, bb, [o for o in mid], 158, 158, 2, void)  # the arches' crowns (1 m: an arch at this size)
+        carve(V, bb, [o + d for o in mid for d in (-0.5, 0.5)], 143, 145, 1, glass)
+        band(V, bb, 149); band(V, bb, 160)
+    for V, bb in faces(clk):
+        band(V, bb, 179)
+    # ---- the corner towers
+    for tb in PK_TOWERS:
+        fill(tb, 0, 65)
+        top(tb, 65)
+    for tb in PK_TOWERS:
+        for V, bb in faces(tb):
+            r0, _, c0, c1 = bb
+            cols3 = [o + d for o in (-4, 0, 4) for d in (-0.5, 0.5)]
+            for h in range(22, 52, 4):
+                carve(V, bb, cols3, h, h + 1, 1, glass)
+            band(V, bb, 53)
+            carve(V, bb, cols3, 54, 54, 1, glass)
+            carve(V, bb, cols3, 56, 61, 2, void)
+            band(V, bb, 62); band(V, bb, 63)
+            uc = (c0 + c1) / 2
+            ok = lambda u: V[z(65), r0, u] != 0
+            for u in range(c0, c1 + 1):  # balustrade
+                if ok(u):
+                    V[z(66), r0, u] = stone
+            for o, hh in ((-9.5, 6), (9.5, 6), (-8.5, 4), (8.5, 4), (-5.5, 3), (5.5, 3)):  # pinnacles
+                u = int(round(uc + o))
+                if ok(u):
+                    V[z(67):z(67 + hh - 1) + 1, r0, u] = stone
+            for o, h0, h1 in ((-2.5, 67, 68), (-1.5, 67, 70), (-0.5, 67, 72), (0.5, 67, 72), (1.5, 67, 70), (2.5, 67, 68)):
+                u = int(round(uc + o))  # the cartouche
+                if ok(u):
+                    V[z(h0):z(h1) + 1, r0:r0 + 2, u] = stone
+    # ---- pinnacles at the corners of the stages
+    for b, h, hh in ((st2b, 138, 5), (st2, 162, 4)):
+        r0, r1, c0, c1 = loc(b)
+        for r, c in ((r0, c0), (r0, c1), (r1, c0), (r1, c1)):
+            T[z(h + 1):z(h + hh) + 1, r, c] = stone
+    # ---- paste: the frame above the low blocks is replaced
+    R = slice(PK_R0, PK_R0 + L); C = slice(PK_C0, PK_C0 + L)
+    keep_low = vol[:z(30), R, C].copy()
+    vol[z(30):z(182), R, C] = T[z(30):z(182)]
+    vol[z(182):z(194), R, C] = 0  # the LiDAR's rounded cap (pkin_crown builds the cap and spire; the spire stays)
+    lowT = T[:z(30)]
+    vol[:z(30), R, C] = np.where(lowT != 0, lowT, keep_low)
+    # below 30 m the frame also holds the wings and front blocks: only the shaft and towers' own columns are replaced
+    for b in [PK_SHAFT_LO] + PK_TOWERS:
+        r0, r1, c0, c1 = b
+        vol[z(18):z(30), r0:r1 + 1, c0:c1 + 1] = T[z(18):z(30), r0 - PK_R0:r1 - PK_R0 + 1, c0 - PK_C0:c1 - PK_C0 + 1]
+    note(f"PKiN tower rebuilt: {int((T != 0).sum())} voxels")
+
+
+def pkin_fronts(vol, g0, pal, stone, note):
+    """The north and south front blocks (Pałac Młodzieży's front, Commons 2017, scaled by the 28 m LiDAR width):
+    a 28 m projection whose cornice (with a 1 m attic over it, the coat of arms group at the centre) runs at the
+    flanks' top; a portico of FOUR columns 4 m apart in front of it, 12 m tall under a 3 m entablature, the wall
+    behind with doors and two rows of windows in the three bays; three windows over the portico; a 4 m flank on each
+    side with one column of five windows; behind, the block reaching to the shaft at 28 m. The LiDAR gave a pile of
+    boxes there (a sculpture group read as a storey, the porch as a solid block)."""
+    win = pal((64, 84, 84), MAT_IDS["window"])
+    dark = pal((40, 40, 38), MAT_IDS["window"])
+    roof = pal((186, 179, 165), 12)
+    z = lambda h: g0 + h
+    n = 0
+    for sgn, r_front in ((1, 1163), (-1, 1294)):
+        R = lambda d: r_front + sgn * d  # d: metres behind the projection's face (d < 0: in front of it)
+        rows = lambda d0, d1: slice(min(R(d0), R(d1)), max(R(d0), R(d1)) + 1)
+        vol[z(0):z(40), rows(-7, 43), 731:767] = 0
+        vol[z(0):z(28), rows(16, 43), 735:763] = stone    # the back block, up to the shaft
+        vol[z(28), rows(16, 43), 735:763] = roof
+        vol[z(0):z(26), rows(3, 29), 731:767] = stone     # the flanks
+        vol[z(26), rows(3, 29), 731:767] = roof
+        vol[z(0):z(25), rows(0, 15), 735:763] = stone     # the projection
+        vol[z(25):z(27), rows(-1, 15), 734:764] = stone   # its cornice, 1 m proud
+        vol[z(27):z(29), rows(1, 15), 736:762] = stone    # the attic
+        vol[z(29), rows(1, 15), 736:762] = roof
+        vol[z(29):z(31), rows(1, 2), 744:754] = stone     # the coat of arms group
+        vol[z(31):z(33), rows(1, 2), 746:752] = stone
+        vol[z(33):z(35), rows(1, 2), 748:750] = stone
+        # the portico: four 2 m columns 4 m apart, 14 m tall, the entablature 14-17 m
+        vol[z(14):z(17), rows(-6, -1), 741:757] = stone
+        vol[z(17), rows(-6, -1), 741:757] = roof
+        vol[z(0), rows(-7, -1), 740:758] = stone  # steps
+        for c in (742, 746, 750, 754):
+            vol[z(1):z(14), rows(-6, -5), c:c + 2] = stone
+        # the wall behind the portico: doors and two rows of windows in the three bays; three windows above
+        for c in (744, 748, 752):
+            for h0, h1, v in ((1, 4, dark), (6, 8, win), (10, 12, win), (19, 21, win)):
+                vol[z(h0):z(h1), R(0), c:c + 2] = 0
+                vol[z(h0):z(h1), R(1), c:c + 2] = v
+                n += 1
+        # the flanks: one column of five windows each, on the front and on the outer side
+        for c in (732, 765):
+            for h0 in (5, 9, 13, 17, 21):
+                vol[z(h0):z(h0 + 2), R(3), c:c + 1] = 0
+                vol[z(h0):z(h0 + 2), R(4), c:c + 1] = win
+                n += 1
+        for cc_, step in ((731, 1), (766, -1)):  # side faces of the flanks and the projection
+            for d in (6, 10, 14, 18, 22, 26):
+                for h0 in (5, 9, 13, 17, 21):
+                    vol[z(h0):z(h0 + 2), R(d):R(d) + sgn * 2:sgn, cc_] = 0
+                    vol[z(h0):z(h0 + 2), R(d):R(d) + sgn * 2:sgn, cc_ + step] = win
+                    n += 1
+    note(f"PKiN front blocks rebuilt: {n} windows")
+
+
+# the four pavilions' porticos (Teatr Dramatyczny's, Commons 2019 from the fountain; the others alike): (centre
+# column, wall row, outward row step); LiDAR: a 22 m porch 4-5 m deep with a 14 m front part 3 m further out, roofs
+# at 12-13 m
+PKIN_PAVILION_PORTICOS = [(681.5, 1103, -1), (815.5, 1103, -1), (682.5, 1355, 1), (817.5, 1355, 1)]
+
+
+def pkin_pavilion_porticos(vol, g0, pal, stone, note):
+    """SIX columns 4 m apart (2 m thick, 10 m tall): the middle four under the projecting front part, the outer two at
+    the front of the wider porch; the entablature 10-12 m, flat roof at 13 m; three doors in the wall behind. The
+    LiDAR porch was a solid block with 1 m slots."""
+    roof = pal((186, 179, 165), 12)
+    dark = pal((40, 40, 38), MAT_IDS["window"])
+    z = lambda h: g0 + h
+    for cc, wall, s in PKIN_PAVILION_PORTICOS:
+        R = lambda d: wall + s * d  # d >= 1: metres out from the wall
+        rs = lambda d0, d1: slice(min(R(d0), R(d1)), max(R(d0), R(d1)) + 1)
+        c = lambda o: int(round(cc + o))
+        vol[z(1):z(16), rs(1, 9), c(-12.5):c(12.5) + 1] = 0
+        vol[z(0), rs(1, 9), c(-11.5):c(11.5) + 1] = stone
+        vol[z(10):z(13), rs(1, 5), c(-10.5):c(10.5) + 1] = stone
+        vol[z(10):z(13), rs(6, 8), c(-6.5):c(6.5) + 1] = stone
+        vol[z(13), rs(1, 5), c(-10.5):c(10.5) + 1] = roof
+        vol[z(13), rs(6, 8), c(-6.5):c(6.5) + 1] = roof
+        for o in (-10.5, -6.5, -2.5, 1.5, 5.5, 9.5):  # left cell of each 2 m column
+            d0, d1 = (7, 8) if abs(o + 0.5) < 8 else (4, 5)
+            vol[z(1):z(10), rs(d0, d1), c(o):c(o) + 2] = stone
+        for o in (-4.5, -0.5, 3.5):  # doors between the middle columns
+            vol[z(1):z(5), R(0), c(o):c(o) + 2] = 0
+            vol[z(1):z(5), R(-1), c(o):c(o) + 2] = dark
+    note(f"PKiN pavilion porticos: {len(PKIN_PAVILION_PORTICOS)}")
+
+
+def pkin_balustrades(vol, g0, stone, note, box=(1080, 1380, 600, 900)):
+    """The low blocks' attics end in a stone balustrade with a vase every few metres (Commons 2011, the east pavilion
+    from Plac Defilad; 2019 Teatr Dramatyczny): on every roof edge of the low blocks (12-32 m) that drops 3 m or more,
+    a 1 m parapet, and a 1 m vase on it every 3 m. Not on the tower, the front blocks or Sala Kongresowa."""
+    r0, r1, c0, c1 = box
+    b = vol[:, r0:r1, c0:c1]
+    occ = b != 0
+    H = occ.shape[0]
+    top = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0)
+    rel = top - g0
+    nb = np.minimum.reduce([np.pad(top, 1, mode="edge")[1 + dr:1 + dr + top.shape[0], 1 + dc:1 + dc + top.shape[1]]
+                            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1))])
+    edge = (rel >= 12) & (rel <= 32) & (top - nb >= 3)
+    rr, cc = np.mgrid[r0:r1, c0:c1]
+    kong = np.hypot(rr + 0.5 - 1230, cc + 0.5 - 662) < 42
+    tower = (rr >= 1155) & (rr <= 1302) & (cc >= 727) & (cc <= 771)
+    edge &= ~kong & ~tower
+    n = 0
+    for r, c in zip(*np.nonzero(edge)):
+        t = top[r, c]
+        b[t + 1, r, c] = stone
+        if (r + c) % 3 == 0:
+            b[t + 2, r, c] = stone
+        n += 1
+    note(f"PKiN balustrades: {n} edge cells")

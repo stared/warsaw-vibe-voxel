@@ -165,3 +165,51 @@ def export(vol, g, out, note, keep_ids=(), skip_ids=(), face_ids=(), fol_ids=(),
              + (f", foliage {ftot / 2 ** 20:.1f} MB gz" if split else ""))
         del vs
     return info
+
+
+def export_region(vol, g, out, box, note, keep_ids=(), skip_ids=(), face_ids=(), fol_ids=(), grass_ids=(), bare_id=0):
+    """Rewrite only the nodes (every level) over box = (r0, r1, c0, c1) of the 1 m grid, from the same volume the
+    full export would see (scripts/patch.py); each node is built from its own 1 m window, so the result matches
+    export() except thin-voxel detail exactly at a window's edge."""
+    H, D, W = vol.shape
+    R0, R1, C0, C1 = box
+    face = np.array(sorted(face_ids), np.uint16)
+    fol = np.zeros(65536, bool); fol[list(fol_ids)] = True; fol[list(grass_ids)] = True
+    grass = np.zeros(65536, bool); grass[list(grass_ids)] = True
+    n = 0
+    for s in LEVELS:
+        span = N * s
+        for ty in range(max(R0 - s, 0) // span, min(R1 + s, D - 1) // span + 1):
+            for tx in range(max(C0 - s, 0) // span, min(C1 + s, W - 1) // span + 1):
+                a, c = ty * span - s, tx * span - s  # 1 m window: the node and its one-cell apron, aligned to s
+                w1 = np.zeros((H, span + 2 * s, span + 2 * s), np.uint16)
+                g1 = np.zeros((span + 2 * s, span + 2 * s), g.dtype)
+                ra, rb, ca, cb = max(a, 0), min(a + span + 2 * s, D), max(c, 0), min(c + span + 2 * s, W)
+                w1[:, ra - a:rb - a, ca - c:cb - c] = vol[:, ra:rb, ca:cb]
+                g1[ra - a:rb - a, ca - c:cb - c] = g[ra:rb, ca:cb]
+                win = w1 if s == 1 else downsample(w1, s, face)
+                gw = np.clip(g1[::s, ::s], 0, 255).astype(np.uint8)
+                Hs = win.shape[0]
+                top = int(np.nonzero(win.reshape(Hs, -1).any(1))[0].max()) + 1 if win.any() else 1
+                win = win[:top]
+                if s == 1 and len(fol_ids):
+                    f = fol[win]
+                    fv = np.where(f, win, 0).astype(np.uint16)
+                    win = np.where(f, np.where(grass[win], bare_id, 0), win).astype(np.uint16)
+                    fc, fr = column_runs(fv)
+                    with gzip.GzipFile(out / "1f" / f"{tx}_{ty}.bin", "wb", compresslevel=9, mtime=0) as fh:
+                        fh.write(fc.tobytes() + gw.tobytes() + fr.tobytes())
+                counts, runs = column_runs(win)
+                blob = counts.tobytes() + gw.tobytes() + runs.tobytes()
+                if 1 < s < 8:
+                    tz, tr, tc, tv = thin_voxels(w1, skip_ids, keep_ids, lambda *x: None)
+                    full = downsample(w1, s, face)
+                    k = (tr >= s) & (tr < s + span) & (tc >= s) & (tc < s + span)
+                    tz, tr, tc, tv = tz[k], tr[k], tc[k], tv[k]
+                    lost = full[tz // s, tr // s, tc // s] == 0
+                    det = np.stack([tc[lost] - s, tr[lost] - s, tz[lost], tv[lost]], 1).astype(np.uint16)
+                    blob += det.tobytes()
+                with gzip.GzipFile(out / str(s) / f"{tx}_{ty}.bin", "wb", compresslevel=9, mtime=0) as fh:
+                    fh.write(blob)
+                n += 1
+    note(f"tiles: {n} nodes rewritten over rows {R0}-{R1}, cols {C0}-{C1}")

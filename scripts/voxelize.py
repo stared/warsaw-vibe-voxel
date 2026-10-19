@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -1026,6 +1027,11 @@ note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 landmarks.apply_zones(vol, g, feats, pal, bmask, note)
 floods = landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
 leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
+if os.environ.get("LMCACHE"):  # the volume before the curated landmark details, for scripts/patch.py
+    import pickle
+    Path("data/cache").mkdir(parents=True, exist_ok=True)
+    np.save("data/cache/pre_vol.npy", vol)
+    pickle.dump(dict(g=g, feats=feats), open("data/cache/pre_state.pkl", "wb"))
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
                     pal=np.array(pal.entries, np.int32))  # PKiN's block for facade work (r0=1080, c0=600)
@@ -1048,55 +1054,8 @@ for l in labels:
         l["R"] = 0.0
 
 # ---------------------------------------------------------------- floating debris
-def drop_debris(vol, g, max_size=100, B=256, M=24):  # the stadium hub (135) stays
-    """Delete small clumps of voxels that touch neither the ground nor anything that does (LiDAR returns off cranes,
-    wires and canopy frames, leftovers of part cuts): 3D components (26-connected), per block with a margin; a clump is
-    debris if it is smaller than max_size voxels, its lowest voxel is 2 m or more above the ground there, and it does
-    not reach the block's margin."""
-    Hh, Dd, Ww = vol.shape
-    n = nv = 0
-    big = []
-    keep_ids = np.array([i for i, e in enumerate(pal.entries) if e[3] == M_LEAF] + [C["trunk"]], dtype=vol.dtype)
-    st = ndimage.generate_binary_structure(3, 3)  # 26-connected: diagonal cables and wires are chains of corner-touching voxels
-    for r0 in range(0, Dd, B):
-        for c0 in range(0, Ww, B):
-            ra, rb, ca, cb = max(0, r0 - M), min(Dd, r0 + B + M), max(0, c0 - M), min(Ww, c0 + B + M)
-            sub = vol[:, ra:rb, ca:cb]
-            occ = sub != 0
-            gg = g[ra:rb, ca:cb]
-            zz = np.arange(Hh)[:, None, None]
-            occ &= zz >= gg[None] - 1  # the ground itself is one big component; leave it out
-            occ &= ~np.isin(sub, keep_ids)  # trees: crowns hang on trunks drawn apart, small crowns are real
-            lab, k = ndimage.label(occ, st)
-            if k == 0:
-                continue
-            sizes = ndimage.sum(occ, lab, range(1, k + 1))
-            small = np.nonzero(sizes < 4000)[0] + 1
-            if not len(small):
-                continue
-            objs = ndimage.find_objects(lab)
-            for lid in small:
-                sl = objs[lid - 1]
-                zs, rs, cs = sl
-                if rs.start < (r0 - ra) or rs.stop > (r0 - ra) + B or cs.start < (c0 - ca) or cs.stop > (c0 - ca) + B:
-                    continue  # touches the margin: judged by the block that owns it
-                m = lab[sl] == lid
-                zi, ri, ci = np.nonzero(m)
-                zi, ri, ci = zi + zs.start, ri + rs.start, ci + cs.start
-                if (zi - gg[ri, ci]).min() < 2:
-                    continue  # stands on the ground (bollards, benches, lamps)
-                if len(zi) >= max_size:  # bigger floating clumps: listed for review (data/debug/floating.json)
-                    big.append(dict(x=int(ci.mean() + ca), y=int(ri.mean() + ra), z=int((zi - gg[ri, ci]).min()),
-                                    n=int(len(zi)), h=int(zi.max() - zi.min() + 1)))
-                    continue
-                sub[zi, ri, ci] = 0
-                n += 1; nv += len(zi)
-    note(f"floating debris removed: {n} clumps, {nv} voxels; {len(big)} bigger floating clumps listed")
-    Path("data/debug").mkdir(parents=True, exist_ok=True)
-    json.dump(sorted(big, key=lambda b: -b["n"]), open("data/debug/floating.json", "w"))
-
-
-drop_debris(vol, g)
+import debris
+debris.drop_debris(vol, g, np.array([i for i, e in enumerate(pal.entries) if e[3] == M_LEAF] + [C["trunk"]], dtype=vol.dtype), note)
 
 # ---------------------------------------------------------------- export
 Hm = int(np.nonzero(vol.reshape(H, -1).any(axis=1))[0].max()) + 1
@@ -1109,11 +1068,15 @@ _lut[[i for i, e in enumerate(pal.entries) if e[3] == M_GRASS]] = _lut[C["bare"]
 np.savez_compressed("data/ground.npz", g=g.astype(np.int16), rgb=_lut[_ids],
                     b=np.where(bmask, topi, 0).astype(np.int16))  # building height above ground (photo-pose tools)
 import tiles
-tile_info = tiles.export(vol, g, OUT / "tiles", note, keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
+EXPORT_IDS = dict(keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
                          skip_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
                          face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK},
                          fol_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
                          grass_ids={i for i, e in enumerate(pal.entries) if e[3] == M_GRASS}, bare_id=C["bare"])
+tile_info = tiles.export(vol, g, OUT / "tiles", note, **EXPORT_IDS)
+if os.environ.get("LMCACHE"):
+    pickle.dump(dict(EXPORT_IDS, debris_keep=[i for i, e in enumerate(pal.entries) if e[3] == M_LEAF] + [C["trunk"]]),
+                open("data/cache/export_ids.pkl", "wb"))
 # tram routes for the animated trams: merged open-air tram tracks, sampled every metre with ground z
 from shapely.ops import linemerge
 tram_lines = linemerge([l for oid, t, l in osm.lines_with("railway", ("tram",)) if not tunnelish(t)])
