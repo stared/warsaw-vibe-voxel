@@ -564,7 +564,7 @@ def wall_style(f):
     if inside_pkin:
         # OSM tags the stone #C6AE7F, a khaki; in photos the weathered sandstone is a mid warm grey-beige (median 114,108,96 overcast)
         if col is None or col == hex_rgb("#c6ae7f"):
-            col = hex_rgb("#ab9e86")
+            col = hex_rgb("#857a65")  # lighter tones read pale cream in sun beside the photos (render 179,167,139 vs 104,100,87)
         return pal(soften(col, 0.05), M_PKIN)
     glass = "glass" in mat_tag or (not mat_tag and h > 45 and btype in ("office", "commercial", "hotel", "yes", "retail")
                                    and "building:colour" not in t)

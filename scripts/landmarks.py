@@ -442,10 +442,24 @@ def classic_buildings(vol, g, feats, pal, note):
     z = _feat(feats, "Zachęta")
     if z is not None:  # Commons 2008 (east front and south side), 2025 ortho: patina hips round a glass pyramid
         # the east front's pediment (ridge 21-22 m in the LiDAR) over the portico, its gable roof running 14 m back
-        classic_rebuild(vol, g, pal, z["geom"], eave=17, slope=0.5, wall_hex="#e0d2b0", roof_hex="#7f9a8a",
+        classic_rebuild(vol, g, pal, z["geom"], eave=17, slope=0.25, wall_hex="#e0d2b0", roof_hex="#7f9a8a",
                         glass_hex="#c9d3d6", glass_above=22, rows=[(1, 1), (3, 4), (9, 4)], bay=4.5,
-                        gables=[(555, 573, 1383, 1398, "c", 23)], attic=1, cap=23, pure_hip=True, note=note,
+                        gables=[(555, 573, 1383, 1398, "c", 23)], attic=2, cap=23, pure_hip=True, note=note,
                         name="Zachęta")
+        # the east front's portico (Commons 2008): FOUR columns in a 2 m recess under the pediment, the door behind
+        stone = pal(_hex("#e8dcc2"), 0)
+        dark = pal((40, 34, 30), MAT_IDS["window"])
+        for r in range(557, 572):
+            gz = int(g[r, 1385])
+            row = np.nonzero(vol[gz + 6, r, 1370:1405])[0]
+            if not len(row):
+                continue
+            fc = 1370 + row[-1]
+            vol[gz + 1:gz + 12, r, fc - 1:fc + 1] = 0
+            if r in (558, 562, 566, 570):
+                vol[gz + 1:gz + 12, r, fc] = stone
+            if 563 <= r <= 565:
+                vol[gz + 1:gz + 6, r, fc - 2] = dark
     holy_trinity(vol, g, feats, pal, note)
     hk = _feat(feats, "Hala Koszyki")
     if hk is not None:  # Commons 2016-2023: red brick sides with tall windows; ortho: grey metal gables, skylights
