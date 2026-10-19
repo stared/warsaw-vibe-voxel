@@ -433,6 +433,7 @@ def details_geometry(vol, g, feats, pal, note):
     poniatowski(vol, g, pal, note)
     zlota44_crown(vol, g, pal, note)
     msn(vol, g, feats, pal, note)
+    saski_site(vol, g, pal, note)
 
 
 def classic_buildings(vol, g, feats, pal, note):
@@ -468,6 +469,9 @@ def classic_buildings(vol, g, feats, pal, note):
                 t = (math.atan2(r + 0.5 - cy, c + 0.5 - cx) / (2 * math.pi) * 20) % 1.0
                 hh = int(round(3.2 * (1 - abs(2 * t - 1))))
                 vol[gz + 11:gz + 12 + hh, r, c] = roofc
+    ep = _feat(feats, "Elektrownia Powiśle")
+    if ep is not None:  # ortho 2025: dark slate roofs of the old halls, the blue glass atrium between them
+        ortho_roof(vol, g, ep["geom"], pal, note, "Elektrownia Powiśle", min_rel=6, roof_only=True, inset=1, allow_glass=False)
     tw = _feat(feats, "Teatr Wielki")
     if tw is not None:  # ortho 2025: the halls' roofs grey-green patina and grey, not white
         ortho_roof(vol, g, tw["geom"], pal, note, "Teatr Wielki", min_rel=8, allow_glass=False, roof_only=True, inset=1.5)
@@ -1949,3 +1953,48 @@ def msn(vol, g, feats, pal, note, r0=1104, r1=1208, c0=961, c1=1001):
     if f is not None:
         ortho_roof(vol, g, f["geom"], pal, note, "MSN", min_rel=10, glass_hex="#a9bccb")
     note("MSN facade: colonnade, ribbon windows, cut-outs")
+
+
+# Plac Piłsudskiego, the Saxon Palace rebuild site (2025 ortho): two white exhibition tents over the excavation
+# and the excavated foundations themselves; no OSM buildings there, so the build left bare ground
+SASKI_TENTS = [(355, 377, 1422, 1478), (402, 432, 1415, 1470)]
+SASKI_DIG = (252, 440, 1378, 1505)
+
+
+def saski_site(vol, g, pal, note):
+    """The tents from the LiDAR (DSM - DTM, 3-9 m, white membrane over a gabled frame) and the excavation's ground
+    from the ortho cell by cell (light stone foundation walls in sand), instead of uniform brown dirt."""
+    p = np.load("data/prep.npz", mmap_mode="r")
+    white, frame = pal((236, 236, 232), 0), pal((205, 205, 200), 0)
+    n = 0
+    for r0, r1, c0, c1 in SASKI_TENTS:
+        d = np.asarray(p["dsm"][2 * r0:2 * r1, 2 * c0:2 * c1]).reshape(r1 - r0, 2, c1 - c0, 2).max((1, 3))
+        t = np.asarray(p["dtm"][r0:r1, c0:c1])
+        h = ndimage.median_filter(d - t, 3)
+        for i in range(r1 - r0):
+            for j in range(c1 - c0):
+                if h[i, j] < 2.5:
+                    continue
+                r, c = r0 + i, c0 + j
+                gz = int(g[r, c]); hh = int(round(h[i, j]))
+                col = vol[:, r, c]
+                col[gz:gz + hh] = 0
+                col[gz + hh - 1] = white
+                edge = min(i, j, r1 - r0 - 1 - i, c1 - c0 - 1 - j) == 0 or h[max(i - 1, 0), j] < 2.5 or \
+                    h[min(i + 1, r1 - r0 - 1), j] < 2.5 or h[i, max(j - 1, 0)] < 2.5 or h[i, min(j + 1, c1 - c0 - 1)] < 2.5
+                if edge:
+                    col[gz:gz + hh] = white if (r + c) % 4 else frame
+                n += 1
+    O = _orto()
+    r0, r1, c0, c1 = SASKI_DIG
+    m = 0
+    for r in range(r0, r1):
+        for c in range(c0, c1):
+            gz = int(g[r, c])
+            if vol[gz, r, c] != 0 or vol[gz - 1, r, c] == 0:
+                continue  # something stands here, or no ground
+            px = np.asarray(O[r * 5:r * 5 + 5, c * 5:c * 5 + 5]).reshape(-1, 3).astype(float).mean(0)
+            if px[1] > px[0] + 5:
+                continue  # vegetation: leave it
+            vol[gz - 1, r, c] = pal(tuple(int(v) for v in px), 0, q=12); m += 1
+    note(f"Saski site: tents {n} columns, excavation {m} ground cells from the ortho")
