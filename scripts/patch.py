@@ -22,6 +22,9 @@ BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "pw": (2400, 2545, 495, 640),
     "buw": (460, 595, 2290, 2460),
     "koszyki": (2280, 2400, 645, 760),
+    "rotunda": (1485, 1535, 1070, 1120),
+    "kopernik": (620, 790, 2515, 2650),
+    "poniatowski": (1570, 1640, 2905, 3420),
 }
 OUT = Path("web/public/data")
 t0 = time.time()

@@ -429,6 +429,7 @@ def details_geometry(vol, g, feats, pal, note):
     apply_loggias(vol, g, pal, note)
     paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
     classic_buildings(vol, g, feats, pal, note)
+    poniatowski(vol, g, pal, note)
 
 
 def classic_buildings(vol, g, feats, pal, note):
@@ -447,6 +448,26 @@ def classic_buildings(vol, g, feats, pal, note):
         ortho_roof(vol, g, hk["geom"], pal, note, "Hala Koszyki", min_rel=3, allow_glass=False)
         n = edge_windows(vol, g, hk["geom"], pal((58, 70, 68), MAT_IDS["window"]), [(2, 4)], 3.5, w=2)
         note(f"Hala Koszyki: {n} windows")
+    rot = _feat(feats, "Rotunda PKO")
+    if rot is not None:  # Commons 2010-2017 and the 2019 rebuild: a drum of clear blue-grey glass under a crown of
+        # folded roof plates, a zigzag of 20 peaks 3 m over the 11 m roof edge (it was dark green glass, flat)
+        recolour_walls(vol, g, rot["geom"], pal, "#8ea4ae", M_GLASS, note, "Rotunda")
+        roofc = pal(_hex("#c3c6c8"), 6)
+        cy, cx = 1509.5, 1093.0
+        for r in range(1488, 1532):
+            for c in range(1072, 1116):
+                d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+                if not 15.0 <= d <= 17.6:
+                    continue
+                gz = int(g[r, c])
+                if vol[gz + 10, r, c] == 0:
+                    continue
+                t = (math.atan2(r + 0.5 - cy, c + 0.5 - cx) / (2 * math.pi) * 20) % 1.0
+                hh = int(round(3.2 * (1 - abs(2 * t - 1))))
+                vol[gz + 11:gz + 12 + hh, r, c] = roofc
+    cnk = _feat(feats, "Centrum Nauki Kopernik")
+    if cnk is not None:  # ortho 2025: the roof garden is paths, beds, light skylight cones, not one lawn
+        ortho_roof(vol, g, cnk["geom"], pal, note, "Kopernik", min_rel=4)
     buw = _feat(feats, "Biblioteka Uniwersytecka")
     if buw is not None:  # Commons: verdigris copper frames and glass; ortho: glass atria, the roof garden
         recolour_walls(vol, g, buw["geom"], pal, "#6f9a8a", MAT_IDS["bronze_grid"], note, "BUW")
@@ -1309,11 +1330,12 @@ def pkin_tower(vol, g0, pal, stone, note):
     fill(PK_SHAFT, 57, 131)
     fill(PK_SHAFT, 109, 124, grow=1)       # the loggia storey stands 1 m proud
     fill(PK_SHAFT, 132, 132, roof)
-    st2b = (1215, 1242, 735, 762); st2 = (1218, 1239, 738, 759); st3 = (1221, 1236, 741, 756); clk = (1222, 1235, 742, 755)
+    # the stages above, widths from the aerial photo (2017, from Złota 44: the arcade stage 0.43 of the shaft's
+    # width, the clock storey 0.30; the LiDAR blobs are 2-3 m fatter on every side), heights from the LiDAR
+    st2b = (1217, 1240, 737, 760); st2 = (1220, 1237, 740, 757); clk = (1223, 1234, 743, 754)
     fill(st2b, 133, 138); top(st2b, 138)
-    fill(st2, 139, 162); top(st2, 162)
-    fill(st3, 163, 165); top(st3, 165)
-    fill(clk, 166, 181); top(clk, 181)
+    fill(st2, 139, 164); top(st2, 164)
+    fill(clk, 165, 181); top(clk, 181)
     top(PK_SHAFT_LO, 56)
     # ---- shaft faces
     for V, bb in faces(PK_SHAFT):
@@ -1351,11 +1373,11 @@ def pkin_tower(vol, g0, pal, stone, note):
             carve(V, bb, mids, h, h, 1, v, plane=-1, need_air=False)
             carve(V, bb, piers, h, h, 1, v, need_air=False)
     # ---- the stages above
-    for V, bb in faces(st2):  # the arcade stage: five tall arches on a plain base
-        carve(V, bb, [o + d for o in mid for d in (-0.5, 0.5)], 151, 157, 2, void)
-        carve(V, bb, [o for o in mid], 158, 158, 2, void)  # the arches' crowns (1 m: an arch at this size)
-        carve(V, bb, [o + d for o in mid for d in (-0.5, 0.5)], 143, 145, 1, glass)
-        band(V, bb, 149); band(V, bb, 160)
+    arc = [-6.5, -3.5, -0.5, 2.5, 5.5]  # five arches 3 m apart (left cells of 2 m openings)
+    for V, bb in faces(st2):  # the arcade stage: five tall arches over a plain base with small windows
+        carve(V, bb, [o + d for o in arc for d in (0, 1)], 155, 161, 2, void)
+        carve(V, bb, [o + d for o in arc for d in (0, 1)], 145, 146, 1, glass)
+        band(V, bb, 150); band(V, bb, 153); band(V, bb, 163)
     for V, bb in faces(clk):
         band(V, bb, 179)
     # ---- the corner towers
@@ -1386,7 +1408,7 @@ def pkin_tower(vol, g0, pal, stone, note):
                 if ok(u):
                     V[z(h0):z(h1) + 1, r0:r0 + 2, u] = stone
     # ---- pinnacles at the corners of the stages
-    for b, h, hh in ((st2b, 138, 5), (st2, 162, 4)):
+    for b, h, hh in ((st2b, 138, 5), (st2, 164, 4)):
         r0, r1, c0, c1 = loc(b)
         for r, c in ((r0, c0), (r0, c1), (r1, c0), (r1, c1)):
             T[z(h + 1):z(h + hh) + 1, r, c] = stone
@@ -1722,3 +1744,86 @@ def recolour_walls(vol, g, geom, pal, hex_, mat, note, name):
             if pal.entries[int(col[z])][3] not in (win_mat, 8, 3):
                 col[z] = v; n += 1
     note(f"{name} walls recoloured: {n}")
+
+
+# Most Poniatowskiego's joints over its piers, read off the 2025 ortho (deck expansion joints, pier noses showing
+# past the deck edge over the water): eight spans, 506 m between the gate towers (Wikipedia: eight spans, longest ~81 m)
+PONIATOWSKI_PIERS = [2940, 3007, 3081, 3166, 3245, 3307, 3376]
+PONIATOWSKI_ENDS = (2914, 3410)
+
+
+def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
+    """Most Poniatowskiego (deck arch, 1914, rebuilt 1946; Commons photos from the banks and under the deck): the
+    LiDAR gave a 2 m slab whose height wobbled 13-19 m from cell to cell with two lanes at different heights and no
+    piers, a ragged ceiling hanging over the river. Rebuilt: the deck at a smooth level (the LiDAR profile, smoothed
+    over 60 m), the road surface and everything on it moved with it; stone piers with cutwaters at the joints; under
+    each span four steel plate arches springing 9 m below the deck at the piers, their crowns at the deck, with posts
+    every 4 m."""
+    c0, c1 = PONIATOWSKI_ENDS
+    H = vol.shape[0]
+    tops, north, south = {}, [], []
+    for c in range(c0, c1 + 1):
+        rs = []
+        for r in range(r0, r1):
+            nz = np.nonzero(vol[int(g[r, c]) + 3:, r, c])[0]
+            if len(nz) and nz[0] + g[r, c] + 3 >= 14:  # something hanging high above the ground/water: the deck
+                rs.append((r, int(nz[0] + g[r, c] + 3)))
+        if len(rs) < 8:
+            continue
+        north.append((c, rs[0][0])); south.append((c, rs[-1][0]))
+        tops[c] = float(np.median([z for _, z in rs])) + 2  # the slab's top surface (2 voxels)
+    cs = np.array(sorted(tops))
+    fit = lambda pts: np.polyfit([p[0] for p in pts], [p[1] for p in pts], 1)
+    fn, fs = fit(north), fit(south)
+    Z = np.array([tops[c] for c in cs])
+    Z = ndimage.median_filter(Z, 31, mode="nearest")
+    Z = np.round(ndimage.uniform_filter1d(Z, 61, mode="nearest")).astype(int)
+    Zc = dict(zip(cs.tolist(), Z.tolist()))
+    deck = pal((167, 164, 157), MAT_IDS["concrete"])
+    steel = pal((74, 81, 86), MAT_IDS["metal"])
+    stone = pal((184, 171, 149), 0)
+    n = 0
+    for c in cs:
+        rn, rsr = int(round(np.polyval(fn, c))), int(round(np.polyval(fs, c)))
+        Zn = Zc[c]
+        for r in range(rn, rsr + 1):
+            col = vol[:, r, c]
+            gz = int(g[r, c])
+            nz = np.nonzero(col[gz + 3:])[0]
+            if not len(nz):
+                continue
+            zb = gz + 3 + nz[0]  # slab bottom
+            zt = zb + 1  # its top (road surface)
+            above = col[zt:H - 12].copy()  # the road surface and what stands on it
+            col[gz:] = 0
+            m = min(len(above), H - Zn)
+            col[Zn:Zn + m] = above[:m]
+            col[Zn - 2:Zn] = deck
+            n += 1
+        # arches and posts on four lines across the deck
+        k = np.searchsorted(PONIATOWSKI_PIERS, c)
+        a = PONIATOWSKI_PIERS[k - 1] if k > 0 else c0
+        b = PONIATOWSKI_PIERS[k] if k < len(PONIATOWSKI_PIERS) else c1
+        span = b - a
+        rise = 9 if span > 50 else 5
+        t = (c + 0.5 - a) / span
+        zr = Zn - 3 - rise * (2 * t - 1) ** 2  # parabola: springing `rise` m down at the piers, crown under the deck
+        for f in (0.08, 0.36, 0.64, 0.92):
+            r = int(round(rn + (rsr - rn) * f))
+            z = int(round(zr))
+            vol[z:z + 1, r, c] = steel
+            if (c - a) % 4 == 0:
+                vol[z:Zn - 2, r, c] = steel
+    for p in PONIATOWSKI_PIERS:  # stone piers with pointed cutwaters past both edges
+        rn, rsr = int(round(np.polyval(fn, p))), int(round(np.polyval(fs, p)))
+        Zn = Zc.get(p, int(np.median(Z)))
+        top = Zn - 11 if (p - PONIATOWSKI_PIERS[0]) else Zn - 7
+        for r in range(rn - 4, rsr + 5):
+            out = max(rn - r, r - rsr, 0)
+            for c in range(p - 3 + out, p + 3 - out):
+                gz = int(g[r, c])
+                vol[gz - 1:top, r, c] = stone
+        for r in range(rn, rsr + 1):  # a capping course under the arches' springing
+            for c in range(p - 4, p + 4):
+                vol[top:top + 2, r, c] = stone
+    note(f"Most Poniatowskiego rebuilt: {n} deck cells, {len(PONIATOWSKI_PIERS)} piers")

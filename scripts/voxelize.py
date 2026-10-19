@@ -937,6 +937,34 @@ if _sw is not None and n_pyl:
         _, px, py, ptop = best
         sp = _sw.project(Point(px, py))
         L = _sw.length
+        # the pylon as the photos show it (Commons 2008-2019): an A-frame, two 2.5 m legs standing outside the deck
+        # edges (26 m apart) leaning in to meet 52 m above the deck, then a single 3 m mast to the top; the LiDAR
+        # blob extruded from the ground read as a solid tower
+        q0, q1 = _sw.interpolate(max(sp - 2, 0)), _sw.interpolate(min(sp + 2, L))
+        tx_, ty_ = q1.x - q0.x, q1.y - q0.y; tl = max(math.hypot(tx_, ty_), 1e-6); tx_, ty_ = tx_ / tl, ty_ / tl
+        nx_, ny_ = -ty_, tx_
+        pr, pc = int(py), int(px)
+        gz_ = int(g[pr, pc])
+        dz_ = gz_ + int(deck_h[pr, pc] if deck_h[pr, pc] > 0 else 12)
+        rr0, rr1, cc0, cc1 = pr - 30, pr + 31, pc - 30, pc + 31
+        blk = vol[dz_ + 1:, rr0:rr1, cc0:cc1]
+        blk[blk == C["fence"]] = 0
+        sub = vol[gz_:dz_ - 2, rr0:rr1, cc0:cc1]
+        sub[sub == C["fence"]] = 0
+        pylc = pal("#d6d8d6", M_CONCRETE)
+        zmeet = dz_ + 52
+        for zz in range(gz_, int(ptop) + 1):
+            w_ = 13.0 if zz <= dz_ else max(0.0, 13.0 * (zmeet - zz) / (zmeet - dz_))
+            for lat in ((-1, 1) if w_ > 1.2 else (0,)):
+                for a in np.arange(-1.25, 1.3, 0.5):
+                    for b in np.arange(-1.25, 1.3, 0.5):
+                        if lat == 0 and (abs(a) > 1.5 or abs(b) > 1.0):
+                            continue
+                        x_ = px + tx_ * a + nx_ * (lat * w_ + b)
+                        y_ = py + ty_ * a + ny_ * (lat * w_ + b)
+                        if dz_ - 2 <= zz <= dz_ and abs(lat * w_ + b) < 12:
+                            continue  # the deck passes between the legs
+                        vol[zz, int(y_), int(x_)] = pylc
         for side, span in ((-1, 180.0), (1, 140.0)):
             for k in range(12):
                 d = 30 + (span - 35) * (k + 1) / 12
