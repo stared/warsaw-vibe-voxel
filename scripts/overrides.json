@@ -237,10 +237,10 @@
     },
     "Q22": {
       "wall": {
-        "colour": "#a3b8c6",
+        "colour": "#7d97ab",
         "material": "glass"
       },
-      "_note": "light blue-grey glass with visible floor lines (Commons photo 2017); OSM 'lightgray' on some parts, none on the shaft, which went dark navy"
+      "_note": "mid blue reflective glass (Commons 2019-2023, 8 photos side by side: #a3b8c6 rendered near-white in sun)"
     },
     "13114286": {
       "name": "Rotunda PKO, main drum",
@@ -257,6 +257,17 @@
         "material": "glass"
       },
       "_note": "dark glass oculus in the middle (ortho); OSM #4B785C green read as a green dot"
+    },
+    "Złota 44": {
+      "wall": {
+        "colour": "#c4ced4",
+        "material": "glass"
+      },
+      "roof": {
+        "colour": "#c4ced4",
+        "material": "glass"
+      },
+      "_note": "silver-white glass with white floor bands (Commons 2017-2019, 14 photos side by side; OSM 'glass' alone went dark teal)"
     }
   }
 }

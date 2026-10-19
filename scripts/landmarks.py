@@ -426,6 +426,7 @@ def details_geometry(vol, g, feats, pal, note):
     pkin_clock(vol, g, feats, pal, note)
     regularize_walls(vol, g, feats, note)
     teatr_wielki_centre(vol, g, pal, note)
+    teatr_wielki_wings(vol, g, pal, note)
     apply_loggias(vol, g, pal, note)
     paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
     classic_buildings(vol, g, feats, pal, note)
@@ -465,6 +466,9 @@ def classic_buildings(vol, g, feats, pal, note):
                 t = (math.atan2(r + 0.5 - cy, c + 0.5 - cx) / (2 * math.pi) * 20) % 1.0
                 hh = int(round(3.2 * (1 - abs(2 * t - 1))))
                 vol[gz + 11:gz + 12 + hh, r, c] = roofc
+    tw = _feat(feats, "Teatr Wielki")
+    if tw is not None:  # ortho 2025: the halls' roofs grey-green patina and grey, not white
+        ortho_roof(vol, g, tw["geom"], pal, note, "Teatr Wielki", min_rel=8, allow_glass=False, roof_only=True, inset=1.5)
     cnk = _feat(feats, "Centrum Nauki Kopernik")
     if cnk is not None:  # ortho 2025: the roof garden is paths, beds, light skylight cones, not one lawn
         ortho_roof(vol, g, cnk["geom"], pal, note, "Kopernik", min_rel=4)
@@ -656,16 +660,12 @@ LOGGIAS = [
     # columns 3.3 m apart over a balustrade, open 11-20 m, 4 m deep; under it SIX supports (two piers, four columns)
     # 4.4 m apart across the middle 22 m, open 1-8 m in front of the three arched doors; the wings' ground-floor
     # arcades, a column every 3 m, open 1-5 m
-    dict(name="Teatr Wielki west wing arcade", p0=(1380, 85.5), p1=(1432, 68.5), depth=3, z0=1, z1=5, step=3, col=1),
-    dict(name="Teatr Wielki east wing arcade", p0=(1484, 54.5), p1=(1544, 39.5), depth=3, z0=1, z1=5, step=3, col=1),
 ]
 # windows on facades at any angle: (p0, p1, centres in m along from p0, rows (z above ground, height), width)
 LINE_WINDOWS = [
     # Teatr Wielki: four attic windows, two each side of the quadriga (9.3 and 6.2 m left of the middle, 5.9 and 9.0 m
     # right), 24-27 m; the wings two rows, 9-10 and 12-13 m, one between each pair of arcade columns; the flanking
     # sections of the centre block two ground-floor windows each
-    ((1380, 85.5), (1432, 68.5), [1.5 + 3 * k for k in range(18)], [(9, 2), (12, 2)], 1),
-    ((1484, 54.5), (1544, 39.5), [1.5 + 3 * k for k in range(20)], [(9, 2), (12, 2)], 1),
     ((1435, 52.0), (1444, 50.5), [2.5, 6.5], [(2, 3), (13, 3)], 2),
     ((1477, 44.5), (1484, 46.0), [2.0, 5.5], [(2, 3), (13, 3)], 2),
 ]
@@ -1703,12 +1703,12 @@ def _orto():
     return _ORTO
 
 
-def ortho_roof(vol, g, geom, pal, note, name, glass_hex="#9fbccd", min_rel=4, allow_glass=True):
+def ortho_roof(vol, g, geom, pal, note, name, glass_hex="#9fbccd", min_rel=4, allow_glass=True, roof_only=False, inset=0):
     """The roof as the 2025 ortho shows it, cell by cell, on the top voxel of every column of the footprint above
     `min_rel` m: blue glass -> glass, green planting -> grass, anything else -> roof in the ortho's own colour
     (quantised). For roofs that are a patchwork (glass atria, roof gardens) the LiDAR can't tell apart."""
     D, W = g.shape
-    rr, cc = _cells_geom(geom, D, W)
+    rr, cc = _cells_geom(geom.buffer(-inset) if inset else geom, D, W)
     O = _orto()
     glass = pal(_hex(glass_hex), M_GLASS)
     n = [0, 0, 0]
@@ -1718,6 +1718,8 @@ def ortho_roof(vol, g, geom, pal, note, name, glass_hex="#9fbccd", min_rel=4, al
         if not len(nz) or nz[-1] - g[r, c] < min_rel:
             continue
         z = nz[-1]
+        if roof_only and pal.entries[int(col[z])][3] not in (12, M_GLASS, 8):
+            continue  # a wall top (a cornice, a pediment): the ortho there is the facade's edge and the street
         px = np.asarray(O[r * 5:r * 5 + 5, c * 5:c * 5 + 5]).reshape(-1, 3).astype(float).mean(0)
         R_, G_, B_ = px
         if allow_glass and B_ > R_ + 12 and B_ >= G_ - 4:
@@ -1827,3 +1829,67 @@ def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
             for c in range(p - 4, p + 4):
                 vol[top:top + 2, r, c] = stone
     note(f"Most Poniatowskiego rebuilt: {n} deck cells, {len(PONIATOWSKI_PIERS)} piers")
+
+
+# Teatr Wielki's wings on Plac Teatralny (front lines from the LiDAR edges; pav: which end has the corner pavilion)
+TW_WINGS = [dict(p0=(1380, 83.5), p1=(1432, 66.5), pav=0), dict(p0=(1484, 51.5), p1=(1544, 37.0), pav=1)]  # the balcony edge (LiDAR 7-8 m)
+
+
+def teatr_wielki_wings(vol, g, pal, note, depth=17, H=18):
+    """The wings' fronts from the photo (Commons 2023, the east wing from Moliera): a ground-floor colonnade 3 m
+    deep and 6.5 m tall, a column every 3.7 m, under a balcony with a balustrade; above, one window per bay on two
+    floors (tall 8-11 m, 12-14 m), a frieze, the cornice at 17 m; a corner pavilion 12 m wide at the outer end
+    standing 1 m proud, three windows on each floor, no colonnade. The LiDAR front was jagged with slots."""
+    wall = pal(_hex("#e6dfd0"), MAT_IDS["classic"])
+    stone = pal(_hex("#ddd4c1"), 0)
+    win = pal((58, 70, 68), MAT_IDS["window"])
+    door = pal((40, 34, 30), MAT_IDS["window"])
+    for wg in TW_WINGS:
+        (x0, y0), (x1, y1) = wg["p0"], wg["p1"]
+        L = math.hypot(x1 - x0, y1 - y0)
+        ux, uy = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = -uy, ux
+        if nx * 0 + ny < 0:
+            nx, ny = -nx, -ny  # into the building: larger rows
+        pav = (lambda u: u > L - 12) if wg["pav"] else (lambda u: u < 12)
+        roof_top = {}
+        cs = [x0, x1, x0 + nx * depth, x1 + nx * depth]; rs = [y0, y1, y0 + ny * depth, y1 + ny * depth]
+        for r in range(int(min(rs)) - 3, int(max(rs)) + 3):
+            for c in range(int(min(cs)) - 3, int(max(cs)) + 3):
+                dx, dy = c + 0.5 - x0, r + 0.5 - y0
+                u, v = dx * ux + dy * uy, dx * nx + dy * ny
+                p = pav(u)
+                if not (0 <= u <= L and (-1.2 if p else -0.2) <= v <= depth):
+                    continue
+                gz = int(g[r, c])
+                col = vol[:, r, c]
+                top = col[gz + H:gz + 30]
+                rt = top[np.nonzero(top)[0][-1]] if top.any() else col[gz + H - 1]
+                col[gz:gz + 30] = 0
+                col[gz:gz + H] = wall
+                col[gz + H] = rt if pal.entries[int(rt)][3] == 12 else pal(_hex("#8fa79c"), 12)
+                front = v < (0.6 if not p else -0.4)
+                if front and not p:  # the colonnade, the balcony over it
+                    if ((u - 1.0) % 3.7) >= 1.0:
+                        col[gz:gz + 6] = 0
+                    col[gz + 6] = stone
+                    col[gz + 7] = stone if ((u * 2) % 2) < 1 else 0
+                elif not p and v < 3.5:
+                    col[gz:gz + 6] = 0
+                    if v >= 2.5:
+                        col[gz:gz + 6] = wall
+                        if ((u - 2.85) % 3.7) < 1.0:
+                            col[gz + 1:gz + 4] = door
+                if v < (0.6 if not p else -0.4) or (p and v < 0.6):
+                    if v < -0.6 or (not p and v < 0):
+                        pass
+                    if not p and ((u - 2.85) % 3.7) < 1.0:
+                        col[gz + 8:gz + 11] = win; col[gz + 12:gz + 14] = win
+                    if p:
+                        pc = (L - 6) if wg["pav"] else 6
+                        if any(abs(u - (pc + o)) < 0.75 for o in (-3.5, 0, 3.5)):
+                            col[gz + 2:gz + 5] = win; col[gz + 8:gz + 11] = win; col[gz + 12:gz + 14] = win
+                if v < 0.6 and v > -0.6 and not p or (p and v < -0.4):
+                    col[gz + 16] = stone  # frieze / cornice line
+        n = 0
+    note(f"Teatr Wielki wings rebuilt: {len(TW_WINGS)}")
