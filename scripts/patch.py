@@ -31,6 +31,7 @@ BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "powisle": (735, 860, 2410, 2535),
     "saski": (250, 445, 1370, 1510),
     "sejm": (2340, 2460, 1870, 2010),
+    "astoria": (1180, 1320, 1195, 1350),
 }
 OUT = Path("web/public/data")
 t0 = time.time()

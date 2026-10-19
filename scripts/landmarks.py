@@ -470,6 +470,10 @@ def classic_buildings(vol, g, feats, pal, note):
                 t = (math.atan2(r + 0.5 - cy, c + 0.5 - cx) / (2 * math.pi) * 20) % 1.0
                 hh = int(round(3.2 * (1 - abs(2 * t - 1))))
                 vol[gz + 11:gz + 12 + hh, r, c] = roofc
+    for oid in (306124863, 12276245, 263930393):  # Astoria (OSM 'lightgreen' read as a mint slab; ortho: grey plant
+        f = next((f for f in feats if f["id"] == oid and not f.get("parent")), None)  # rooms, planted terraces),
+        if f is not None:  # the red-tiled block beside it, the court's solar-panelled roof
+            ortho_roof(vol, g, f["geom"], pal, note, f"roof {oid}", min_rel=6, roof_only=True, inset=0.5)
     ep = _feat(feats, "Elektrownia Powiśle")
     if ep is not None:  # ortho 2025: dark slate roofs of the old halls, the blue glass atrium between them
         ortho_roof(vol, g, ep["geom"], pal, note, "Elektrownia Powiśle", min_rel=6, roof_only=True, inset=1, allow_glass=False)
