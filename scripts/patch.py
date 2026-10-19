@@ -20,6 +20,8 @@ BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "pkin": (1080, 1380, 600, 900),
     "zacheta": (525, 675, 1310, 1410),
     "pw": (2400, 2545, 495, 640),
+    "buw": (460, 595, 2290, 2460),
+    "koszyki": (2280, 2400, 645, 760),
 }
 OUT = Path("web/public/data")
 t0 = time.time()

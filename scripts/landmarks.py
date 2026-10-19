@@ -441,6 +441,16 @@ def classic_buildings(vol, g, feats, pal, note):
                         gables=[(555, 573, 1383, 1398, "c", 23)], attic=1, cap=23, pure_hip=True, note=note,
                         name="Zachęta")
     holy_trinity(vol, g, feats, pal, note)
+    hk = _feat(feats, "Hala Koszyki")
+    if hk is not None:  # Commons 2016-2023: red brick sides with tall windows; ortho: grey metal gables, skylights
+        recolour_walls(vol, g, hk["geom"], pal, "#9b4f3e", MAT_IDS["wall"], note, "Hala Koszyki")
+        ortho_roof(vol, g, hk["geom"], pal, note, "Hala Koszyki", min_rel=3, allow_glass=False)
+        n = edge_windows(vol, g, hk["geom"], pal((58, 70, 68), MAT_IDS["window"]), [(2, 4)], 3.5, w=2)
+        note(f"Hala Koszyki: {n} windows")
+    buw = _feat(feats, "Biblioteka Uniwersytecka")
+    if buw is not None:  # Commons: verdigris copper frames and glass; ortho: glass atria, the roof garden
+        recolour_walls(vol, g, buw["geom"], pal, "#6f9a8a", MAT_IDS["bronze_grid"], note, "BUW")
+        ortho_roof(vol, g, buw["geom"], pal, note, "BUW")
     pw = _feat(feats, "Gmach Główny PW")
     if pw is not None:  # Commons 2019 (the curved front on Plac Politechniki): pale pink, five storeys, flat 23 m roof,
         # the glazed atrium's pyramid to 32 m
@@ -1659,3 +1669,56 @@ def holy_trinity(vol, g, feats, pal, note):
                 col[z] = white
             n += 1
     note(f"Holy Trinity recoloured: {n} voxels")
+
+
+_ORTO = None
+
+
+def _orto():
+    global _ORTO
+    if _ORTO is None:
+        _ORTO = np.load("data/prep.npz", mmap_mode="r")["orto"]  # 2025 ortho, 5 px per grid metre
+    return _ORTO
+
+
+def ortho_roof(vol, g, geom, pal, note, name, glass_hex="#9fbccd", min_rel=4, allow_glass=True):
+    """The roof as the 2025 ortho shows it, cell by cell, on the top voxel of every column of the footprint above
+    `min_rel` m: blue glass -> glass, green planting -> grass, anything else -> roof in the ortho's own colour
+    (quantised). For roofs that are a patchwork (glass atria, roof gardens) the LiDAR can't tell apart."""
+    D, W = g.shape
+    rr, cc = _cells_geom(geom, D, W)
+    O = _orto()
+    glass = pal(_hex(glass_hex), M_GLASS)
+    n = [0, 0, 0]
+    for r, c in zip(rr, cc):
+        col = vol[:, r, c]
+        nz = np.nonzero(col)[0]
+        if not len(nz) or nz[-1] - g[r, c] < min_rel:
+            continue
+        z = nz[-1]
+        px = np.asarray(O[r * 5:r * 5 + 5, c * 5:c * 5 + 5]).reshape(-1, 3).astype(float).mean(0)
+        R_, G_, B_ = px
+        if allow_glass and B_ > R_ + 12 and B_ >= G_ - 4:
+            col[z] = glass; n[0] += 1
+        elif G_ > R_ + 8 and G_ > B_ + 8:
+            col[z] = pal(tuple(int(v * 0.95) for v in px), 8); n[1] += 1
+        else:
+            col[z] = pal(tuple(int(v) for v in px), 12, q=12); n[2] += 1
+    note(f"{name} roof from the ortho: {n[0]} glass, {n[1]} planted, {n[2]} roof")
+
+
+def recolour_walls(vol, g, geom, pal, hex_, mat, note, name):
+    """Every voxel of the footprint's columns below the top one, in one colour and material (facade cladding)."""
+    D, W = g.shape
+    rr, cc = _cells_geom(geom.buffer(1.0), D, W)
+    v = pal(_hex(hex_), mat)
+    win_mat = MAT_IDS["window"]
+    n = 0
+    for r, c in zip(rr, cc):
+        col = vol[:, r, c]
+        nz = np.nonzero(col)[0]
+        nz = nz[nz > g[r, c]]
+        for z in nz[:-1]:
+            if pal.entries[int(col[z])][3] not in (win_mat, 8, 3):
+                col[z] = v; n += 1
+    note(f"{name} walls recoloured: {n}")
