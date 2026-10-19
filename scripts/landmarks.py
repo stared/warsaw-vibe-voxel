@@ -1951,6 +1951,13 @@ def msn(vol, g, feats, pal, note, r0=1104, r1=1208, c0=961, c1=1001):
             gz = int(g[r, c1 - 1])
             vol[gz + 12:gz + 19, r, c1 - 4:c1] = 0
             vol[gz + 12:gz + 19, r, c1 - 5] = win
+    for r, d in ((r0, 1), (r1 - 1, -1)):  # the short faces (photos from Plac Defilad): an upper ribbon window over
+        for c in range(c0 + 3, c1 - 3):   # the western half, a row of ground-floor windows
+            gz = int(g[r, c])
+            if c < c0 + 21:
+                vol[gz + 14:gz + 17, r, c] = 0; vol[gz + 14:gz + 17, r + d, c] = win
+            if (c - c0) % 4 != 0:
+                vol[gz + 2:gz + 4, r, c] = win
     f = _feat(feats, "Muzeum Sztuki Nowoczesnej")
     if f is not None:
         ortho_roof(vol, g, f["geom"], pal, note, "MSN", min_rel=10, glass_hex="#a9bccb")
