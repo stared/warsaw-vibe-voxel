@@ -744,8 +744,12 @@ _dbd, (_dbr, _dbc) = ndimage.distance_transform_edt(~(trunk_ok_db & veg), return
 trunks = []  # (row, col, thick): drawn once the crowns are shaped around them
 
 
-def put_trunk(r, c, thick=False):
+trunk_conifer = []  # per trunk: a conifer by the database's species (or OSM leaf_type)
+
+
+def put_trunk(r, c, thick=False, conifer=False):
     trunks.append((r, c, thick))
+    trunk_conifer.append(conifer)
     trunk_at[r, c] = True
 
 
@@ -760,7 +764,7 @@ for t in all_trees:
         if veg[r, c] and not trunk_ok_db[r, c] and _dbd[r, c] <= 3:  # mapped onto the road edge: to the kerb side
             r, c = int(_dbr[r, c]), int(_dbc[r, c])
         if veg[r, c]:
-            put_trunk(r, c, thick=(t.get("trunk_cm") or 0) >= 250)
+            put_trunk(r, c, thick=(t.get("trunk_cm") or 0) >= 250, conifer=treedb.is_conifer(t))
             t["drawn"] = "lidar"
             t["z"] = int(g[r, c])
             t["h"] = int(crown_top[r, c])
@@ -818,6 +822,13 @@ if trunks:
     bot = np.round(crown_top[vr_, vc_] - np.maximum(dep, 1)).astype(np.int32)
     bot = np.clip(bot, 2, crown_top[vr_, vc_] - 1)
     crown_bot[vr_[ok_], vc_[ok_]] = bot[ok_]
+    # conifers (thuja, pine, spruce, yew...: the city database's species) in dark blue-green needles, not leaf green
+    con = np.array(trunk_conifer, bool)
+    cm_ = ok_.copy()
+    cm_[ok_] = con[k_[ok_]]
+    NEEDLES = np.array([pal(c_, M_LEAF) for c_ in ("#3f5f48", "#456a4f", "#4d7356", "#37553f", "#52785a")], np.uint16)
+    leafidx[vr_[cm_], vc_[cm_]] = NEEDLES[(vr_[cm_] * 7 + vc_[cm_] * 3) % len(NEEDLES)]
+    note("conifer crowns (database species):", int(con.sum()), "cells", int(cm_.sum()))
 rr, cc = np.nonzero(veg)
 for zz in range(int(g.min()) + 1, int((g + crown_top).max()) + 1):
     m = (zz >= g[rr, cc] + crown_bot[rr, cc]) & (zz < g[rr, cc] + crown_top[rr, cc])
