@@ -720,13 +720,6 @@ r_, g_, b_ = cellcol[..., 0], cellcol[..., 1], cellcol[..., 2]
 yellowish = (r_ - b_) / rgbsum > 0.05
 lbin = np.clip(((lum - 40) / 110 * 5).astype(int), 0, 4)
 leafidx = np.array(LEAVES, np.uint16)[(4 - lbin) + 5 * (~yellowish)]
-rr, cc = np.nonzero(veg)
-for zz in range(int(g.min()) + 1, int((g + crown_top).max()) + 1):
-    m = (zz >= g[rr, cc] + crown_bot[rr, cc]) & (zz < g[rr, cc] + crown_top[rr, cc])
-    sel = (rr[m], cc[m])
-    cur = vol[zz][sel]
-    vol[zz][sel] = np.where(cur == 0, leafidx[sel], cur)
-note("canopy cells:", int(veg.sum()))
 
 # trunks: every known tree standing under a LiDAR crown gets one, from the ground up into its crown (the crown's leaf
 # columns start at crown_bot, so the trunk's top voxel touches them face to face: the crown stands, it does not float);
@@ -748,12 +741,11 @@ _okd, (_okr, _okc) = ndimage.distance_transform_edt(~(trunk_ok_peak & veg), retu
 _dbd, (_dbr, _dbc) = ndimage.distance_transform_edt(~(trunk_ok_db & veg), return_indices=True)
 
 
+trunks = []  # (row, col, thick): drawn once the crowns are shaped around them
+
+
 def put_trunk(r, c, thick=False):
-    hb = int(crown_bot[r, c]) + 1  # one voxel into the crown
-    for dr, dc in ((0, 0), (0, 1), (1, 0), (1, 1)) if thick else ((0, 0),):
-        rr_, cc_ = r + dr, c + dc
-        if 0 <= rr_ < D and 0 <= cc_ < W and not bmask[rr_, cc_]:
-            vol[g[rr_, cc_]:g[rr_, cc_] + hb, rr_, cc_] = C["trunk"]
+    trunks.append((r, c, thick))
     trunk_at[r, c] = True
 
 
@@ -807,6 +799,38 @@ for k in order:
     taken[r, c] = True
     n_peak += 1
 note("trunks at canopy tops with no known tree under them:", n_peak)
+# crowns, one per trunk: every canopy cell belongs to its nearest trunk; the crown's underside is a dome -- lowest
+# (38 % of the tree's height) over the trunk, rising to the LiDAR top at the crown's rim -- instead of one flat green
+# ceiling over the whole park (the LiDAR gives only the top surface; the dome is the usual lime / maple / chestnut form)
+if trunks:
+    tidx = np.zeros((D, W), np.int32)
+    for i_, (r_, c_, _) in enumerate(trunks, 1):
+        tidx[r_, c_] = i_
+    _dt, (_tr_, _tc_) = ndimage.distance_transform_edt(tidx == 0, return_indices=True)
+    own = np.where(veg, tidx[_tr_, _tc_], 0)
+    idx_ = np.arange(1, len(trunks) + 1)
+    Rt = np.asarray(ndimage.maximum(np.where(veg, _dt, 0), labels=own, index=idx_), np.float32) + 0.7
+    Ht = np.asarray(ndimage.maximum(np.where(veg, crown_top, 0), labels=own, index=idx_), np.float32)
+    vr_, vc_ = np.nonzero(veg)
+    k_ = own[vr_, vc_] - 1
+    ok_ = k_ >= 0
+    dep = 0.62 * Ht[k_] * np.sqrt(np.clip(1 - (_dt[vr_, vc_] / Rt[k_]) ** 2, 0, 1))
+    bot = np.round(crown_top[vr_, vc_] - np.maximum(dep, 1)).astype(np.int32)
+    bot = np.clip(bot, 2, crown_top[vr_, vc_] - 1)
+    crown_bot[vr_[ok_], vc_[ok_]] = bot[ok_]
+rr, cc = np.nonzero(veg)
+for zz in range(int(g.min()) + 1, int((g + crown_top).max()) + 1):
+    m = (zz >= g[rr, cc] + crown_bot[rr, cc]) & (zz < g[rr, cc] + crown_top[rr, cc])
+    sel = (rr[m], cc[m])
+    cur = vol[zz][sel]
+    vol[zz][sel] = np.where(cur == 0, leafidx[sel], cur)
+note("canopy cells:", int(veg.sum()), "crowns:", len(trunks))
+for r_, c_, thick in trunks:  # from the ground one voxel into the crown's lowest point, over the trunk
+    hb = int(crown_bot[r_, c_]) + 1
+    for dr, dc in ((0, 0), (0, 1), (1, 0), (1, 1)) if thick else ((0, 0),):
+        rr_, cc_ = r_ + dr, c_ + dc
+        if 0 <= rr_ < D and 0 <= cc_ < W and not bmask[rr_, cc_]:
+            vol[g[rr_, cc_]:g[rr_, cc_] + hb, rr_, cc_] = C["trunk"]
 # the tree register for the viewer (ids for later mapping: city inventory number / osm node / 2010-13 inventory)
 note("trees inside a Mapa Koron Drzew crown:", treedb.attach_crowns(all_trees))
 for r, c in zip(*np.nonzero(taken)):  # the trunks placed at canopy tops: no database tree, an id from the cell
