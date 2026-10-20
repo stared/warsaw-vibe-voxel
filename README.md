@@ -106,3 +106,28 @@ Example: Astoria (Brokla 2, formerly Przeskok 2; Quesma's office). Details are i
 - The west half is near-black glass with bronze mullions and floor bands.
 - The east half is off-white pilasters.
 - A gold-lettered crown band runs round the round tip.
+
+## Sources
+
+Data the model is built from:
+- **[GUGiK](https://www.geoportal.gov.pl/)** (Główny Urząd Geodezji i Kartografii) via [opendata.geoportal.gov.pl](https://opendata.geoportal.gov.pl/):
+  - NMPT 2025, the LiDAR surface model (0.5 m)
+  - NMT 2025, the terrain model (1 m)
+  - the 2025 orthophoto (5 cm)
+
+  These are open data, free to reuse under Art. 40a of the Polish Geodetic and Cartographic Law.
+- **[OpenStreetMap](https://www.openstreetmap.org/)**: © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/). It is read from the [Geofabrik](https://download.geofabrik.de/europe/poland/mazowieckie.html) daily extract for Mazowieckie.
+
+References used to check and curate details (these are not redistributed):
+- **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each landmark. They are compared side by side with renders: facades, colours, bridge structure.
+- **[Wikipedia](https://pl.wikipedia.org/)** (pl and en) for dimensions: heights, bridge spans and pier counts, opening dates.
+- Architecture and construction press, and city announcements, for changes since the 2025 flight. Sources include [eurobuildcee.com](https://eurobuildcee.com/), [inzynierbudownictwa.pl](https://www.inzynierbudownictwa.pl/), [muratorplus.pl](https://architektura.muratorplus.pl/) and [um.warszawa.pl](https://um.warszawa.pl/). Each fact is cited with its link in [research.md](research.md) and [visual_ref.md](visual_ref.md).
+
+Software:
+- **Viewer:** [three.js](https://threejs.org/), [postprocessing](https://github.com/pmndrs/postprocessing), [N8AO](https://github.com/N8python/n8ao), [lil-gui](https://lil-gui.georgealways.com/) and [Vite](https://vite.dev/).
+- **Data pipeline:** [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [Shapely](https://shapely.readthedocs.io/), [rasterio](https://rasterio.readthedocs.io/), [pyproj](https://pyproj4.github.io/pyproj/) and [Pillow](https://python-pillow.org/).
+- The look follows the MagicaVoxel renders by [ephtracy](https://ephtracy.github.io/).
+
+## License
+
+The code is under the [MIT license](LICENSE), © 2026 Piotr Migdał. The generated data in `web/public/data` derives from OpenStreetMap, so it is under the ODbL (© OpenStreetMap contributors), and from GUGiK open data.
