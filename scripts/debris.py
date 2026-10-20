@@ -55,6 +55,9 @@ def drop_debris(vol, g, keep_ids, note, max_size=100, B=256, M=24, box=None):  #
         json.dump(sorted(big, key=lambda b: -b["n"]), open("data/debug/floating.json", "w"))
 
 
+LOG = []  # every fill and set of posts the support pass made (data/debug/supports.json)
+
+
 def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, trunk_ok=None, B=192, _noleaf=True):
     """Everything still hanging in the air at the end of the build (scripts/floating.py's whole-city scan, 6-connected:
     walking and falling need face contact) gets put on the ground or removed:
@@ -167,6 +170,9 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, trunk_ok=None,
                     col = vol[gz:z_, r_, c_2]
                     col[col == 0] = v_
                     n_fill += 1
+                if inside.any():
+                    LOG.append(dict(kind="fill", r=int(rows[inside].mean()), c=int(cols[inside].mean()),
+                                    n=int(inside.sum()), z=int(zs[inside].min())))
                 out = ~inside
                 if out.any():
                     ro, co, zo = rows[out], cols[out], zs[out]
@@ -178,6 +184,8 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, trunk_ok=None,
                         col = vol[gz:z_, r_, c_2]
                         col[col == 0] = post_id
                         n_post += 1
+                    LOG.append(dict(kind="posts", r=int(ro.mean()), c=int(co.mean()), n=int(pick.sum()),
+                                    z=int(zo.min()), cells=int(len(ro))))
     n_trunk = 0
     for k, c in cls.items():
         if c == "trunk":
@@ -196,3 +204,4 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, trunk_ok=None,
          f"{n_fill} columns filled down inside outlines, {n_post} posts; {len(left)} left (listed)")
     Path("data/debug").mkdir(parents=True, exist_ok=True)
     json.dump(sorted(left, key=lambda x: -x["n"]), open("data/debug/floating_left.json", "w"))
+    json.dump(LOG, open("data/debug/supports.json", "w"))

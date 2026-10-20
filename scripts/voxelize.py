@@ -808,18 +808,28 @@ for k in order:
     n_peak += 1
 note("trunks at canopy tops with no known tree under them:", n_peak)
 # the tree register for the viewer (ids for later mapping: city inventory number / osm node / 2010-13 inventory)
+note("trees inside a Mapa Koron Drzew crown:", treedb.attach_crowns(all_trees))
+for r, c in zip(*np.nonzero(taken)):  # the trunks placed at canopy tops: no database tree, an id from the cell
+    all_trees.append(dict(id=f"lidar:{r}_{c}", src="lidar", x=float(c) + 0.5, y=float(r) + 0.5, drawn="lidar",
+                          z=int(g[r, c]), h=int(crown_top[r, c])))
 _tr = []
 for t in all_trees:
     rec = dict(id=t["id"], x=round(t["x"], 1), y=round(t["y"], 1), src=t["src"], drawn=t.get("drawn"))
     for k_src, k_out in (("z", "z"), ("h", "h"), ("species", "sp"), ("species_pl", "pl"), ("trunk_cm", "cm"),
                          ("osm", "osm"), ("um_id", "um"), ("height", "h_inv"), ("crown_d", "crown_d"),
-                         ("condition", "cond"), ("manager", "mgr"), ("date", "date")):
+                         ("condition", "cond"), ("manager", "mgr"), ("date", "date"), ("crown_id", "crown"),
+                         ("crown_m2", "crown_m2"), ("crown_sp", "crown_sp")):
         if t.get(k_src) is not None:
             rec[k_out] = t[k_src]
     _tr.append(rec)
 Path(OUT).mkdir(parents=True, exist_ok=True)
 json.dump(dict(sources={"city": "Baza Obiektów Zieleni, mapa.um.warszawa.pl (Zieleń)", "osm": "OpenStreetMap natural=tree",
-                        "um": "api.um.warszawa.pl drzewa (2010-13 inventory)"}, trees=_tr),
+                        "um": "api.um.warszawa.pl drzewa (2010-13 inventory)",
+                        "lidar": "a crown in the 2025 LiDAR with no known tree under it (trunk at its top)",
+                        "crown": "Mapa Koron Drzew (2019) polygon the tree stands in"},
+               fields=dict(x="grid column", y="grid row", z="ground voxel", h="LiDAR crown top above ground, m",
+                           sp="species (Latin)", pl="species (Polish)", cm="trunk circumference, cm",
+                           drawn="lidar | procedural | none"), trees=_tr),
           open(Path(OUT) / "trees.json", "w"), ensure_ascii=False, separators=(",", ":"))
 
 # ---------------------------------------------------------------- fountains (visual_ref.md, Commons photos Aug 2026)
@@ -1254,8 +1264,9 @@ leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
 # where a hanging building piece may carry its walls down (1: inside a building outline) or needs posts (2: roof-only)
 bkind = np.zeros((D, W), np.uint8)
 ROOFY = {"roof", "carport", "canopy", "shelter"}
-for f in feats:
-    if f["tags"].get("building") not in ROOFY and f["tags"].get("building:part") != "roof":
+for f in feats:  # walls may come down only inside an outline that itself stands on the ground (not a part on stilts,
+    # not a raised passage: a connector 4-9 m over the street got filled solid to the ground)
+    if not f["part"] and (f["minh"] or 0) < 2.5 and f["tags"].get("building") not in ROOFY:
         bkind[f["rr"], f["cc"]] = 1
 for f in feats:
     if f["tags"].get("building") in ROOFY or f["tags"].get("building:part") == "roof":

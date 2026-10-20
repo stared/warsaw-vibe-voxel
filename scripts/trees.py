@@ -92,3 +92,45 @@ CONIFER = ("Pinus", "Picea", "Abies", "Taxus", "Thuja", "Larix", "Pseudotsuga", 
 def is_conifer(t):
     sp = t.get("species") or ""
     return sp.startswith(CONIFER) or t.get("leaf_type") == "needleleaved"
+
+
+def _rings(flat_rings):
+    return [list(zip(r[0::2], r[1::2])) for r in flat_rings]
+
+
+def attach_crowns(trees):
+    """the Mapa Koron Drzew crown (2019, remote sensing) each tree stands in: id, area m2, species group"""
+    from shapely.geometry import Point, Polygon
+    from shapely.strtree import STRtree
+    from aoi import to_world
+    f = Path(RAW) / "trees" / "bos_crowns.json"
+    if not f.exists():
+        return 0
+    polys, meta = [], []
+    for c in json.load(open(f)):
+        gm = c["geometry"]
+        parts = [gm["coordinates"]] if gm["type"] == "Polygon" else gm["coordinates"]
+        for pr in parts:
+            rings = _rings(pr)
+            if len(rings[0]) < 3:
+                continue
+            try:
+                pg = Polygon(rings[0], rings[1:])
+            except Exception:  # noqa: BLE001
+                continue
+            if pg.is_valid and pg.area > 0:
+                polys.append(pg)
+                lab = c.get("label") or ""
+                lat = lab.split("Gatunek ŁC:")[-1].split("\n")[0].strip() if "Gatunek ŁC:" in lab else None
+                meta.append((c["id"], c.get("species_pl"), lat))
+    tree = STRtree(polys)
+    n = 0
+    for t in trees:
+        x, y = to_world(t["x"], t["y"])
+        p = Point(float(x), float(y))
+        for i in tree.query(p, predicate="within"):
+            cid, sp, lat = meta[i]
+            t["crown_id"], t["crown_m2"], t["crown_sp"] = cid, round(polys[i].area, 1), sp
+            n += 1
+            break
+    return n
