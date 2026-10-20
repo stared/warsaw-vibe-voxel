@@ -5,6 +5,7 @@ usage: uv run python scripts/patch.py pkin [teatr ...]     (names: BOXES below, 
 The palette continues from meta.json, so indices in untouched tiles stay valid; new colours are appended.
 """
 import json
+import os
 import pickle
 import sys
 import time
@@ -32,6 +33,9 @@ BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "saski": (250, 445, 1370, 1510),
     "sejm": (2340, 2460, 1870, 2010),
     "astoria": (1180, 1320, 1195, 1350),
+    "rail": (1080, 1330, 2790, 3350),
+    "laz": (2860, 2935, 2930, 3580),
+    "swk": (720, 920, 2680, 3220),
 }
 OUT = Path("web/public/data")
 t0 = time.time()
@@ -61,6 +65,7 @@ ids = pickle.load(open("data/cache/export_ids.pkl", "rb"))
 vol = np.load("data/cache/pre_vol.npy", mmap_mode="r")
 vol = np.array(vol[:meta["H"]])
 g = st["g"]
+landmarks.DECK = st.get("deck")
 note("loaded", vol.shape)
 landmarks.details_geometry(vol, g, st["feats"], pal, note)
 keep = np.array(ids.pop("debris_keep"), dtype=vol.dtype)
@@ -70,6 +75,10 @@ for b in boxes:
     tiles.export_region(vol, g, OUT / "tiles", b, note, **ids)
 meta["palette"] = [list(e) for e in pal.entries]
 json.dump(meta, open(OUT / "meta.json", "w"))
+if os.environ.get("DUMP"):  # DUMP=r0,r1,c0,c1: the patched volume over that box, for inspection
+    r0_, r1_, c0_, c1_ = (int(v) for v in os.environ["DUMP"].split(","))
+    np.savez_compressed("data/debug/dump_box.npz", vol=vol[:, r0_:r1_, c0_:c1_], g=g[r0_:r1_, c0_:c1_],
+                        pal=np.array(pal.entries, np.int32), origin=np.array([r0_, c0_]))
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
                     pal=np.array(pal.entries, np.int32))
 note("done; palette", len(pal.entries))

@@ -71,7 +71,7 @@ def build(g, nd_mean, note, surf=None, water=None):
     def z_at(x, y, bridge):
         c, r = min(max(int(x), 0), W - 1), min(max(int(y), 0), D - 1)
         # on a deck: tagged bridge ways, and anything over water that has a deck above it (untagged bridge sidewalks)
-        if (bridge or (water is not None and water[r, c])) and nd_mean[r, c] > 2:
+        if (bridge or (water is not None and water[r, c])) and nd_mean[r, c] >= 1.5:  # decks stand >= 2 m
             return int(g[r, c] + round(nd_mean[r, c]))
         return int(g[r, c])
 
@@ -105,7 +105,7 @@ def build(g, nd_mean, note, surf=None, water=None):
         return res
 
     def pts_of(seq, bridge):
-        """points of a node chain; long segments get a point every 8 m with its own height, so a vehicle follows a
+        """points of a node chain; long segments get a point every 3 m with its own height, so a vehicle follows a
         bridge deck (or a ramp) instead of the straight line between two far-apart OSM nodes"""
         out = []
         for a, b in zip(seq, seq[1:] + [None]):
@@ -117,10 +117,16 @@ def build(g, nd_mean, note, surf=None, water=None):
             xb, yb = nodes[b]
             L = math.hypot(xb - xa, yb - ya)
             on = br and (bridge or b in bridge_nodes)  # both ends on the bridge: the whole segment is
-            for k in range(1, int(L // 8)):
-                f = k * 8 / L
+            for k in range(1, int(L // 3)):
+                f = k * 3 / L
                 x, y = xa + (xb - xa) * f, ya + (yb - ya) * f
                 out.append([round(x, 1), round(y, 1), z_at(x, y, on)])
+        # a lone point standing off both neighbours (a bridge end node reading a lamp base, a gap cell) is noise:
+        # a vehicle would hop over it or dip into the deck
+        for i in range(1, len(out) - 1):
+            za, zb, zc = out[i - 1][2], out[i][2], out[i + 1][2]
+            if (zb - za) * (zb - zc) > 0 and abs(zb - (za + zc) / 2) >= 1.5:
+                out[i][2] = int(round((za + zc) / 2))
         return out
 
     def length(p):

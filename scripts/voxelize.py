@@ -234,6 +234,7 @@ def on_bridge(t):
 
 
 foot_shapes, road_shapes, bridge_shapes = [], [], []  # bridge ways are painted on the deck, not on the river below
+bridge_lines = []  # (line, half width, layer) of every way on a bridge: the deck's height profile is taken along them
 bridge_roads = []  # (line, width) of carriageways on bridges, for the inferred deck lamps
 for oid, t, line in osm.lines:
     hw = t.get("highway")
@@ -253,6 +254,7 @@ for oid, t, line in osm.lines:
     if on_bridge(t):
         key = SURF.get(t.get("surface"), "asphalt") if (hw in ROADS or base in ROADS) else ("cycle" if hw == "cycleway" else SURF.get(t.get("surface"), "paving"))
         bridge_shapes.append((poly, C[key], int(parse_len(t.get("layer")) or 1)))
+        bridge_lines.append((line, w / 2, int(parse_len(t.get("layer")) or 1), C[key]))
         if (hw in ROADS or base in ROADS) and line.length > 60:
             bridge_roads.append((line, w))
         continue
@@ -295,6 +297,7 @@ for oid, t, line in osm.lines_with("railway"):
     tram = t["railway"] == "tram"
     if on_bridge(t):
         bridge_shapes.append((line.buffer(1.4 if tram else 1.9, cap_style="flat"), C["trambed" if tram else "ballast"], int(parse_len(t.get("layer")) or 1)))
+        bridge_lines.append((line, 1.4 if tram else 1.9, int(parse_len(t.get("layer")) or 1), C["trambed" if tram else "ballast"]))
         continue
     rail_beds.append((line.buffer(1.4 if tram else 1.9, cap_style="flat"), C["trambed" if tram else "ballast"]))
     for off in (-0.72, 0.72):
@@ -876,25 +879,120 @@ for oid, t, p in osm.nodes_with("man_made", ("flagpole",)):
         vol[g[r, c]:g[r, c] + hgt, r, c] = C["fence"]
 
 # bridges / decks: over the rail cut (DTM drops below them) and the Vistula. The deck follows the bridge ways
-# (bridge=yes roads, paths, tracks buffered to their width; man_made=bridge areas only near them), at the height of
-# the lowest LiDAR return in a 5 x 5 neighbourhood -- the road surface, not the cars or the cable stays above it.
-# Its top takes the colour of the way on it (asphalt, pavement, cycle lane, tram bed).
+# (bridge=yes roads, paths, tracks buffered to their width; man_made=bridge areas only near them). Its top takes the
+# colour of the way on it (asphalt, pavement, cycle lane, tram bed).
 deck_col = np.zeros((D, W), np.uint16)
+deck_lay = np.zeros((D, W), np.uint16)  # the layer of the way that owns the cell
 bridge_area = np.zeros((D, W), np.uint16)
 burn(bridge_area, [(geom, 1) for oid, typ, t, geom in osm.areas_with("man_made", ("bridge",))])
 for layer in sorted({l for _, _, l in bridge_shapes}):  # upper decks win
     burn(deck_col, [(p_, c_) for p_, c_, l in sorted(bridge_shapes, key=lambda x: -x[0].area) if l == layer])
+    burn(deck_lay, [(p_, l + 1) for p_, c_, l in bridge_shapes if l == layer])
 near_way = ndimage.binary_dilation(deck_col > 0, iterations=3)
 deck_col = np.where((deck_col == 0) & (bridge_area > 0) & near_way, C["deck"], deck_col)
 deck = (deck_col > 0) & ~bmask & (nd_mean > 2)
 deck = ndimage.binary_closing(deck, iterations=2) & ~bmask  # no slits of sky between the carriageways
 deck_col = np.where(deck & (deck_col == 0), C["deck"], deck_col)
-# lowest return within 9 m: the road surface even next to the pylon base and under the cable fan
-deck_h = ndimage.minimum_filter(np.where(deck & (nd_mean > 2), nd_mean, 1e4), size=9)
-deck_h = np.where(deck & (deck_h < 1e3), deck_h, 0)
+# the deck's height: a profile along each bridge way -- the DSM (0.5 m) sampled across the way every metre, its 30th
+# percentile (the road surface, not the cars, railings or stays), samples dropped where a higher deck hides the way or
+# nothing stands above the river, then a 25 m running median and a 15 m mean. Every deck cell takes the height of the
+# nearest profile point of its own layer: one smooth level, so cars drive on it. (The cell-by-cell lowest return
+# picked up cells half over the water at the deck edges and broke the decks into steps metres apart.)
+from scipy.spatial import cKDTree
+water_ = gcol == C["water"]
+prof = []  # per way: (x, y, h, layer) every metre
+for line, hw, layer, _ in bridge_lines:
+    n_ = max(2, int(line.length) + 1)
+    P_ = np.array([line.interpolate(v_).coords[0] for v_ in np.linspace(0, line.length, n_)])
+    T_ = np.gradient(P_, axis=0)
+    T_ /= np.maximum(np.linalg.norm(T_, axis=1, keepdims=True), 1e-6)
+    a_, b_ = np.meshgrid(np.arange(-1.5, 1.6, 0.5), np.arange(-max(0.7 * hw, 0.5), max(0.7 * hw, 0.5) + 0.01, 0.5))
+    a_, b_ = a_.ravel(), b_.ravel()
+    X_ = P_[:, :1] + T_[:, :1] * a_ - T_[:, 1:] * b_
+    Y_ = P_[:, 1:] + T_[:, 1:] * a_ + T_[:, :1] * b_
+    h_ = np.nanpercentile(dsm[np.clip((Y_ * 2).astype(int), 0, 2 * D - 1), np.clip((X_ * 2).astype(int), 0, 2 * W - 1)], 30, axis=1)
+    pr_, pc_ = np.clip(P_[:, 1].astype(int), 0, D - 1), np.clip(P_[:, 0].astype(int), 0, W - 1)
+    gd_ = dtm[pr_, pc_]
+    ok_ = np.isfinite(h_) & (deck_lay[pr_, pc_] <= layer + 1) & ((h_ > gd_ + 1.5) | (~water_[pr_, pc_] & (h_ > gd_ - 1.5)))
+    if ok_.sum() >= 2:
+        h_ = np.interp(np.arange(n_), np.nonzero(ok_)[0], h_[ok_])
+    else:  # hidden all along (a walkway slung under a higher deck): straight between its ends' ground
+        h_ = np.linspace(gd_[0], gd_[-1], n_)
+    for win in (61, 31, 15):  # the deck is the lowest surface: knock down what stands on it (a pylon's legs, cables)
+        hs_ = ndimage.median_filter(h_, min(win, n_), mode="nearest")
+        h_ = np.where(h_ > hs_ + 0.6, hs_, h_)
+    prof.append(np.column_stack([P_, h_, np.full(n_, layer + 1)]))
+deck_abs = np.zeros((D, W), np.float32)
+if prof:
+    # across the deck the ways agree: no way stands more than 0.5 m above the lower quartile of its layer within 10 m
+    allp = np.vstack(prof)
+    for L_ in np.unique(allp[:, 3]):
+        sel_ = allp[:, 3] == L_
+        sub_ = allp[sel_]
+        nb_ = cKDTree(sub_[:, :2]).query_ball_point(sub_[:, :2], 10.0)
+        q_ = np.array([np.percentile(sub_[i_, 2], 25) for i_ in nb_])
+        allp[sel_, 2] = np.minimum(sub_[:, 2], q_ + 0.5)
+    k0 = 0
+    for i_, pw_ in enumerate(prof):
+        h_ = allp[k0:k0 + len(pw_), 2]
+        n_ = len(h_)
+        pw_[:, 2] = ndimage.uniform_filter1d(ndimage.median_filter(h_, min(25, n_), mode="nearest"), min(15, n_), mode="nearest")
+        k0 += n_
+    # a bridge way often ends (in OSM) metres before the ground climbs back to the deck: the deck carries on along the
+    # way's direction, level, until the ground is within 1.5 m of it (up to 15 m) -- no hole for the cars to drop into
+    ext_shapes = []
+    for (line, hw, layer, col_), pw_ in zip(bridge_lines, list(prof)):
+        if len(pw_) < 3:
+            continue
+        for e0, e1 in ((0, 2), (-1, -3)):
+            P0, h0 = pw_[e0, :2], pw_[e0, 2]
+            u_ = P0 - pw_[e1, :2]
+            u_ = u_ / max(np.linalg.norm(u_), 1e-6)
+            ext = []
+            for d_ in range(1, 16):
+                q = P0 + u_ * d_
+                r_, c_ = int(q[1]), int(q[0])
+                if not (0 <= r_ < D and 0 <= c_ < W) or dtm[r_, c_] >= h0 - 1.5 or bmask[r_, c_]:
+                    break
+                ext.append(q)
+            if not ext:
+                continue
+            ext_shapes.append((LineString([P0, ext[-1]]).buffer(max(hw, 1.5), cap_style="flat"), col_, layer + 1))
+            prof.append(np.column_stack([np.array(ext), np.full(len(ext), h0), np.full(len(ext), layer + 1)]))
+    for L_ in sorted({l for _, _, l in ext_shapes}):
+        m_ = np.zeros((D, W), np.uint16)
+        burn(m_, [(p_, c_) for p_, c_, l in ext_shapes if l == L_])
+        m_ = np.where((m_ > 0) & ~bmask & (deck_lay <= L_) & ~deck, m_, 0)
+        deck_col[m_ > 0] = m_[m_ > 0]
+        deck_lay[m_ > 0] = L_
+        deck |= m_ > 0
+    note("bridge ends carried on to meet the ground:", len(ext_shapes))
+    prof = np.vstack(prof)
+    rr, cc = np.nonzero(deck)
+    for L_ in np.unique(deck_lay[rr, cc]):
+        sel = deck_lay[rr, cc] == L_
+        pts = prof if L_ == 0 or not (prof[:, 3] == L_).any() else prof[prof[:, 3] == L_]
+        _, k_ = cKDTree(pts[:, :2]).query(np.column_stack([cc[sel] + 0.5, rr[sel] + 0.5]))
+        deck_abs[rr[sel], cc[sel]] = pts[k_, 2]
+zt_ = np.round(deck_abs - BASE).astype(np.int32)
+deck &= zt_ >= g + 2
+deck_h = np.where(deck, zt_ - g, 0).astype(np.float32)
+landmarks.DECK = np.where(deck, zt_, 0).astype(np.int16)  # the deck top, for the curated bridge structures
+# under a deck over the river nothing hangs but the bridge's own structure (landmarks.py): LiDAR columns caught at the
+# deck edge (catenary masts, railings, green from the ortho) were extruded into dangling bits; and no tree crown grows
+# into the underside of a deck anywhere
+_leafy = np.zeros(len(pal.entries) + 64, bool)
+_leafy[[i for i, e in enumerate(pal.entries) if e[3] == M_LEAF] + [C["trunk"]]] = True
+_rw, _cw = np.nonzero(deck)
+_wet = water_[_rw, _cw]
+for _z in range(int(g.min()), int(zt_.max()) + 6):
+    _m = (_z >= g[_rw, _cw]) & (_z < zt_[_rw, _cw] + 6)
+    _v = vol[_z, _rw[_m], _cw[_m]]
+    _under = _z < zt_[_rw[_m], _cw[_m]] - 2
+    vol[_z, _rw[_m], _cw[_m]] = np.where((_under & _wet[_m]) | _leafy[_v], 0, _v)  # (a crown poking through the deck too)
 rr, cc = np.nonzero(deck)
 if len(rr):
-    zt_ = g[rr, cc] + np.round(np.clip(deck_h[rr, cc], 2, None)).astype(int)
+    zt_ = zt_[rr, cc]
     for dz in (1, 2):
         vol[zt_ - dz, rr, cc] = C["deck"]
     vol[zt_ - 1, rr, cc] = deck_col[rr, cc]
@@ -937,9 +1035,10 @@ if _sw is not None and n_pyl:
         _, px, py, ptop = best
         sp = _sw.project(Point(px, py))
         L = _sw.length
-        # the pylon as the photos show it (Commons 2008-2019): an A-frame, two 2.5 m legs standing outside the deck
-        # edges (26 m apart) leaning in to meet 52 m above the deck, then a single 3 m mast to the top; the LiDAR
-        # blob extruded from the ground read as a solid tower
+        # the pylon as the photos and the LiDAR show it: an A-frame across the deck, two 2.5 m legs piercing the deck
+        # between the carriageways and the cycle paths (+-10 m; the 2025 returns at 5-15 m above the deck) leaning in
+        # to meet 50 m above it, then a single 3 m mast to the top; the LiDAR blob extruded from the ground read as a
+        # solid tower
         q0, q1 = _sw.interpolate(max(sp - 2, 0)), _sw.interpolate(min(sp + 2, L))
         tx_, ty_ = q1.x - q0.x, q1.y - q0.y; tl = max(math.hypot(tx_, ty_), 1e-6); tx_, ty_ = tx_ / tl, ty_ / tl
         nx_, ny_ = -ty_, tx_
@@ -952,9 +1051,9 @@ if _sw is not None and n_pyl:
         sub = vol[gz_:dz_ - 2, rr0:rr1, cc0:cc1]
         sub[sub == C["fence"]] = 0
         pylc = pal("#d6d8d6", M_CONCRETE)
-        zmeet = dz_ + 52
+        zmeet = dz_ + 50
         for zz in range(gz_, int(ptop) + 1):
-            w_ = 13.0 if zz <= dz_ else max(0.0, 13.0 * (zmeet - zz) / (zmeet - dz_))
+            w_ = 10.0 if zz <= dz_ else max(0.0, 10.0 * (zmeet - zz) / (zmeet - dz_))
             for lat in ((-1, 1) if w_ > 1.2 else (0,)):
                 for a in np.arange(-1.25, 1.3, 0.5):
                     for b in np.arange(-1.25, 1.3, 0.5):
@@ -962,8 +1061,6 @@ if _sw is not None and n_pyl:
                             continue
                         x_ = px + tx_ * a + nx_ * (lat * w_ + b)
                         y_ = py + ty_ * a + ny_ * (lat * w_ + b)
-                        if dz_ - 2 <= zz <= dz_ and abs(lat * w_ + b) < 12:
-                            continue  # the deck passes between the legs
                         vol[zz, int(y_), int(x_)] = pylc
         for side, span in ((-1, 180.0), (1, 140.0)):
             for k in range(12):
@@ -976,7 +1073,7 @@ if _sw is not None and n_pyl:
                 tl = max(math.hypot(tx_, ty_), 1e-6)
                 za = ptop - 2 - 28 * (k / 11)  # anchors spread down the pylon head: semi-fan
                 for lat in (-1, 1):
-                    ex, ey = q0.x - ty_ / tl * lat * 11, q0.y + tx_ / tl * lat * 11  # deck edges (~24 m deck)
+                    ex, ey = q0.x - ty_ / tl * lat * 9, q0.y + tx_ / tl * lat * 9  # two inclined planes landing +-9 m (LiDAR)
                     er, ec = int(ey), int(ex)
                     if not (0 <= er < D and 0 <= ec < W):
                         continue
@@ -1059,7 +1156,7 @@ if os.environ.get("LMCACHE"):  # the volume before the curated landmark details,
     import pickle
     Path("data/cache").mkdir(parents=True, exist_ok=True)
     np.save("data/cache/pre_vol.npy", vol)
-    pickle.dump(dict(g=g, feats=feats), open("data/cache/pre_state.pkl", "wb"))
+    pickle.dump(dict(g=g, feats=feats, deck=landmarks.DECK), open("data/cache/pre_state.pkl", "wb"))
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
                     pal=np.array(pal.entries, np.int32))  # PKiN's block for facade work (r0=1080, c0=600)
@@ -1132,7 +1229,23 @@ qa[is_road] = 1
 qa[np.isin(gcol, [C["trambed"], C["rail"]])] = 2
 with gzip.GzipFile(OUT / "qa_roadmask.bin.gz", "wb", compresslevel=9, mtime=0) as fh:  # mostly zeros: 12 MB -> ~0.3 MB
     fh.write(qa.tobytes())
-json.dump(traffic.build(g, np.where(deck_h > 0, deck_h, nd_mean), note, qa, water=(gcol == C["water"]) & (deck_h > 0)), open(OUT / "traffic.json", "w"), separators=(",", ":"))
+# vehicles on a bridge way take the deck under them, or the nearest deck cell within 2 m (a way's centreline can run
+# just off the deck)
+_dd, (_ir, _ic) = ndimage.distance_transform_edt(~deck, return_indices=True)
+deck_near = np.where(_dd <= 2, deck_h[_ir, _ic], 0).astype(np.float32)
+# off the deck mask, on a bridge way (a viaduct whose arches are OSM buildings, a deck end): the top of what the
+# voxels hold there -- lamps, poles and leaves aside -- within the LiDAR's reach
+_skip = np.zeros(len(pal.entries) + 64, bool)
+_skip[[i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF, M_LAMP, M_CAR)] + [C["trunk"], C["pole"], C["fence"]]] = True
+_rb, _cb = np.nonzero((deck_col > 0) & (_dd > 2))
+_lim = g[_rb, _cb] + np.clip(np.round(nd_mean[_rb, _cb]), 0, 40).astype(int) + 3
+_top = g[_rb, _cb].copy()
+for _z in range(int(g.min()), int(_lim.max()) + 1):
+    _m = (_z >= g[_rb, _cb]) & (_z < _lim)
+    _v = vol[_z, _rb[_m], _cb[_m]]
+    _top[np.nonzero(_m)[0][(_v != 0) & ~_skip[_v]]] = _z + 1
+deck_near[_rb, _cb] = _top - g[_rb, _cb]
+json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2)), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel

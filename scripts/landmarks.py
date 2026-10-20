@@ -431,6 +431,7 @@ def details_geometry(vol, g, feats, pal, note):
     paint_line_windows(vol, g, pal((58, 70, 68), MAT_IDS["window"]), note)
     classic_buildings(vol, g, feats, pal, note)
     poniatowski(vol, g, pal, note)
+    bridges(vol, g, pal, note)
     zlota44_crown(vol, g, pal, note)
     msn(vol, g, feats, pal, note)
     saski_site(vol, g, pal, note)
@@ -1799,13 +1800,14 @@ def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
         if len(rs) < 8:
             continue
         north.append((c, rs[0][0])); south.append((c, rs[-1][0]))
-        tops[c] = float(np.median([z for _, z in rs])) + 2  # the slab's top surface (2 voxels)
+        dk = DECK[r0:r1, c] if DECK is not None else np.zeros(0)
+        # the deck top the cars drive on (voxelize.py), else the slab's top surface (2 voxels)
+        tops[c] = float(np.median(dk[dk > 0])) if (dk > 0).any() else float(np.median([z for _, z in rs])) + 2
     cs = np.array(sorted(tops))
     fit = lambda pts: np.polyfit([p[0] for p in pts], [p[1] for p in pts], 1)
     fn, fs = fit(north), fit(south)
     Z = np.array([tops[c] for c in cs])
-    Z = ndimage.median_filter(Z, 31, mode="nearest")
-    Z = np.round(ndimage.uniform_filter1d(Z, 61, mode="nearest")).astype(int)
+    Z = np.round(ndimage.median_filter(Z, 5, mode="nearest")).astype(int)  # the deck is already one smooth profile (voxelize.py), which the cars drive on
     Zc = dict(zip(cs.tolist(), Z.tolist()))
     deck = pal((167, 164, 157), MAT_IDS["concrete"])
     steel = pal((74, 81, 86), MAT_IDS["metal"])
@@ -2116,3 +2118,241 @@ def pkin_east(vol, g0, pal, stone, note):
         if (r - R0) % 4 != 3:
             vol[z(14), r, 802] = red
     note("PKiN east entrance rebuilt: portico of 8 columns, lettering")
+
+
+# ---------------------------------------------------------------- the Vistula bridges' structure under the decks
+DECK = None  # (D, W) top of the bridge decks (first free voxel over the road surface), set by voxelize.py / patch.py
+
+
+def _deck_frame(p0, p1, halfw, pad=10):
+    """Deck cells near the axis p0 -> p1 (grid x = col, y = row): rows, cols, station s along the axis, lateral l
+    (to the left of the direction of travel), deck top z; and per metre of station the deck's edges (lmin, lmax)."""
+    o = np.asarray(p0, float)
+    t = np.subtract(p1, p0, dtype=float)
+    L = float(np.hypot(*t))
+    t /= L
+    n = np.array([-t[1], t[0]])
+    r0, r1 = int(min(p0[1], p1[1]) - halfw - pad), int(max(p0[1], p1[1]) + halfw + pad)
+    c0, c1 = int(min(p0[0], p1[0]) - halfw - pad), int(max(p0[0], p1[0]) + halfw + pad)
+    rr, cc = np.nonzero(DECK[r0:r1, c0:c1] > 0)
+    rr, cc = rr + r0, cc + c0
+    s = (cc + 0.5 - o[0]) * t[0] + (rr + 0.5 - o[1]) * t[1]
+    l = (cc + 0.5 - o[0]) * n[0] + (rr + 0.5 - o[1]) * n[1]
+    k = (s >= -pad) & (s <= L + pad) & (np.abs(l) <= halfw)
+    rr, cc, s, l = rr[k], cc[k], s[k], l[k]
+    si = np.floor(s).astype(int) + pad
+    nb = int(L) + 2 * pad + 2
+    lmin, lmax = np.full(nb, np.inf), np.full(nb, -np.inf)
+    np.minimum.at(lmin, si, l)
+    np.maximum.at(lmax, si, l)
+    zt = np.zeros(nb)
+    cnt = np.zeros(nb)
+    np.add.at(zt, si, DECK[rr, cc])
+    np.add.at(cnt, si, 1)
+    zt = np.where(cnt > 0, zt / np.maximum(cnt, 1), np.nan)
+    ok = np.isfinite(lmin)
+    for a in (lmin, lmax, zt):  # gaps (a pylon, a missing cell) from the neighbours
+        a[~ok] = np.interp(np.nonzero(~ok)[0], np.nonzero(ok)[0], a[ok]) if ok.any() else 0
+    edges = lambda v: (np.interp(v + pad, np.arange(nb) + 0.5, lmin), np.interp(v + pad, np.arange(nb) + 0.5, lmax),
+                       np.interp(v + pad, np.arange(nb) + 0.5, zt))
+    to_cell = lambda sv, lv: (o[1] + t[1] * sv + n[1] * lv, o[0] + t[0] * sv + n[0] * lv)  # -> (row, col)
+    return dict(rr=rr, cc=cc, s=s, l=l, z=DECK[rr, cc].astype(int), edges=edges, cell=to_cell, t=t, n=n, o=o, L=L)
+
+
+def _station(F, col):
+    """station on the axis where it crosses grid column `col`"""
+    return (col - F["o"][0]) / F["t"][0]
+
+
+def _pier(vol, g, F, s0, along, lat0, lat1, ztop, mat, round_ends=0.0, step=0.5):
+    """a pier: `along` m thick at station s0, from lateral lat0 to lat1, from the ground (riverbed) up to ztop;
+    round_ends > 0 rounds the two ends (in plan) with that radius"""
+    H = vol.shape[0]
+    for a in np.arange(-along / 2, along / 2 + 0.01, step):
+        for b in np.arange(lat0, lat1 + 0.01, step):
+            if round_ends:
+                e = max(lat0 + round_ends - b, b - (lat1 - round_ends), 0)
+                if e > 0 and np.hypot(e, a * (round_ends / (along / 2))) > round_ends:
+                    continue
+            r, c = F["cell"](s0 + a, b)
+            r, c = int(r), int(c)
+            if not (0 <= r < g.shape[0] and 0 <= c < g.shape[1]):
+                continue
+            z0 = int(g[r, c]) - 1
+            if ztop > z0:
+                vol[z0:min(ztop, H), r, c] = mat
+
+
+def bridges(vol, g, pal, note):
+    if DECK is None:
+        note("bridges: no deck raster, skipped")
+        return
+    srednicowy(vol, g, pal, note)
+    lazienkowski(vol, g, pal, note)
+    swietokrzyski_piers(vol, g, pal, note)
+
+
+# Most średnicowy (rail, 1931, rebuilt 1947; pl.wikipedia: five spans of ~93 m, 445 m, two parallel decks of two
+# tracks): the supports from the 2025 ortho (pier noses past the upstream edge at cols 2939, 3026, 3113; the next
+# ones at the same ~87-column step under the trees and at the banks)
+SREDNICOWY = dict(p0=(2813, 1294), p1=(3330, 1111), supports=[2852, 2939, 3026, 3113, 3200, 3287])
+
+
+def srednicowy(vol, g, pal, note):
+    """Commons photos 2015-2021 from both banks: under each deck steel trusses with a straight top chord under the
+    sleepers and an arched bottom chord -- deep (~10 m) over the piers, ~4 m at midspan -- panels of ~5.5 m with
+    verticals and alternating diagonals, painted pale grey and streaked with rust; brown brick piers with rounded
+    ends, as wide as both decks and a little more, rising ~6 m above the water. The LiDAR deck was a flat slab."""
+    F = _deck_frame(SREDNICOWY["p0"], SREDNICOWY["p1"], 14)
+    if not len(F["s"]):
+        return
+    sup = sorted(_station(F, c) for c in SREDNICOWY["supports"])
+    truss = pal(_hex("#bdb6a8"), MAT_IDS["metal"])
+    chord = pal(_hex("#7e6a5c"), MAT_IDS["metal"])
+    brick = pal(_hex("#7d5f4c"), 0)
+    cap = pal(_hex("#a59886"), 0)
+    P = 5.5
+    def depth(sv):
+        k = np.searchsorted(sup, sv, side="right")
+        if k == 0 or k >= len(sup):
+            return None
+        a, b = sup[k - 1], sup[k]
+        u = (sv - a) / (b - a)
+        return 4 + 6 * (2 * u - 1) ** 2, a
+    n = 0
+    H = vol.shape[0]
+    for sv in np.arange(sup[0], sup[-1], 0.5):  # each truss traced along its own line, every half metre
+        dep, a = depth(sv)
+        lmin, lmax, zt = F["edges"](sv)
+        mid = (lmin + lmax) / 2
+        top = int(round(zt)) - 3
+        zb = int(round(top - dep))
+        f = ((sv - a) % P) / P
+        kp = int((sv - a) // P)
+        g0, g1 = (f, f + 0.5 / P) if kp % 2 == 0 else (1 - f - 0.5 / P, 1 - f)
+        z0, z1 = zb + g0 * (top - zb), zb + g1 * (top - zb)
+        # four trusses: both edges of each deck (the two decks meet on the axis between the track pairs)
+        # outer webs two voxels thick across: on this diagonal bridge a one-voxel plane zigzags from cell to cell
+        for q, outer in ((lmin + 0.7, True), (lmin + 1.4, True), (mid - 1.2, False), (mid + 1.2, False),
+                         (lmax - 1.4, True), (lmax - 0.7, True)):
+            r, c = (int(v) for v in F["cell"](sv, q))
+            if not (0 <= r < g.shape[0] and 0 <= c < g.shape[1]) or zb <= int(g[r, c]):
+                continue
+            col = vol[:, r, c]
+            col[top] = chord  # top chord under the sleepers
+            if outer:  # the web only on the outer trusses: seen through each other the four read as noise
+                col[int(round(z0)) - 1:max(int(round(z1)), int(round(z0)) + 1) + 1] = truss  # the panel's diagonal
+                if f < 1.0 / P:
+                    col[zb:top] = truss  # a vertical at each panel point
+            col[zb:zb + 2] = chord  # the arched bottom chord
+            n += 1
+    for k, s0 in enumerate(sup):
+        lmin, lmax, zt = F["edges"](s0)
+        top = int(round(zt)) - 3 - 10
+        land = k in (0, len(sup) - 1)
+        _pier(vol, g, F, s0, 6 if land else 8, lmin - 1.5, lmax + 1.5, top, brick, round_ends=0 if land else 4)
+        _pier(vol, g, F, s0, 6.5 if land else 8.5, lmin - 2, lmax + 2, top + 1, cap, round_ends=0 if land else 4.2)
+        for b in np.arange(lmin, lmax + 0.01, 0.5):  # bearings and the end posts of the trusses over the pier
+            r, c = F["cell"](s0, b)
+            vol[top + 1:int(round(zt)) - 3, int(r), int(c)] = truss if abs(((b - lmin) % 4) - 2) < 1 else 0
+        if land:  # the abutments: masonry up to the deck
+            for a in np.arange(-3, 3.01, 0.5):
+                for b in np.arange(lmin - 1, lmax + 1.01, 0.5):
+                    r, c = F["cell"](s0 + a, b)
+                    vol[int(g[int(r), int(c)]) - 1:int(round(zt)) - 2, int(r), int(c)] = brick
+    note(f"Most średnicowy: {n} truss cells, {len(sup)} supports")
+
+
+# Most Łazienkowski (1974, rebuilt 2015; pl.wikipedia: 76.5 + 3 x 90 + 76.5 m = 424.5 m, steel plate girders 3.8 m
+# deep, six concrete supports; walkways under both edges since 2017): the river supports from the 2025 ortho (a pier
+# nose past the upstream edge at col 3367, the deck's expansion joint over the west bank)
+LAZIENKOWSKI = dict(p0=(2940, 2891), p1=(3570, 2900), supports=[3020, 3097, 3187, 3277, 3367, 3445], walk=(3140, 3540))
+
+
+def lazienkowski(vol, g, pal, note):
+    """Commons photos (2015-2019, from the banks and on the walkways): a flat deck on deep grey girders; in the river
+    pairs of massive concrete wall-piers, one under each carriageway, flaring towards the top; on the banks the
+    approaches on pairs of round columns; under both deck edges a walkway (cycle + footpath) with the deck as its
+    roof, the girder as its inner wall and a railing to the river."""
+    F = _deck_frame(LAZIENKOWSKI["p0"], LAZIENKOWSKI["p1"], 18)
+    if not len(F["s"]):
+        return
+    girder = pal(_hex("#9fa5a8"), MAT_IDS["metal"])
+    conc = pal(_hex("#bab7af"), MAT_IDS["concrete"])
+    walk = pal(_hex("#7c7f84"), 0)
+    rail = pal(_hex("#c9cdd0"), MAT_IDS["metal"])
+    w0, w1 = (_station(F, c) for c in LAZIENKOWSKI["walk"])
+    n = 0
+    for r, c, sv, lv, zt in zip(F["rr"], F["cc"], F["s"], F["l"], F["z"]):
+        lmin, lmax, _ = F["edges"](sv)
+        col = vol[:, r, c]
+        if int(g[r, c]) >= zt - 3:
+            continue
+        inband = w0 <= sv <= w1 and (lv < lmin + 4.5 or lv > lmax - 4.5)
+        if inband:
+            col[zt - 7] = walk
+            if lv < lmin + 1 or lv > lmax - 1:
+                col[zt - 6] = rail
+        else:
+            col[max(int(g[r, c]), zt - 7):zt - 2] = girder
+        n += 1
+    sup = [_station(F, c) for c in LAZIENKOWSKI["supports"]]
+    for s0 in sup:
+        lmin, lmax, zt = F["edges"](s0)
+        zt = int(round(zt))
+        mid = (lmin + lmax) / 2
+        for side in (-1, 1):  # a wall-pier under each carriageway, 3.5 m thick, flaring from 6 to 9 m wide
+            cen = mid + side * (lmax - lmin) / 4
+            _pier(vol, g, F, s0, 3.5, cen - 3, cen + 3, zt - 10, conc)
+            _pier(vol, g, F, s0, 3.5, cen - 4.5, cen + 4.5, zt - 7, conc)
+    # the approaches on the banks: pairs of round columns every ~30 m where the deck stands clear of the ground
+    for s0 in list(np.arange(sup[0] - 30, -5, -30)) + list(np.arange(sup[-1] + 30, F["L"] + 5, 30)):
+        lmin, lmax, zt = F["edges"](s0)
+        if not np.isfinite(zt):
+            continue
+        r, c = F["cell"](s0, (lmin + lmax) / 2)
+        if int(round(zt)) - int(g[int(r), int(c)]) < 6:
+            continue
+        mid = (lmin + lmax) / 2
+        for side in (-1, 1):
+            cen = mid + side * (lmax - lmin) / 4
+            _pier(vol, g, F, s0, 2, cen - 1, cen + 1, int(round(zt)) - 6, conc, round_ends=1)
+    note(f"Most Łazienkowski: {n} deck cells under-built, {len(sup)} supports")
+
+
+# Most Świętokrzyski (2000; pl.wikipedia: spans 30, 40, 40, 180, 140, 37, 12 m, west to east, the pylon between the
+# 180 and the 140): the piers at those stations from the pylon
+SWK_SPANS_W = [290, 260, 220, 180]
+SWK_SPANS_E = [140, 177, 189]
+
+
+def swietokrzyski_piers(vol, g, pal, note):
+    """Commons photos from both bulwary: a thin box deck (~2.5 m) with the edges cantilevered; under it single wide
+    concrete piers with rounded corners, white-grey like the pylon."""
+    pylc = pal(_hex("#d6d8d6"), MAT_IDS["concrete"])
+    p0, p1 = (2705, 880), (3190, 752)
+    F = _deck_frame(p0, p1, 18)
+    if not len(F["s"]):
+        return
+    # the pylon: the highest column of its colour near the axis
+    box = vol[:, 760:850, 2950:3050]
+    zz, rr, cc = np.nonzero(box == pylc)
+    if not len(zz):
+        note("Most Świętokrzyski: pylon not found")
+        return
+    k = np.argmax(zz)
+    pr, pc = rr[k] + 760, cc[k] + 2950
+    sp = (pc + 0.5 - F["o"][0]) * F["t"][0] + (pr + 0.5 - F["o"][1]) * F["t"][1]
+    deck_c = pal(_hex("#cfd0cc"), MAT_IDS["concrete"])
+    n = 0
+    for r, c, sv, lv, zt in zip(F["rr"], F["cc"], F["s"], F["l"], F["z"]):
+        lmin, lmax, _ = F["edges"](sv)
+        if lmin + 3 < lv < lmax - 3 and int(g[r, c]) < zt - 5:  # the box under the deck, edges cantilevered
+            vol[zt - 4:zt - 2, r, c] = deck_c
+            n += 1
+    for d in [-v for v in SWK_SPANS_W] + SWK_SPANS_E:
+        s0 = sp + d
+        lmin, lmax, zt = F["edges"](s0)
+        mid = (lmin + lmax) / 2
+        _pier(vol, g, F, s0, 3, mid - 3.5, mid + 3.5, int(round(zt)) - 4, pylc, round_ends=1.5)
+    note(f"Most Świętokrzyski: box under {n} deck cells, {len(SWK_SPANS_W) + len(SWK_SPANS_E)} piers, pylon at station {sp:.0f}")
