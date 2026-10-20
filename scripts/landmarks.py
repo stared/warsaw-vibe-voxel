@@ -60,8 +60,26 @@ ALIASES = {"PGE Narodowy": "Stadion Narodowy National Stadium football", "Centru
            "Wisła": "Vistula river", "Politechnika Warszawska": "Gmach Główny PW Warsaw University of Technology", "Bulwary Wiślane": "boulevards Vistula", "Politechnika Warszawska": "Warsaw University of Technology"}
 
 
+SMOOTH_ROOFS = {4166727: "PGE Narodowy roof membrane", 4166726: "PGE Narodowy roof ring"}
+
+
 def adjust_heights(top, feats, note):
-    """Hook for per-building height corrections (none needed unless the cross-check flags one)."""
+    """Per-building height corrections. PGE Narodowy's roof is a translucent membrane on a cable net: the LiDAR came
+    back from the membrane, the cables and the trusses under it alike, a field of 1-3 m boxes from the air. Its slope
+    is kept and the noise taken out: a 9 m median, then a 3 m Gaussian within the part's cells."""
+    for f in feats:
+        if f["id"] not in SMOOTH_ROOFS:
+            continue
+        rr, cc = f["rr"], f["cc"]
+        r0, r1, c0, c1 = rr.min() - 10, rr.max() + 11, cc.min() - 10, cc.max() + 11
+        sub = top[r0:r1, c0:c1]
+        m = np.zeros(sub.shape, bool)
+        m[rr - r0, cc - c0] = True
+        med = ndimage.median_filter(np.where(m, sub, np.nan_to_num(np.median(sub[m]))), size=9)
+        w = ndimage.gaussian_filter(m.astype(float), 3)
+        sm = ndimage.gaussian_filter(np.where(m, med, 0), 3) / np.maximum(w, 1e-6)
+        sub[m] = sm[m]
+        note(f"roof smoothed: {SMOOTH_ROOFS[f['id']]} ({len(rr)} cells)")
 
 
 MAT_IDS = {"solid": 0, "wall": 1, "glass": 2, "metal": 6, "pkin": 7, "grass": 8, "roof": 12, "concrete": 13,
