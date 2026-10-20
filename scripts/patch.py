@@ -72,7 +72,7 @@ keep = np.array(ids.pop("debris_keep"), dtype=vol.dtype)
 for b in boxes:
     debris.drop_debris(vol, g, keep, note, box=b)
 if "bkind" in st:  # the whole-city support pass, as in the full build (its fixes reach into the boxes too)
-    debris.support_floating(vol, g, pal, st["bkind"], note, st["trunk"], st["pole"])
+    debris.support_floating(vol, g, pal, st["bkind"], note, st["trunk"], st["pole"], trunk_ok=st.get("trunk_ok"))
 for b in boxes:
     tiles.export_region(vol, g, OUT / "tiles", b, note, **ids)
 meta["palette"] = [list(e) for e in pal.entries]

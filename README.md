@@ -118,6 +118,11 @@ Data the model is built from:
   These are open data, free to reuse under Art. 40a of the Polish Geodetic and Cartographic Law.
 - **[OpenStreetMap](https://www.openstreetmap.org/)**: © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/). It is read from the [Geofabrik](https://download.geofabrik.de/europe/poland/mazowieckie.html) daily extract for Mazowieckie.
 
+- **Trees** (`scripts/fetch_trees.py`, `scripts/trees.py`; the register is written to `web/public/data/trees.json`):
+  - **Warsaw's green-areas database.** The city's *Baza Obiektów Zieleni*, as shown in the [mapa.um.warszawa.pl](https://mapa.um.warszawa.pl/) "Zieleń" map and served by its MapViewer data server. It gives each tree's inventory number, Polish and Latin species, trunk circumference, managing unit and data date, for 35 k trees in the area. It also includes the *Mapa Koron Drzew*, a remote-sensing map of tree crowns.
+  - **The city's open-data tree inventory**, from [api.um.warszawa.pl](https://api.um.warszawa.pl/), surveyed 2010–13. It adds height, crown diameter and condition.
+  - **OpenStreetMap** `natural=tree` nodes. They are used where the city database has no tree within 2 m.
+
 References used to check and curate details (these are not redistributed):
 - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each landmark. They are compared side by side with renders: facades, colours, bridge structure.
 - **[Wikipedia](https://pl.wikipedia.org/)** (pl and en) for dimensions: heights, bridge spans and pier counts, opening dates.

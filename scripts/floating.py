@@ -35,7 +35,7 @@ class UF:
             self.p[max(a, b)] = min(a, b)
 
 
-def components(vol, conn=6, B=192):
+def components(vol, conn=6, B=192, lut=None):
     """yields per block: (r0, labels, n) after a first pass that unions labels across blocks; returns the union-find
     and the set of global roots touching z = 0"""
     H, Dd, Ww = vol.shape
@@ -47,7 +47,8 @@ def components(vol, conn=6, B=192):
     off = 0
     for r0 in range(0, Dd, B):
         r1 = min(Dd, r0 + B)
-        occ = np.asarray(vol[:, r0:r1, :]) != 0
+        occ = np.asarray(vol[:, r0:r1, :])
+        occ = lut[occ] if lut is not None else occ != 0  # lut: which palette ids count as solid
         lab, n = ndimage.label(occ, st)
         lab = lab.astype(np.int64)
         lab[lab > 0] += off
@@ -75,14 +76,14 @@ def components(vol, conn=6, B=192):
     return uf, groots, offs, st
 
 
-def scan(vol, g, pal, conn=6, B=192):
-    uf, groots, offs, st = components(vol, conn, B)
+def scan(vol, g, pal, conn=6, B=192, lut=None):
+    uf, groots, offs, st = components(vol, conn, B, lut)
     H, Dd, Ww = vol.shape
     comp = defaultdict(lambda: dict(n=0, r0=1 << 30, r1=-1, c0=1 << 30, c1=-1, z0=1 << 30, z1=-1, hmin=1 << 30, mats=Counter()))
     for r0, off, n in offs:
         r1 = min(Dd, r0 + B)
         sub = np.asarray(vol[:, r0:r1, :])
-        lab, n2 = ndimage.label(sub != 0, st)
+        lab, n2 = ndimage.label(lut[sub] if lut is not None else sub != 0, st)
         assert n2 == n
         lab = lab.astype(np.int64)
         lab[lab > 0] += off
@@ -132,9 +133,15 @@ if __name__ == "__main__":
     g = np.load(gp)
     meta = json.load(open("web/public/data/meta.json"))
     pal = meta["palette"]
-    res = scan(vol, g, pal, conn)
+    lut = None
+    tag = ""
+    if "--noleaf" in sys.argv:  # leaves do not hold anything up: buildings and posts must stand on their own
+        lut = np.array([e[3] != 3 for e in pal] + [False] * 64)
+        lut[0] = False
+        tag = "_noleaf"
+    res = scan(vol, g, pal, conn, lut=lut)
     Path("data/debug").mkdir(parents=True, exist_ok=True)
-    json.dump(res, open(f"data/debug/floating_all_{conn}.json", "w"))
+    json.dump(res, open(f"data/debug/floating_all_{conn}{tag}.json", "w"))
     MN = {0: "solid", 1: "wall", 2: "glass", 3: "leaf", 4: "water", 5: "lamp", 6: "metal", 7: "pkin", 8: "grass", 9: "mark",
           10: "soil", 11: "car", 12: "roof", 13: "concrete", 14: "clock", 15: "bronze", 16: "sign"}
     tot = Counter()

@@ -81,12 +81,16 @@ def parse_colour(s):
     s = s.split(";")[0].strip().lower().replace(" ", "")
     s = COLOUR_ALIASES.get(s, s)
     s = COLOUR_ALIASES.get(s, s)
-    if re.fullmatch(r"#?[0-9a-f]{6}|#?[0-9a-f]{3}", s):
-        return hex_rgb(s)
     try:
-        return hex_rgb(webcolors.name_to_hex(s))
+        rgb = hex_rgb(s) if re.fullmatch(r"#?[0-9a-f]{6}|#?[0-9a-f]{3}", s) else hex_rgb(webcolors.name_to_hex(s))
     except ValueError:
         return None
+    # building paint is never neon: a kiosk tagged "red" was #ff0000, a roof "lime" #00ff00 -- cap the saturation at
+    # 0.62 (a deep brick red, a strong but real green) and keep hue and lightness
+    h_, l_, s_ = colorsys.rgb_to_hls(*(v / 255 for v in rgb))
+    if s_ > 0.62 and 0.12 < l_ < 0.9:
+        rgb = tuple(round(v * 255) for v in colorsys.hls_to_rgb(h_, l_, 0.62))
+    return rgb
 
 
 def parse_len(s):
@@ -734,6 +738,14 @@ zlota = unary_union([l for oid, t, l in osm.lines if t.get("name") == "Złota"])
 canopy_near = ndimage.binary_dilation(veg, iterations=2)
 _vd, (_vr, _vc) = ndimage.distance_transform_edt(~veg, return_indices=True)
 trunk_at = np.zeros((D, W), bool)
+# where a trunk may stand: never on a carriageway, rails, tram bed or in the water; a trunk placed only from the canopy
+# (no tree known there) also not on paths and squares -- it would stand in the walkers' way -- but on soft ground
+_hard = np.isin(gcol, [C[k] for k in ("water", "asphalt", "asphalt_l", "rail", "trambed", "ballast", "cycle", "parking")]) | is_road
+trunk_ok_db = ~_hard
+trunk_ok_peak = np.isin(gcol, [C[k] for k in ("grass", "grass2", "garden", "scrub", "dirt", "dirt2", "fresh", "bare", "soil",
+                                               "flower", "flower2", "gravel")]) & ~is_road
+_okd, (_okr, _okc) = ndimage.distance_transform_edt(~(trunk_ok_peak & veg), return_indices=True)
+_dbd, (_dbr, _dbc) = ndimage.distance_transform_edt(~(trunk_ok_db & veg), return_indices=True)
 
 
 def put_trunk(r, c, thick=False):
@@ -753,6 +765,8 @@ for t in all_trees:
     if canopy_near[r, c]:
         if not veg[r, c] and _vd[r, c] <= 2.5:  # the point just off its crown's LiDAR cells: under the nearest one
             r, c = int(_vr[r, c]), int(_vc[r, c])
+        if veg[r, c] and not trunk_ok_db[r, c] and _dbd[r, c] <= 3:  # mapped onto the road edge: to the kerb side
+            r, c = int(_dbr[r, c]), int(_dbc[r, c])
         if veg[r, c]:
             put_trunk(r, c, thick=(t.get("trunk_cm") or 0) >= 250)
             t["drawn"] = "lidar"
@@ -782,6 +796,13 @@ for k in order:
     r, c = int(pr_[k]), int(pc_[k])
     if taken[max(0, r - 4):r + 5, max(0, c - 4):c + 5].any():
         continue
+    if not trunk_ok_peak[r, c]:  # the crown's top over a path or a road: the trunk on the nearest soft ground under it,
+        if _okd[r, c] <= 4:      # else on the pavement (a street tree), never on the carriageway
+            r, c = int(_okr[r, c]), int(_okc[r, c])
+        elif not trunk_ok_db[r, c]:
+            if _dbd[r, c] > 3:
+                continue
+            r, c = int(_dbr[r, c]), int(_dbc[r, c])
     put_trunk(r, c)
     taken[r, c] = True
     n_peak += 1
@@ -1143,14 +1164,27 @@ if _sw is not None and n_pyl:
                     if not (0 <= er < D and 0 <= ec < W):
                         continue
                     ez = g[er, ec] + (deck_h[er, ec] if deck_h[er, ec] > 0 else 12) + 1
-                    # one voxel per step along the major axis: a thin straight line, not a rope of double voxels
+                    # one voxel per step along the major axis: a thin straight line, not a rope of double voxels; where
+                    # a step moves along two or three axes at once, the voxels in between too, so the stay is one
+                    # face-connected chain from pylon to deck (corner-touching voxels hold nothing up)
                     n = int(max(abs(ex - px), abs(ey - py), abs(ez - za))) + 1
+                    prev = None
                     for j in range(n + 1):
                         f_ = j / n
                         x_, y_, z_ = px + (ex - px) * f_, py + (ey - py) * f_, za + (ez - za) * f_
-                        r_, c_, zz_ = int(y_), int(x_), int(z_)
-                        if 0 <= r_ < D and 0 <= c_ < W and 0 <= zz_ < vol.shape[0] and vol[zz_, r_, c_] == 0:
-                            vol[zz_, r_, c_] = stay
+                        cur = [int(y_), int(x_), int(z_)]
+                        pts_ = [cur]
+                        if prev is not None:
+                            p_ = list(prev)
+                            pts_ = []
+                            for ax in (2, 0, 1):  # down first, then across
+                                if p_[ax] != cur[ax]:
+                                    p_[ax] = cur[ax]
+                                    pts_.append(tuple(p_))
+                        for r_, c_, zz_ in pts_:
+                            if 0 <= r_ < D and 0 <= c_ < W and 0 <= zz_ < vol.shape[0] and vol[zz_, r_, c_] == 0:
+                                vol[zz_, r_, c_] = stay
+                        prev = cur
                     n_cab += 1
 note("Most Świętokrzyski stays:", n_cab)
 # lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they
@@ -1230,7 +1264,8 @@ if os.environ.get("LMCACHE"):  # the volume before the curated landmark details,
     import pickle
     Path("data/cache").mkdir(parents=True, exist_ok=True)
     np.save("data/cache/pre_vol.npy", vol)
-    pickle.dump(dict(g=g, feats=feats, deck=landmarks.DECK, bkind=bkind, trunk=C["trunk"], pole=C["pole"]),
+    pickle.dump(dict(g=g, feats=feats, deck=landmarks.DECK, bkind=bkind, trunk=C["trunk"], pole=C["pole"],
+                     trunk_ok=trunk_ok_db),
                 open("data/cache/pre_state.pkl", "wb"))
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
@@ -1274,7 +1309,7 @@ EXPORT_IDS = dict(keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LA
                          fol_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
                          grass_ids={i for i, e in enumerate(pal.entries) if e[3] == M_GRASS}, bare_id=C["bare"])
 # nothing hangs in the air: crowns get trunks, building pieces walls or posts, specks go (debris.support_floating)
-debris.support_floating(vol, g, pal, bkind, note, C["trunk"], C["pole"])
+debris.support_floating(vol, g, pal, bkind, note, C["trunk"], C["pole"], trunk_ok=trunk_ok_db)
 if os.environ.get("FINALDUMP"):  # the finished volume, for whole-city checks (scripts/floating.py)
     np.save("data/cache/final_vol.npy", vol)
     np.save("data/cache/final_g.npy", g)

@@ -55,7 +55,7 @@ def drop_debris(vol, g, keep_ids, note, max_size=100, B=256, M=24, box=None):  #
         json.dump(sorted(big, key=lambda b: -b["n"]), open("data/debug/floating.json", "w"))
 
 
-def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, B=192):
+def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, trunk_ok=None, B=192, _noleaf=True):
     """Everything still hanging in the air at the end of the build (scripts/floating.py's whole-city scan, 6-connected:
     walking and falling need face contact) gets put on the ground or removed:
     - a piece under 12 voxels: removed (a LiDAR return off a wire, a lone sign voxel); a spike (<= 4 cells across,
@@ -69,8 +69,15 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, B=192):
     bkind: (D, W) uint8, 1 = inside a building outline, 2 = under a roof-only structure."""
     import floating
     H, Dd, Ww = vol.shape
-    uf, groots, offs, st = floating.components(vol, 6, B)
     mat = np.array([e[3] for e in pal.entries] + [0] * 64)
+    solid = None
+    if _noleaf:
+        # first round: leaves hold nothing up -- a roof, a footbridge or a deck end that only touches a tree crown gets
+        # its own walls or posts; only building pieces 2 m or more up are handled here, the rest in the second round
+        # (a lamp on a hedge voxel or a trunk on scrub ground floats in this view but stands)
+        solid = np.array([e[3] != 3 for e in pal.entries] + [False] * 64)
+        solid[0] = False
+    uf, groots, offs, st = floating.components(vol, 6, B, solid)
     groots = np.array(sorted(groots))
     stats = {}
     # pass 1: per floating component: size, material classes, the lowest voxel above the ground
@@ -78,7 +85,7 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, B=192):
     for r0, off, n in offs:
         r1 = min(Dd, r0 + B)
         sub = vol[:, r0:r1, :]
-        lab, n2 = ndimage.label(sub != 0, st)
+        lab, n2 = ndimage.label(solid[sub] if solid is not None else sub != 0, st)
         ids = np.arange(1, n2 + 1) + off
         roots = np.array([uf.find(int(v)) for v in ids])
         fl = ~np.isin(roots, groots)
@@ -100,23 +107,34 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, B=192):
             k = int(Rs[a])
             idx = order[a:b]
             m = mat[v[idx]]
-            s = stats.setdefault(k, dict(n=0, leaf=0, bld=0, low=(1 << 30, 0, 0), cells=set()))
+            s = stats.setdefault(k, dict(n=0, leaf=0, bld=0, low=(1 << 30, 0, 0), cells=set(), hmin=1 << 30))
             s["n"] += len(idx)
+            s["hmin"] = min(s["hmin"], int(hz[idx].min()))
             if len(s["cells"]) <= 8:
                 s["cells"] |= set(((rr[idx] + r0) * Ww + cc[idx]).tolist()[:64])
             s["leaf"] += int(np.isin(m, (3,)).sum() + (v[idx] == trunk_id).sum())
-            s["bld"] += int(np.isin(m, (0, 1, 2, 7, 12, 13, 15, 16, 18, 19, 20, 21)).sum())
-            j = idx[np.argmin(hz[idx])]
-            if hz[j] < s["low"][0]:
-                s["low"] = (int(hz[j]), int(rr[j] + r0), int(cc[j]))
+            # building stuff only: walls, glass, roofs, concrete, PKiN stone, cladding, signs -- not plain solids or
+            # metal (cable stays, trunks, fences, masts), which must never be propped up on posts
+            s["bld"] += int(np.isin(m, (1, 2, 7, 12, 13, 15, 16, 18, 19, 20, 21)).sum())
+            # the trunk goes under the lowest leaf over soft ground (not into a road or a path), if there is any
+            okv = trunk_ok[rr[idx] + r0, cc[idx]] if trunk_ok is not None else np.ones(len(idx), bool)
+            pen = hz[idx] + np.where(okv, 0, 1000)
+            j = idx[np.argmin(pen)]
+            hj = int(pen.min())
+            if hj < s["low"][0]:
+                s["low"] = (hj, int(rr[j] + r0), int(cc[j]))
     cls = {}
     for k, s in stats.items():
+        if _noleaf:
+            hmin = min(s["low"][0] % 1000, s["hmin"])
+            cls[k] = "build" if (s["bld"] >= 0.5 * s["n"] and s["n"] >= 12 and hmin >= 2) else "skip"
+            continue
         if s["n"] < 12:
             cls[k] = "drop"
         elif len(s["cells"]) <= 4 and s["leaf"] < 0.5 * s["n"]:
             cls[k] = "drop"  # a spike: a column or two of LiDAR wall-edge returns standing over a lower roof"
         elif s["leaf"] >= 0.5 * s["n"]:
-            cls[k] = "drop" if s["n"] < 60 else "trunk"
+            cls[k] = "drop" if s["n"] < 60 or (s["low"][0] >= 1000 and s["n"] < 400) else "trunk"
         elif s["bld"] >= 0.5 * s["n"]:
             cls[k] = "build"
         else:
@@ -164,11 +182,16 @@ def support_floating(vol, g, pal, bkind, note, trunk_id, post_id, B=192):
     for k, c in cls.items():
         if c == "trunk":
             h, r_, c_2 = stats[k]["low"]
+            h %= 1000
             gz = int(g[r_, c_2])
             col = vol[gz:gz + h, r_, c_2]
             col[col == 0] = trunk_id
             n_trunk += 1
     left = [dict(id=int(k), n=stats[k]["n"], leaf=stats[k]["leaf"], bld=stats[k]["bld"], low=stats[k]["low"]) for k, c in cls.items() if c == "left"]
+    if _noleaf:
+        note(f"floating, leaves not holding: {sum(c == 'build' for c in cls.values())} building pieces resting only on "
+             f"crowns: {n_fill} columns filled down, {n_post} posts")
+        return support_floating(vol, g, pal, bkind, note, trunk_id, post_id, trunk_ok, B, _noleaf=False)
     note(f"floating: {len(stats)} components; removed {n_drop} voxels; {n_trunk} crowns given a trunk; building pieces: "
          f"{n_fill} columns filled down inside outlines, {n_post} posts; {len(left)} left (listed)")
     Path("data/debug").mkdir(parents=True, exist_ok=True)

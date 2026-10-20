@@ -432,6 +432,7 @@ def details_geometry(vol, g, feats, pal, note):
     classic_buildings(vol, g, feats, pal, note)
     poniatowski(vol, g, pal, note)
     bridges(vol, g, pal, note)
+    pge_spire(vol, g, pal, note)
     zlota44_crown(vol, g, pal, note)
     msn(vol, g, feats, pal, note)
     saski_site(vol, g, pal, note)
@@ -1820,7 +1821,9 @@ def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
             col = vol[:, r, c]
             gz = int(g[r, c])
             nz = np.nonzero(col[gz + 3:])[0]
-            if not len(nz):
+            if not len(nz):  # a slit the LiDAR left between two ways: the deck runs edge to edge
+                col[Zn - 2:Zn] = deck
+                n += 1
                 continue
             zb = gz + 3 + nz[0]  # slab bottom
             zt = zb + 1  # its top (road surface)
@@ -2015,6 +2018,11 @@ def saski_site(vol, g, pal, note):
                     h[min(i + 1, r1 - r0 - 1), j] < 2.5 or h[i, max(j - 1, 0)] < 2.5 or h[i, min(j + 1, c1 - c0 - 1)] < 2.5
                 if edge:
                     col[gz:gz + hh] = white if (r + c) % 4 else frame
+                else:  # the membrane continuous: down to the lowest neighbouring roof, so no step leaves a gap
+                    nb = [h[i2, j2] for i2, j2 in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1))
+                          if 0 <= i2 < r1 - r0 and 0 <= j2 < c1 - c0 and h[i2, j2] >= 2.5]
+                    lo = min([int(round(v)) for v in nb] + [hh])
+                    col[gz + lo - 1:gz + hh] = white
                 n += 1
     O = _orto()
     r0, r1, c0, c1 = SASKI_DIG
@@ -2293,6 +2301,8 @@ def lazienkowski(vol, g, pal, note):
         inband = w0 <= sv <= w1 and (lv < lmin + 4.5 or lv > lmax - 4.5)
         if inband:
             col[zt - 7] = walk
+            if zt - 7 - int(g[r, c]) <= 3:  # the bank comes up under the walkway: it runs on the ground (to the ramps)
+                col[int(g[r, c]):zt - 7] = walk
             if lv < lmin + 1 or lv > lmax - 1:
                 col[zt - 6] = rail
         else:
@@ -2358,3 +2368,55 @@ def swietokrzyski_piers(vol, g, pal, note):
         mid = (lmin + lmax) / 2
         _pier(vol, g, F, s0, 3, mid - 3.5, mid + 3.5, int(round(zt)) - 4, pylc, round_ends=1.5)
     note(f"Most Świętokrzyski: box under {n} deck cells, {len(SWK_SPANS_W) + len(SWK_SPANS_E)} piers, pylon at station {sp:.0f}")
+
+
+def _line6(vol, a, b, val):
+    """a face-connected voxel line from a to b ((z, row, col) floats): one axis per step, so it holds together for
+    walking and the support check; only empty voxels are drawn"""
+    n = int(max(abs(b[i] - a[i]) for i in range(3))) + 1
+    prev = None
+    k = 0
+    for j in range(n + 1):
+        f = j / n
+        cur = [int(a[i] + (b[i] - a[i]) * f) for i in range(3)]
+        steps = [cur]
+        if prev is not None:
+            p = list(prev)
+            steps = []
+            for ax in (0, 1, 2):
+                if p[ax] != cur[ax]:
+                    p[ax] = cur[ax]
+                    steps.append(tuple(p))
+        for z, r, c in steps:
+            if 0 <= z < vol.shape[0] and 0 <= r < vol.shape[1] and 0 <= c < vol.shape[2] and vol[z, r, c] == 0:
+                vol[z, r, c] = val
+                k += 1
+        prev = cur
+    return k
+
+
+PGE_SPIRE = (1341, 3579)  # the LiDAR's spire over the pitch (rows, cols)
+
+
+def pge_spire(vol, g, pal, note):
+    """PGE Narodowy's spire hangs over the pitch in the roof's cable net (the retractable roof's cables converge on
+    it); the LiDAR caught the spire but not the cables, so it hung alone in the air. Eight cables from its middle to
+    the inner edge of the roof, found by looking outward along eight directions."""
+    r0, c0 = PGE_SPIRE
+    col = vol[:, r0 - 2:r0 + 3, c0 - 2:c0 + 3]
+    zs = np.nonzero((col != 0).any(axis=(1, 2)) & (np.arange(vol.shape[0]) > int(g[r0, c0]) + 30))[0]
+    if not len(zs):
+        note("PGE spire: not found")
+        return
+    zm = (int(zs.min()) + int(zs.max())) // 2
+    cable = pal((70, 74, 78), MAT_IDS["metal"])
+    n = 0
+    for a in range(0, 360, 45):
+        t = math.radians(a)
+        for d in range(3, 200):
+            r, c = int(r0 + math.sin(t) * d), int(c0 + math.cos(t) * d)
+            nz = np.nonzero(vol[zm - 12:zm + 4, r, c])[0]
+            if len(nz):
+                n += _line6(vol, (zm, r0 + math.sin(t) * 1.5, c0 + math.cos(t) * 1.5), (zm - 12 + int(nz.max()), r, c), cable)
+                break
+    note(f"PGE spire: hung on 8 cables ({n} voxels) at {zm} m")
