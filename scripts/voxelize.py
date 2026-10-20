@@ -488,8 +488,11 @@ note("roof cells under tree canopy clipped:", int(over.sum()))
 
 # bottoms (overhangs: roofs/carports/stacked parts with no part below)
 bot_rel = np.full((D, W), 1e9, np.float32)
-for f in render:
-    bot_rel[f["rr"], f["cc"]] = np.minimum(bot_rel[f["rr"], f["cc"]], f["minh"])
+# outlines drawn only through their parts count too: a part starting at 19 m with no part mapped under it (the WFC
+# tower, InterContinental, a ministry's top floors) stands on its outline's walls, it does not hover over the street
+for f in feats:
+    if f["render"] or f.get("has_parts"):
+        bot_rel[f["rr"], f["cc"]] = np.minimum(bot_rel[f["rr"], f["cc"]], f["minh"])
 bot_rel[~bmask] = 0
 bot_rel[bot_rel < 2.5] = 0
 
@@ -676,7 +679,11 @@ note("green roof cells:", int(green_roof.sum()))
 
 # ---------------------------------------------------------------- vegetation (LiDAR canopy + OSM trees)
 trees = [(oid, t, p) for oid, t, p in osm.nodes if t.get("natural") == "tree"]
-tree_rc = np.array([(int(p.y), int(p.x)) for _, _, p in trees if 0 <= p.x < W and 0 <= p.y < D])
+# every known tree: the city's green-areas database (inventory number, species, trunk), OSM, the 2010-13 inventory
+import trees as treedb
+all_trees, _tc = treedb.load(trees)
+note("trees from the databases:", _tc, "total", len(all_trees))
+tree_rc = np.array([(int(t["y"]), int(t["x"])) for t in all_trees])
 near_tree = np.zeros((D, W), bool)
 if len(tree_rc):
     near_tree[tree_rc[:, 0], tree_rc[:, 1]] = True
@@ -717,24 +724,82 @@ for zz in range(int(g.min()) + 1, int((g + crown_top).max()) + 1):
     vol[zz][sel] = np.where(cur == 0, leafidx[sel], cur)
 note("canopy cells:", int(veg.sum()))
 
-# trunks at OSM trees (inside canopy) + procedural trees where LiDAR has no crown (planted after 2025 flight)
-n_new = 0
+# trunks: every known tree standing under a LiDAR crown gets one, from the ground up into its crown (the crown's leaf
+# columns start at crown_bot, so the trunk's top voxel touches them face to face: the crown stands, it does not float);
+# a known tree with no crown in the 2025 LiDAR (planted since) is drawn procedurally. Crowns that no database tree
+# stands under get trunks at their tops (local maxima of the canopy height, >= 5 m apart).
+n_new = n_trunk = 0
 from shapely.ops import unary_union
 zlota = unary_union([l for oid, t, l in osm.lines if t.get("name") == "Złota"])
 canopy_near = ndimage.binary_dilation(veg, iterations=2)
-for oid, t, p in trees:
-    c, r = int(p.x), int(p.y)
+_vd, (_vr, _vc) = ndimage.distance_transform_edt(~veg, return_indices=True)
+trunk_at = np.zeros((D, W), bool)
+
+
+def put_trunk(r, c, thick=False):
+    hb = int(crown_bot[r, c]) + 1  # one voxel into the crown
+    for dr, dc in ((0, 0), (0, 1), (1, 0), (1, 1)) if thick else ((0, 0),):
+        rr_, cc_ = r + dr, c + dc
+        if 0 <= rr_ < D and 0 <= cc_ < W and not bmask[rr_, cc_]:
+            vol[g[rr_, cc_]:g[rr_, cc_] + hb, rr_, cc_] = C["trunk"]
+    trunk_at[r, c] = True
+
+
+for t in all_trees:
+    c, r = int(t["x"]), int(t["y"])
     if not (2 <= c < W - 2 and 2 <= r < D - 2) or bmask[r, c]:
+        t["drawn"] = "none"
         continue
     if canopy_near[r, c]:
-        hb = int(crown_bot[r, c]) if veg[r, c] else 3
-        vol[g[r, c]:g[r, c] + hb, r, c] = C["trunk"]
-    else:
-        n_new += 1
-        # Zielona Złota (opened Aug 2026): elms planted at ~9 m (research.md)
-        hgt = parse_len(t.get("height")) or (9 if p.x > 1000 and p.distance(zlota) < 12 else None)
-        landmarks.small_tree(vol, g, r, c, stable_hash(oid), LEAVES, C["trunk"], height=hgt)
-note("OSM trees without 2025 LiDAR crown -> procedural:", n_new)
+        if not veg[r, c] and _vd[r, c] <= 2.5:  # the point just off its crown's LiDAR cells: under the nearest one
+            r, c = int(_vr[r, c]), int(_vc[r, c])
+        if veg[r, c]:
+            put_trunk(r, c, thick=(t.get("trunk_cm") or 0) >= 250)
+            t["drawn"] = "lidar"
+            t["z"] = int(g[r, c])
+            t["h"] = int(crown_top[r, c])
+            n_trunk += 1
+            continue
+        t["drawn"] = "none"  # under another tree's crown edge: its own crown is not resolved
+        continue
+    n_new += 1
+    # Zielona Złota (opened Aug 2026): elms planted at ~9 m (research.md)
+    p = Point(t["x"], t["y"])
+    hgt = (t.get("height") if t["src"] != "city" else None) or (9 if p.x > 1000 and p.distance(zlota) < 12 else None)
+    landmarks.small_tree(vol, g, r, c, stable_hash(t["id"]), LEAVES, C["trunk"], height=hgt)
+    t["drawn"] = "procedural"
+    t["z"] = int(g[r, c])
+note("trunks under LiDAR crowns at known trees:", n_trunk)
+note("known trees without a 2025 LiDAR crown -> procedural:", n_new)
+# crowns no database tree stands under: a trunk at each canopy top >= 5 m from any trunk
+peak = veg & (nd_mean >= ndimage.maximum_filter(np.where(veg, nd_mean, 0), size=7)) & (nd_mean >= 4)
+_td = ndimage.distance_transform_edt(~trunk_at)
+pr_, pc_ = np.nonzero(peak & (_td >= 5))
+order = np.argsort(-nd_mean[pr_, pc_])
+taken = np.zeros((D, W), bool)
+n_peak = 0
+for k in order:
+    r, c = int(pr_[k]), int(pc_[k])
+    if taken[max(0, r - 4):r + 5, max(0, c - 4):c + 5].any():
+        continue
+    put_trunk(r, c)
+    taken[r, c] = True
+    n_peak += 1
+note("trunks at canopy tops with no known tree under them:", n_peak)
+# the tree register for the viewer (ids for later mapping: city inventory number / osm node / 2010-13 inventory)
+_tr = []
+for t in all_trees:
+    rec = dict(id=t["id"], x=round(t["x"], 1), y=round(t["y"], 1), src=t["src"], drawn=t.get("drawn"))
+    for k_src, k_out in (("z", "z"), ("h", "h"), ("species", "sp"), ("species_pl", "pl"), ("trunk_cm", "cm"),
+                         ("osm", "osm"), ("um_id", "um"), ("height", "h_inv"), ("crown_d", "crown_d"),
+                         ("condition", "cond"), ("manager", "mgr"), ("date", "date")):
+        if t.get(k_src) is not None:
+            rec[k_out] = t[k_src]
+    _tr.append(rec)
+Path(OUT).mkdir(parents=True, exist_ok=True)
+json.dump(dict(sources={"city": "Baza Obiektów Zieleni, mapa.um.warszawa.pl (Zieleń)", "osm": "OpenStreetMap natural=tree",
+                        "um": "api.um.warszawa.pl drzewa (2010-13 inventory)"}, trees=_tr),
+          open(Path(OUT) / "trees.json", "w"), ensure_ascii=False, separators=(",", ":"))
 
 # ---------------------------------------------------------------- fountains (visual_ref.md, Commons photos Aug 2026)
 # Flat walk-on fountain on the filled-in Marszałkowska tunnel ramp: dark speckled granite cut into irregular
@@ -1152,11 +1217,21 @@ note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 landmarks.apply_zones(vol, g, feats, pal, bmask, note)
 floods = landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
 leaf_ids = {i for i, e in enumerate(pal.entries) if e[3] in (M_LEAF,)}
+# where a hanging building piece may carry its walls down (1: inside a building outline) or needs posts (2: roof-only)
+bkind = np.zeros((D, W), np.uint8)
+ROOFY = {"roof", "carport", "canopy", "shelter"}
+for f in feats:
+    if f["tags"].get("building") not in ROOFY and f["tags"].get("building:part") != "roof":
+        bkind[f["rr"], f["cc"]] = 1
+for f in feats:
+    if f["tags"].get("building") in ROOFY or f["tags"].get("building:part") == "roof":
+        bkind[f["rr"], f["cc"]] = 2
 if os.environ.get("LMCACHE"):  # the volume before the curated landmark details, for scripts/patch.py
     import pickle
     Path("data/cache").mkdir(parents=True, exist_ok=True)
     np.save("data/cache/pre_vol.npy", vol)
-    pickle.dump(dict(g=g, feats=feats, deck=landmarks.DECK), open("data/cache/pre_state.pkl", "wb"))
+    pickle.dump(dict(g=g, feats=feats, deck=landmarks.DECK, bkind=bkind, trunk=C["trunk"], pole=C["pole"]),
+                open("data/cache/pre_state.pkl", "wb"))
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
                     pal=np.array(pal.entries, np.int32))  # PKiN's block for facade work (r0=1080, c0=600)
@@ -1198,6 +1273,11 @@ EXPORT_IDS = dict(keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LA
                          face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK},
                          fol_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
                          grass_ids={i for i, e in enumerate(pal.entries) if e[3] == M_GRASS}, bare_id=C["bare"])
+# nothing hangs in the air: crowns get trunks, building pieces walls or posts, specks go (debris.support_floating)
+debris.support_floating(vol, g, pal, bkind, note, C["trunk"], C["pole"])
+if os.environ.get("FINALDUMP"):  # the finished volume, for whole-city checks (scripts/floating.py)
+    np.save("data/cache/final_vol.npy", vol)
+    np.save("data/cache/final_g.npy", g)
 tile_info = tiles.export(vol, g, OUT / "tiles", note, **EXPORT_IDS)
 if os.environ.get("LMCACHE"):
     pickle.dump(dict(EXPORT_IDS, debris_keep=[i for i, e in enumerate(pal.entries) if e[3] == M_LEAF] + [C["trunk"]]),

@@ -1838,10 +1838,12 @@ def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
         rise = 9 if span > 50 else 5
         t = (c + 0.5 - a) / span
         zr = Zn - 3 - rise * (2 * t - 1) ** 2  # parabola: springing `rise` m down at the piers, crown under the deck
+        zr_next = Zn - 3 - rise * (2 * min((c + 1.5 - a) / span, 1.0) - 1) ** 2
         for f in (0.08, 0.36, 0.64, 0.92):
             r = int(round(rn + (rsr - rn) * f))
             z = int(round(zr))
-            vol[z:z + 1, r, c] = steel
+            z2 = int(round(zr_next))
+            vol[min(z, z2):max(z, z2) + 1, r, c] = steel  # steep near the piers: fill to the next column's height
             if (c - a) % 4 == 0:
                 vol[z:Zn - 2, r, c] = steel
     for p in PONIATOWSKI_PIERS:  # stone piers with pointed cutwaters past both edges
@@ -2242,8 +2244,8 @@ def srednicowy(vol, g, pal, note):
             col[top] = chord  # top chord under the sleepers
             if outer:  # the web only on the outer trusses: seen through each other the four read as noise
                 col[int(round(z0)) - 1:max(int(round(z1)), int(round(z0)) + 1) + 1] = truss  # the panel's diagonal
-                if f < 1.0 / P:
-                    col[zb:top] = truss  # a vertical at each panel point
+            if f < 1.0 / P:
+                col[zb:top] = truss  # a vertical at each panel point (the inner trusses too: their chords hang on them)
             col[zb:zb + 2] = chord  # the arched bottom chord
             n += 1
     for k, s0 in enumerate(sup):
