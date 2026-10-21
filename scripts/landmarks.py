@@ -141,7 +141,9 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
         # the last without "to" running to the top
         bands, chk = [], None
         for b in st.get("bands", []):
-            if "checker" in b:
+            if "repeat" in b:  # floor by floor: [[metres, colour, material], ...] cycled upward (Zebra Tower's spandrels)
+                bands.append((b.get("to", 10 ** 4), [(n, pal(_hex(c), MAT_IDS[m])) for n, c, m in b["repeat"]]))
+            elif "checker" in b:
                 chk = [pal(_hex(c), MAT_IDS[b.get("material", "wall")]) for c in b["checker"]]
                 bands.append((b.get("to", 10 ** 4), "checker"))
             else:
@@ -222,6 +224,14 @@ def apply_stripes(vol, g, bmask, pal, osm, cells_of, note):
                         t = rows / max(1, (to - lo) // ch - 1)
                         hsh = (np.int64(arc // cw) * 73856093 ^ rows.astype(np.int64) * 19349663) % 1000 / 1000
                         out[sel] = np.where(hsh < b.get("p", 0.25) + b.get("dp", 0.4) * t, chk[1], chk[0])
+                    elif isinstance(kind, list):
+                        per = sum(n for n, _ in kind)
+                        ph = (hz[sel] - lo) % per
+                        o_, acc = np.zeros(int(sel.sum()), out.dtype), 0
+                        for n, cid in kind:
+                            o_[(ph >= acc) & (ph < acc + n)] = cid
+                            acc += n
+                        out[sel] = o_
                     else:
                         out[sel] = kind
                     lo = to

@@ -493,7 +493,19 @@ for f in render:
     f["dsm_med"] = med
     if f["maxh"] - p90 > 8:
         small = f["area"] < 80 and p90 > 0.7 * f["maxh"]  # needle on top of a tall building
-        if small or p90 < 0.35 * f["maxh"]:  # else: nothing tall there in 2025 -> built after the flight
+        rh = parse_len(f["tags"].get("roof:height")) or 0
+        pointed = f["tags"].get("roof:shape") in ("pyramidal", "conical", "onion", "spire", "dome") and rh >= 3
+        if pointed and len(f["rr"]) >= 9 and p90 > 0.6 * (f["maxh"] - rh):
+            # a tower's pointed roof the LiDAR missed (Salvator's two bell towers: 61 m of tower, a 15 m pyramid): it
+            # rises from the eaves to its peak by distance from the part's edge -- not the whole footprint at 76 m
+            rr_, cc_ = f["rr"], f["cc"]
+            m_ = np.zeros((rr_.max() - rr_.min() + 3, cc_.max() - cc_.min() + 3), bool)
+            m_[rr_ - rr_.min() + 1, cc_ - cc_.min() + 1] = True
+            dep = ndimage.distance_transform_edt(m_)[rr_ - rr_.min() + 1, cc_ - cc_.min() + 1]
+            roof_ = (f["maxh"] - rh) + rh * (dep - 1) / max(dep.max() - 1, 1)
+            top[rr_, cc_] = np.maximum(top[rr_, cc_], roof_)
+            src_osm.append((f["id"], tag(f, "name"), round(p90, 1), f["maxh"], "pointed roof"))
+        elif small or p90 < 0.35 * f["maxh"]:  # else: nothing tall there in 2025 -> built after the flight
             # spire/needle under-sampled by LiDAR, or built after the 2025 flight
             top[f["rr"], f["cc"]] = np.maximum(top[f["rr"], f["cc"]], f["maxh"])
             src_osm.append((f["id"], tag(f, "name"), round(p90, 1), f["maxh"], "spire" if small else "new"))
@@ -587,6 +599,10 @@ bmask &= topi >= 2
 
 
 # colours/materials per feature
+SACRED = {"church", "cathedral", "chapel", "basilica", "synagogue", "mosque", "temple", "shrine"}
+M_CLASSIC = 20
+
+
 def wall_style(f):
     t = f["tags"]
     mat_tag = (tag(f, "building:material") or "").lower()
@@ -610,6 +626,8 @@ def wall_style(f):
         col = hex_rgb("#a95f45")
     if col is None:
         col = hex_rgb(WALL_DEFAULTS[stable_hash(f["id"]) % len(WALL_DEFAULTS)])
+    if btype in SACRED or tag(f, "amenity") == "place_of_worship":
+        return pal(soften(col), M_CLASSIC)  # stone or brick, tall windows: not the shader's office grid of storeys
     return pal(soften(col), M_WALL)
 
 
@@ -659,6 +677,32 @@ basewall = np.zeros((D, W), np.uint16)
 roofcol_fix = np.zeros((D, W), np.uint16)
 for f in sorted(render, key=lambda f: f["maxh"] or float(np.median(top[f["rr"], f["cc"]]))):
     basewall[f["rr"], f["cc"]] = f["wall"]
+# an outline's cell outside all its parts, where the LiDAR stands as tall as a part within 4 m, is that part mapped a
+# little small (the Telecom tower's beige concrete came out in the outline's brown glass): the part's wall
+_parts = sorted([f for f in render if f["part"] and f["maxh"]], key=lambda f: f["maxh"])
+_pid = np.zeros((D, W), np.int32)
+for i_, f in enumerate(_parts, 1):
+    _pid[f["rr"], f["cc"]] = i_
+n_pw = 0
+for f in render:
+    if f["part"] or not f.get("has_parts"):
+        continue
+    rr_, cc_ = f["rr"], f["cc"]
+    r0_, c0_ = max(rr_.min() - 5, 0), max(cc_.min() - 5, 0)
+    sub_ = _pid[r0_:rr_.max() + 6, c0_:cc_.max() + 6]
+    if not (sub_ > 0).any():
+        continue
+    d_, (ir_, ic_) = ndimage.distance_transform_edt(sub_ == 0, return_indices=True)
+    k_ = _pid[rr_, cc_] == 0
+    for r_, c_ in zip(rr_[k_], cc_[k_]):
+        i_, j_ = r_ - r0_, c_ - c0_
+        if d_[i_, j_] > 4:
+            continue
+        p_ = _parts[sub_[ir_[i_, j_], ic_[i_, j_]] - 1]
+        if abs(p_["maxh"] - topi[r_, c_]) <= 6 and p_["wall"] != basewall[r_, c_]:
+            basewall[r_, c_] = p_["wall"]
+            n_pw += 1
+note("outline cells given their adjacent part's wall:", n_pw)
 # LiDAR tower taller than the OSM part covering the cell (footprints misregistered, e.g. Marriott):
 # take the facade from the nearest OSM part that is tall enough to explain the height
 tall_id = np.zeros((D, W), np.int32)
@@ -701,6 +745,16 @@ for f in sorted(render, key=lambda f: f["maxh"] or 0):
     roofcol[f["rr"], f["cc"]] = f["roof"]
 roofcol = np.where(roofcol_fix > 0, roofcol_fix, roofcol)
 green_roof = bmask & (exg > 0.08) & (topi < 40) & ~over
+# a small step in a facade (a 1-3 m setback, a stair of a sloping wing, an edge left lower by the LiDAR) is wall, not
+# roof: the building's roof colour (taken from the ortho over its whole top) put cream blobs and checkerboards on glass
+# towers (Rondo 1, Złota 44's wing). Patches under 25 cells more than 6 m below the highest top within 3 m.
+_ledge = bmask & (topi < ndimage.maximum_filter(np.where(bmask, topi, 0), 7) - 6)
+_lab, _n = ndimage.label(_ledge)
+if _n:
+    _sz = ndimage.sum(_ledge, _lab, range(1, _n + 1))
+    _ledge &= np.r_[False, _sz < 25][_lab]
+roofcol = np.where(_ledge & ~green_roof, basewall, roofcol)
+note("facade steps topped with wall colour:", int(_ledge.sum()))
 rr, cc = np.nonzero(bmask)
 vol[zt[rr, cc] - 1, rr, cc] = np.where(green_roof[rr, cc], C["garden"], roofcol[rr, cc])
 note("green roof cells:", int(green_roof.sum()))
@@ -736,6 +790,16 @@ sizes = ndimage.sum(veg, lab, range(1, n + 1))
 veg &= np.isin(lab, np.nonzero(sizes >= 4)[0] + 1)
 hs = ndimage.gaussian_filter(np.where(veg, nd_mean, 0), 2) / np.maximum(ndimage.gaussian_filter(veg.astype(float), 2), 1e-3)
 crown_top = np.round(np.minimum(nd_mean, 40)).astype(np.int32)
+# against a wall the DSM is the wall's (Telecom tower, Salvator: 1 m green pillars 20-30 m up the facades): within 2 m
+# of a building a crown is no taller than its canopy away from the walls (gaussian mean x 1.25 + 2 m), 12 m with none
+_nearb = ndimage.binary_dilation(bmask, iterations=2) & veg
+_far = veg & ~ndimage.binary_dilation(bmask, iterations=2)
+_wf = ndimage.gaussian_filter(_far.astype(np.float32), 3)
+_hf = ndimage.gaussian_filter(np.where(_far, nd_mean, 0).astype(np.float32), 3) / np.maximum(_wf, 1e-3)
+_cap = np.where(_wf > 0.05, _hf * 1.25 + 2, 12)
+_clip = _nearb & (crown_top > _cap)
+crown_top = np.where(_clip, np.round(_cap), crown_top).astype(np.int32)
+note("crowns against walls clipped to their canopy:", int(_clip.sum()))
 crown_bot = np.clip(np.round(hs * 0.38), 2, None).astype(np.int32)
 crown_bot = np.minimum(crown_bot, crown_top - 1)
 # leaf colour from ortho: luminance x hue bins
