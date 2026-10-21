@@ -331,6 +331,7 @@
       "_note": "Hotel Polonia Palace: warm apricot plaster with white stucco, blue-grey slate roof (Commons 2019-2023); OSM has no colour"
     },
     "696919321": {
+      "min_part_height": 50,
       "wall": {
         "colour": "#6f97b8",
         "material": "glass"

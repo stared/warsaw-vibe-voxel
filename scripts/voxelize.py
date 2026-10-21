@@ -752,8 +752,8 @@ n_pw = 0
 for f in render:
     if f["part"] or not f.get("has_parts"):
         continue
-    if f["tags"].get("building:colour") or f["tags"].get("building:material"):
-        continue  # the outline has its own facade (a glass upper storey round a white part): it stays
+    if f["tags"].get("building:colour"):
+        continue  # the outline has its own facade colour (a glass upper storey round a white part): it stays
     rr_, cc_ = f["rr"], f["cc"]
     r0_, c0_ = max(rr_.min() - 5, 0), max(cc_.min() - 5, 0)
     sub_ = _pid[r0_:rr_.max() + 6, c0_:cc_.max() + 6]
