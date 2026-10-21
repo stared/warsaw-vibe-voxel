@@ -157,13 +157,6 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         bool vert = abs(vN.y) < 0.5;
         float u = abs(vN.x) > 0.5 ? cell.z : cell.x;      // along the facade
         float wpos = abs(vN.x) > 0.5 ? cell.x : cell.z;   // constant across one facade plane
-        if (abs(vNs.y) < 0.5 && dot(vNs, vN) < 0.94) {  // diagonal walls only (20+ deg): near the axis the steps are long runs
-          // a staircase wall (mesher: its direction in plan): windows and panels run along the true wall, not restart
-          // on each 1 m step -- they alternated window / wall step by step, striping every rotated facade
-          vec2 tg = vec2(-vNs.z, vNs.x);  // one step per visible face: a staircase shows |tx| + |tz| faces per metre of wall
-          u = floor(dot(cell.xz + 0.5, tg) * (abs(tg.x) + abs(tg.y)) + 0.5);
-          wpos = floor(dot(cell.xz + 0.5, vNs.xz) + 0.5);
-        }
         float h = hash13(cell);
         gEmissive = vec3(0.); gRough = 0.88; gMetal = 0.0;
         vec3 col = base * (0.97 + 0.06 * h);

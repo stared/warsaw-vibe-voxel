@@ -816,7 +816,7 @@ note("facade steps topped with wall colour:", int(_ledge.sum()))
 rr, cc = np.nonzero(bmask)
 vol[zt[rr, cc] - 1, rr, cc] = np.where(green_roof[rr, cc], C["garden"], roofcol[rr, cc])
 note("green roof cells:", int(green_roof.sum()))
-# rooftop plant rooms, lift housings and stair heads (1.5-8 m over a building's main roof, under 150 cells) are roof
+# rooftop plant rooms, lift housings and stair heads (1.5-5 m over a building's main roof, under 80 cells) are roof
 # material, not facade: they wore the facade's office windows and read as little houses on every roof (Metropolitan)
 n_rb = 0
 for f in render:
@@ -827,13 +827,13 @@ for f in render:
     med_ = int(np.median(t_))
     if med_ < 6:
         continue
-    up_ = (t_ > med_ + 1.5) & (t_ <= med_ + 8)
+    up_ = (t_ > med_ + 1.5) & (t_ <= med_ + 5)  # a plant room, lift housing or stair head: one storey
     if not up_.any():
         continue
     m_ = np.zeros((rr_.max() - rr_.min() + 1, cc_.max() - cc_.min() + 1), bool)
     m_[rr_[up_] - rr_.min(), cc_[up_] - cc_.min()] = True
     lab_, nl_ = ndimage.label(m_)
-    small_ = np.r_[False, ndimage.sum(m_, lab_, range(1, nl_ + 1)) < 150]
+    small_ = np.r_[False, ndimage.sum(m_, lab_, range(1, nl_ + 1)) < 80]
     # set back from the facade (none of it within 2 m of the outline's edge): a top storey flush with the facade
     # (Fabryczna 2's crown) is building, not plant room
     fp_ = np.zeros(m_.shape, bool)
