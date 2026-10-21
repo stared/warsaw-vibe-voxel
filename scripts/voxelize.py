@@ -163,6 +163,10 @@ def wall_clean(dsm):
     for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
         steep |= np.abs(pad[1 + dr:1 + dr + dsm.shape[0], 1 + dc:1 + dc + dsm.shape[1]] - dsm) >= 3
     mixed &= steep
+    # below a broad upper level only: spires, lanterns and stepped crowns (All Saints' towers, Hotel Warszawa's crown)
+    # were cut down to flat boxes; a wall edge has a roof beside it
+    # (the upper level must survive a 4.5 m opening: a roof does, a spire's tip does not)
+    mixed &= ndimage.maximum_filter(ndimage.grey_opening(dsm, size=(9, 9)), 7) >= hi - 3
     out = np.where(mixed, np.where(dsm - lo < hi - dsm, lo, hi), dsm)
     note("DSM wall-edge samples snapped to roof or street:", int(mixed.sum()))
     return out
