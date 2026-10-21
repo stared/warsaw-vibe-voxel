@@ -585,6 +585,24 @@ def flatten_roofs(top):
                 k = (np.abs(v - lm) <= 2.5) & (lm > 3)
                 n_c += int((k & (v != lm)).sum())
                 top[rr[k], cc[k]] = lm[k]
+                # then the roof's own levels: peaks of its height histogram (1 m bins, 6 % of the roof or 40 cells);
+                # cells within 1.5 m of a level go to it -- 1 m terraces of LiDAR noise between them (lumpy
+                # podium roofs, LIM, Metropolitan) were drawn as steps
+                v2 = top[rr, cc]
+                hist = np.bincount(np.clip(np.round(v2).astype(int), 0, 400), minlength=402)
+                lev = [h for h in range(1, 401) if hist[h] >= max(40, 0.06 * len(v2)) and hist[h] >= hist[h - 1] and hist[h] >= hist[h + 1]]
+                if lev:
+                    # levels closer than 2.5 m are one level with noise (two neighbouring 1 m bins): the larger stays
+                    lev = sorted(lev, key=lambda h: -hist[h])
+                    keep_ = []
+                    for h in lev:
+                        if all(abs(h - k_) >= 2.5 for k_ in keep_):
+                            keep_.append(h)
+                    lev = np.array(sorted(keep_), np.float32)
+                    j = np.argmin(np.abs(v2[:, None] - lev[None]), axis=1)
+                    k2 = np.abs(v2 - lev[j]) <= 1.5
+                    n_c += int((k2 & (v2 != lev[j])).sum())
+                    top[rr[k2], cc[k2]] = lev[j][k2]
                 n_f += 1
             continue
         r0, c0 = rr.min(), cc.min()
