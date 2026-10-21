@@ -461,6 +461,7 @@ def details_geometry(vol, g, feats, pal, note):
     poniatowski(vol, g, pal, note)
     bridges(vol, g, pal, note)
     pge_spire(vol, g, pal, note)
+    aviation_masts(vol, g, pal, note)
     zlota44_crown(vol, g, pal, note)
     msn(vol, g, feats, pal, note)
     saski_site(vol, g, pal, note)
@@ -2568,6 +2569,36 @@ def _line6(vol, a, b, val):
                 k += 1
         prev = cur
     return k
+
+
+# antenna masts on the towers whose photos show them banded red and white (Commons: Q22 2016-2019 from Rondo ONZ, LIM
+# from Jerozolimskie, WFC from Emilii Plater): the LiDAR caught them as 1-2 m columns over the roof, left grey
+AVIATION_MASTS = {"Q22": (649, 373, 32), "Centrum LIM": (1622, 468, 60), "WFC": (947, 519, 30)}  # row, col, radius
+
+
+def aviation_masts(vol, g, pal, note):
+    red, white = pal(_hex("#c8322d"), MAT_IDS["metal"]), pal(_hex("#e8e6e1"), MAT_IDS["metal"])
+    n = 0
+    for name, (rc, cc, R) in AVIATION_MASTS.items():
+        r0, r1, c0, c1 = rc - R, rc + R, cc - R, cc + R
+        sub = vol[:, r0:r1, c0:c1]
+        occ = sub != 0
+        H = occ.shape[0]
+        top = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0)
+        hi = top[top > 0.6 * top.max()]
+        roof_h = int(np.percentile(hi, 90)) if len(hi) else int(top.max())  # the tower's own roof
+        mast = top > roof_h + 8  # only what stands well above it (not a tower's serrated edge over its podium)
+        lab, nl = ndimage.label(mast)
+        if nl:  # a mast is a needle: a few cells across
+            mast &= np.r_[False, ndimage.sum(mast, lab, range(1, nl + 1)) <= 6][lab]
+        roof = np.full(top.shape, roof_h)
+        for r, c in zip(*np.nonzero(mast)):
+            z0, z1 = int(roof[r, c]) + 1, int(top[r, c]) + 1
+            for z in range(z0, z1):
+                if sub[z, r, c]:
+                    sub[z, r, c] = red if ((z1 - z) // 4) % 2 == 0 else white
+            n += 1
+    note("aviation masts banded red/white:", n, "columns")
 
 
 PGE_SPIRE = (1341, 3579)  # the LiDAR's spire over the pitch (rows, cols)
