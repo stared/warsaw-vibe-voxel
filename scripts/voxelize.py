@@ -840,6 +840,14 @@ if len(tree_rc):
     near_tree[tree_rc[:, 0], tree_rc[:, 1]] = True
     near_tree = ndimage.binary_dilation(near_tree, iterations=3)
 veg = (~bmask) & (nd_mean > 2.2) & ((exg > 0.025) | (near_tree & (exg > -0.03)))
+# nor inside any building's outline: one drawn only through its parts (Salvator church) left the cells between its
+# parts out of bmask, and its green copper roof grew 1 800 leaf voxels, pillars up its front
+_allb = np.zeros((D, W), bool)
+for f in feats:
+    if not f["part"] and f["tags"].get("building") not in ("roof", "carport", "canopy"):
+        _allb[f["rr"], f["cc"]] = True
+note("vegetation cells inside building outlines dropped:", int((veg & _allb).sum()))
+veg &= ~_allb
 # LiDAR wall edges outside OSM footprints look like tall "trees": reject cells next to a building
 # whose height is close to that building's roof
 btop_near = ndimage.maximum_filter(np.where(bmask, topi, 0), size=7)
