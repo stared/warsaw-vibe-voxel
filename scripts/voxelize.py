@@ -165,9 +165,14 @@ def wall_clean(dsm):
     mixed &= steep
     # below a broad upper level only: spires, lanterns and stepped crowns (All Saints' towers, Hotel Warszawa's crown)
     # were cut down to flat boxes; a wall edge has a roof beside it
-    # (the upper level must survive a 4.5 m opening: a roof does, a spire's tip does not)
-    mixed &= ndimage.maximum_filter(ndimage.grey_opening(dsm, size=(9, 9)), 7) >= hi - 3
-    out = np.where(mixed, np.where(dsm - lo < hi - dsm, lo, hi), dsm)
+    # (the upper level must survive a 6.5 m opening: a roof does, a spire's tip or a tower's stepped crown does not)
+    mixed &= ndimage.maximum_filter(ndimage.grey_opening(dsm, size=(13, 13)), 7) >= hi - 3
+    up = mixed & (dsm - lo >= hi - dsm)
+    # a cell (2x2 samples) takes its highest: one sample snapped up pushed the wall out a cell, a sawtooth along every
+    # wall top (Bagno 5). Up only where at least two of the cell's samples go up
+    n_up = up.reshape(dsm.shape[0] // 2, 2, dsm.shape[1] // 2, 2).sum((1, 3))
+    up &= np.repeat(np.repeat(n_up >= 2, 2, 0), 2, 1)
+    out = np.where(mixed, np.where(up, hi, lo), dsm)
     note("DSM wall-edge samples snapped to roof or street:", int(mixed.sum()))
     return out
 
@@ -658,7 +663,8 @@ def roof_style(f):
             # roof) gives way to the ortho
             # (never towards darker: a roof in a tower's shadow reads dark in the ortho)
             lum_ = lambda c_: 0.299 * c_[0] + 0.587 * c_[1] + 0.114 * c_[2]
-            if col is None or (np.linalg.norm(np.subtract(col, oc)) > 110 and lum_(oc) > lum_(col) - 15):
+            # (only dark OSM colours, the near-black tags; a red or green roof tag is usually right)
+            if col is None or (np.linalg.norm(np.subtract(col, oc)) > 110 and lum_(col) < 90 and lum_(oc) > lum_(col) - 15):
                 if col is not None:
                     ROOF_OVERRULED.append((f["id"], tag(f, "roof:colour")))
                 col = oc
@@ -685,7 +691,11 @@ for f in _pl:
     rr_, cc_ = f["rr"], f["cc"]
     m_ = np.zeros((rr_.max() - rr_.min() + 3, cc_.max() - cc_.min() + 3), bool)
     m_[rr_ - rr_.min() + 1, cc_ - cc_.min() + 1] = True
-    (_thin if ndimage.distance_transform_edt(m_).max() <= 1.5 else _thk).append(f)  # (1.41: 2 across on a diagonal)
+    _mr = f["geom"].minimum_rotated_rectangle
+    _xy = np.array(_mr.exterior.coords)
+    _ang = math.degrees(math.atan2(_xy[1, 1] - _xy[0, 1], _xy[1, 0] - _xy[0, 0])) % 90
+    rotated = 12 < _ang < 78  # on the grid a 1 m frame or band draws cleanly (Oxford Tower's white frame, Varso's bands)
+    (_thin if ndimage.distance_transform_edt(m_).max() <= 1.5 and rotated else _thk).append(f)  # (1.41: 2 across on a diagonal)
 _bb = np.array([(f["rr"].min(), f["rr"].max(), f["cc"].min(), f["cc"].max()) for f in _thk]) if _thk else np.zeros((0, 4))
 n_thin = 0
 for f in _thin:

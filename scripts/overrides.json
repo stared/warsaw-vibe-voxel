@@ -324,7 +324,11 @@
         "colour": "#e2b88e",
         "material": "wall"
       },
-      "_note": "Hotel Polonia Palace: warm apricot plaster with white stucco (Commons 2019-2023); OSM has no colour"
+      "roof": {
+        "colour": "#7d8a93",
+        "material": "roof"
+      },
+      "_note": "Hotel Polonia Palace: warm apricot plaster with white stucco, blue-grey slate roof (Commons 2019-2023); OSM has no colour"
     },
     "696919321": {
       "wall": {
