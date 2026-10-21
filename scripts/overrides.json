@@ -312,6 +312,49 @@
       },
       "_note": "Centrum Systemów Telekomunikacyjnych: one pale beige concrete tower with dark window strips (Commons 2019-2022); OSM splits it into a beige part and the outline in brown glass #967c5c, which rendered half the tower brown"
     },
+    "239184866": {
+      "wall": {
+        "colour": "#86a3b9",
+        "material": "glass"
+      },
+      "_note": "International Business Center's curved wing: light blue glass with silver bands (Commons 2019-2023); OSM 'silver' rendered as pale grey wall"
+    },
+    "28252464": {
+      "wall": {
+        "colour": "#e2b88e",
+        "material": "wall"
+      },
+      "_note": "Hotel Polonia Palace: warm apricot plaster with white stucco (Commons 2019-2023); OSM has no colour"
+    },
+    "696919321": {
+      "wall": {
+        "colour": "#6f97b8",
+        "material": "glass"
+      },
+      "_note": "Park Avenue (Wspólna 70): light reflective blue glass (Commons 2019-2022); OSM #192d34/#394551 rendered near black"
+    },
+    "30241350": {
+      "wall": {
+        "colour": "#b8bcbf",
+        "material": "wall"
+      },
+      "_note": "Nautilus (Nowogrodzka 11): silver aluminium cladding with ribbon windows (Commons 2012-2019); no OSM colour, rendered cream"
+    },
+    "1831089": {
+      "wall": {
+        "colour": "#e2d5b6",
+        "material": "wall"
+      },
+      "_note": "Hotel Bristol: warm cream stone (Commons 2014-2021); no OSM colour, rendered grey-white"
+    },
+    "239051055": {
+      "min_part_height": 60,
+      "wall": {
+        "colour": "#7f98aa",
+        "material": "glass"
+      },
+      "_note": "Spektrum Tower: mid blue-grey glass (Commons 2015-2019 from Twarda and Jana Pawła II); OSM #637780 rendered near black"
+    },
     "Central Point": {
       "min_part_height": 40,
       "wall": {

@@ -552,8 +552,9 @@ def flatten_roofs(top):
     n_f = n_c = 0
     for f in sorted(render, key=lambda f: -len(f["rr"])):  # parents first, their parts after
         rr, cc = f["rr"], f["cc"]
-        if len(rr) < 30 or (f.get("minh") or 0) >= 2.5:
+        if len(rr) < 30 or ((f.get("minh") or 0) >= 2.5 and np.median(bot_rel[rr, cc]) >= 2.5):
             continue  # parts on stilts (canopies, cantilevers): snapping their top under their bottom left fragments
+            # (a part on its podium -- IBC's curved wing from 8 m -- stands on something: its roof is snapped too)
         v = top[rr, cc]
         med = float(np.median(v))
         if med < 3:
@@ -631,6 +632,9 @@ def wall_style(f):
     return pal(soften(col), M_WALL)
 
 
+ROOF_OVERRULED = []
+
+
 def roof_style(f):
     col = parse_colour(tag(f, "roof:colour"))
     if col is None and (f["tags"].get("roof:material") or "").lower() == "glass":
@@ -639,12 +643,20 @@ def roof_style(f):
     if pkin["geom"].contains(f["geom"].representative_point()) and col == hex_rgb("#666666"):
         # OSM's dark grey: the ortho shows light stone-grey roofs (its own colours carry the tower's shadow)
         return pal(soften(hex_rgb("#bab3a5"), 0.05), M_ROOF, q=12)
-    if col is None and h < 40:
+    if h < 40:
         cc = cellcol[f["rr"], f["cc"]]
         L = lum[f["rr"], f["cc"]]
         if len(L) >= 3:
             sel = cc[(L >= np.percentile(L, 25)) & (L <= np.percentile(L, 85))]
-            col = tuple(np.median(sel, axis=0))
+            oc = tuple(np.median(sel, axis=0))
+            # an OSM roof colour far from what the ortho sees (a palace's #003300, near black, over a mid-green copper
+            # roof) gives way to the ortho
+            # (never towards darker: a roof in a tower's shadow reads dark in the ortho)
+            lum_ = lambda c_: 0.299 * c_[0] + 0.587 * c_[1] + 0.114 * c_[2]
+            if col is None or (np.linalg.norm(np.subtract(col, oc)) > 110 and lum_(oc) > lum_(col) - 15):
+                if col is not None:
+                    ROOF_OVERRULED.append((f["id"], tag(f, "roof:colour")))
+                col = oc
     if col is None:
         col = hex_rgb("#7d7f84")
     col = np.array(col, float) * 1.05  # ortho is slightly dark
@@ -692,6 +704,7 @@ for f in _thin:
         n_thin += 1
 note("thin parts given their neighbour's wall:", n_thin, "of", len(_thin))
 
+note("OSM roof colours overruled by the ortho:", len(ROOF_OVERRULED), ROOF_OVERRULED[:8])
 H = int(max(topi.max() + g.max(), g.max()) + 12)
 note("volume height", H)
 vol = np.zeros((H, D, W), np.uint16)
