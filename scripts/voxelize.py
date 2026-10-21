@@ -678,6 +678,7 @@ for f in render:
 
 # parts under 1 m wide along a bigger one (Focus's dark frame round its glass box, trims, fins): at 1 m they are one
 # cell per step of a rotated wall, a dotted staircase that striped the whole facade -- they take the bigger part's wall
+THIN_LOG = []
 _pl = [f for f in render if f["part"] and f["maxh"]]
 _thin, _thk = [], []
 for f in _pl:
@@ -705,9 +706,12 @@ for f in _thin:
         if q_.any() and m_[p_["rr"][q_] - r0_, p_["cc"][q_] - c0_].any() and (best is None or len(p_["rr"]) > len(best["rr"])):
             best = p_
     if best is not None:
+        if best["wall"] != f["wall"]:
+            THIN_LOG.append((f["id"], int(rr_.mean()), int(cc_.mean()), pal.entries[f["wall"]][:4], pal.entries[best["wall"]][:4], len(rr_)))
         f["wall"] = best["wall"]
         n_thin += 1
 note("thin parts given their neighbour's wall:", n_thin, "of", len(_thin))
+json.dump(THIN_LOG, open("data/debug/thin_parts.json", "w"))
 
 note("OSM roof colours overruled by the ortho:", len(ROOF_OVERRULED), ROOF_OVERRULED[:8])
 H = int(max(topi.max() + g.max(), g.max()) + 12)
@@ -738,6 +742,8 @@ n_pw = 0
 for f in render:
     if f["part"] or not f.get("has_parts"):
         continue
+    if f["tags"].get("building:colour") or f["tags"].get("building:material"):
+        continue  # the outline has its own facade (a glass upper storey round a white part): it stays
     rr_, cc_ = f["rr"], f["cc"]
     r0_, c0_ = max(rr_.min() - 5, 0), max(cc_.min() - 5, 0)
     sub_ = _pid[r0_:rr_.max() + 6, c0_:cc_.max() + 6]
