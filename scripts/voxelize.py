@@ -834,6 +834,13 @@ for f in render:
     m_[rr_[up_] - rr_.min(), cc_[up_] - cc_.min()] = True
     lab_, nl_ = ndimage.label(m_)
     small_ = np.r_[False, ndimage.sum(m_, lab_, range(1, nl_ + 1)) < 150]
+    # set back from the facade (none of it within 2 m of the outline's edge): a top storey flush with the facade
+    # (Fabryczna 2's crown) is building, not plant room
+    fp_ = np.zeros(m_.shape, bool)
+    fp_[rr_ - rr_.min(), cc_ - cc_.min()] = True
+    near_edge_ = ndimage.distance_transform_edt(np.pad(fp_, 1))[1:-1, 1:-1] <= 2
+    flush_ = np.r_[False, ndimage.maximum(near_edge_ & m_, lab_, range(1, nl_ + 1)) > 0] if nl_ else np.zeros(1, bool)
+    small_ &= ~flush_
     k_ = up_ & small_[lab_[rr_ - rr_.min(), cc_ - cc_.min()]]
     for r_, c_ in zip(rr_[k_], cc_[k_]):
         z0_, z1_ = int(g[r_, c_]) + med_, int(zt[r_, c_]) - 1

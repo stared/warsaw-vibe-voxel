@@ -153,7 +153,21 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds, under) {
                   }
                   const gl = Math.hypot(gx, gy);
                   const ax = d === 0 ? dir : 0, ay = d === 1 ? dir : 0;
-                  if (gl >= 3 && (gx * ax + gy * ay) / gl > 0.05) ang = 1 + (Math.round(Math.atan2(gy, gx) / (Math.PI / 12)) + 24) % 24;
+                  // a staircase step is short both ways along the wall; a face beside a corner of a straight wall has
+                  // a long flat run on one side (the 5x5 window saw the corner and tilted it: merged corner windows)
+                  let longRun = false;
+                  for (const sgn of [-1, 1]) {
+                    let k = 1;
+                    for (; k <= 4; k++) {
+                      const X = px + (d === 1 ? sgn * k : 0), Y = py + (d === 0 ? sgn * k : 0);
+                      if (X < -1 || X > N || Y < -1 || Y > N) break;
+                      const o = vol[(X + 1) + sx * ((Y + 1) + sy * (cz + 1))];
+                      const f = vol[(X + 1 + ax) + sx * ((Y + 1 + ay) + sy * (cz + 1))];
+                      if (o === 0 || o === OCC || f !== 0) break;
+                    }
+                    if (k > 4) longRun = true;
+                  }
+                  if (!longRun && gl >= 3 && (gx * ax + gy * ay) / gl > 0.05) ang = 1 + (Math.round(Math.atan2(gy, gx) / (Math.PI / 12)) + 24) % 24;
                 }
                 let s10 = vol[ni - su] !== 0 ? 1 : 0, s12 = vol[ni + su] !== 0 ? 1 : 0, s01 = vol[ni - sv] !== 0 ? 1 : 0, s21 = vol[ni + sv] !== 0 ? 1 : 0;
                 let c00 = vol[ni - su - sv] !== 0 ? 1 : 0, c20 = vol[ni + su - sv] !== 0 ? 1 : 0, c22 = vol[ni + su + sv] !== 0 ? 1 : 0, c02 = vol[ni - su + sv] !== 0 ? 1 : 0;
