@@ -144,6 +144,30 @@ BASE = math.floor(dtm.min()) - SLAB
 g = np.round(dtm_s - BASE).astype(np.int32)  # ground occupies z in [0, g)
 nd_max = dsm_max - dtm
 nd_mean = dsm_mean - dtm
+
+
+def wall_clean(dsm):
+    """The DSM is interpolated across vertical walls: a sample on a tower's edge reads 69, 95, 115 m between a 150 m
+    roof and a 21 m podium (Rondo 1). Taken as the cell's max, each became a 1 m column of partial height glued to
+    the facade, ending mid-air (dark streaks down the towers). A sample on a step of 10 m or more (3x3), 3 m or more
+    from both sides and with fewer than two neighbours at its height (a ledge or a canopy band along the wall has
+    them) goes to the nearer side."""
+    lo = ndimage.minimum_filter(dsm, 3)
+    hi = ndimage.maximum_filter(dsm, 3)
+    mixed = (hi - lo >= 10) & (dsm - lo >= 3) & (hi - dsm >= 3)
+    pad = np.pad(dsm, 1, mode="edge")
+    near = np.zeros(dsm.shape, np.int8)
+    for dr in (-1, 0, 1):
+        for dc in (-1, 0, 1):
+            if dr or dc:
+                near += np.abs(pad[1 + dr:1 + dr + dsm.shape[0], 1 + dc:1 + dc + dsm.shape[1]] - dsm) <= 2
+    mixed &= near < 2
+    out = np.where(mixed, np.where(dsm - lo < hi - dsm, lo, hi), dsm)
+    note("DSM wall-edge samples snapped to roof or street:", int(mixed.sum()))
+    return out
+
+
+nd_max_b = wall_clean(dsm).reshape(D, 2, W, 2).max((1, 3)) - dtm  # building tops
 cellcol = np.median(orto.reshape(D, 5, W, 5, 3), axis=(1, 3)).astype(np.float32)
 rgbsum = cellcol.sum(-1) + 1
 exg = (2 * cellcol[..., 1] - cellcol[..., 0] - cellcol[..., 2]) / rgbsum
@@ -259,8 +283,8 @@ for oid, t, line in osm.lines:
         key = SURF.get(t.get("surface"), "asphalt") if (hw in ROADS or base in ROADS) else ("cycle" if hw == "cycleway" else SURF.get(t.get("surface"), "paving"))
         bridge_shapes.append((poly, C[key], int(parse_len(t.get("layer")) or 1)))
         bridge_lines.append((line, w / 2, int(parse_len(t.get("layer")) or 1), C[key]))
-        if (hw in ROADS or base in ROADS) and line.length > 60:
-            bridge_roads.append((line, w))
+        if (hw in ROADS or base in ROADS) and line.length > 60 and t.get("motor_vehicle") not in ("no", "private"):
+            bridge_roads.append((line, w))  # (not the Karowa footbridge, a living_street for service vans only)
         continue
     if hw in ROADS or base in ROADS:
         road_shapes.append((poly, C[SURF.get(t.get("surface"), "asphalt")]))
@@ -459,12 +483,12 @@ for f in render:
     bmask[f["rr"], f["cc"]] = True
 
 # feature-level source decision (LiDAR 2025 vs OSM 2026)
-top = np.where(bmask, nd_max, 0.0).astype(np.float32)
+top = np.where(bmask, nd_max_b, 0.0).astype(np.float32)
 src_osm = []
 for f in render:
     if f["maxh"] is None:
         continue
-    v = nd_max[f["rr"], f["cc"]]
+    v = nd_max_b[f["rr"], f["cc"]]
     med, p90 = float(np.median(v)), float(np.percentile(v, 90))
     f["dsm_med"] = med
     if f["maxh"] - p90 > 8:
@@ -1306,12 +1330,14 @@ for f in feats:  # walls may come down only inside an outline that itself stands
 for f in feats:
     if f["tags"].get("building") in ROOFY or f["tags"].get("building:part") == "roof":
         bkind[f["rr"], f["cc"]] = 2
+from shapely.geometry import Polygon as _Poly
+landmarks.PIERS = [_Poly(l.coords) for oid, t, l in osm.lines if t.get("bridge:support") and l.is_closed and len(l.coords) >= 4]
 if os.environ.get("LMCACHE"):  # the volume before the curated landmark details, for scripts/patch.py
     import pickle
     Path("data/cache").mkdir(parents=True, exist_ok=True)
     np.save("data/cache/pre_vol.npy", vol)
     pickle.dump(dict(g=g, feats=feats, deck=landmarks.DECK, bkind=bkind, trunk=C["trunk"], pole=C["pole"],
-                     trunk_ok=trunk_ok_db),
+                     trunk_ok=trunk_ok_db, piers=landmarks.PIERS),
                 open("data/cache/pre_state.pkl", "wb"))
 labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids)
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],

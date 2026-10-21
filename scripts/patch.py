@@ -36,6 +36,7 @@ BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "rail": (1080, 1330, 2790, 3350),
     "laz": (2860, 2935, 2930, 3580),
     "swk": (720, 920, 2680, 3220),
+    "kladka": (25, 245, 2355, 2835),
 }
 OUT = Path("web/public/data")
 t0 = time.time()
@@ -66,6 +67,7 @@ vol = np.load("data/cache/pre_vol.npy", mmap_mode="r")
 vol = np.array(vol[:meta["H"]])
 g = st["g"]
 landmarks.DECK = st.get("deck")
+landmarks.PIERS = st.get("piers", [])
 note("loaded", vol.shape)
 landmarks.details_geometry(vol, g, st["feats"], pal, note)
 keep = np.array(ids.pop("debris_keep"), dtype=vol.dtype)

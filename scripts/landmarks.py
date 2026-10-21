@@ -2218,6 +2218,153 @@ def bridges(vol, g, pal, note):
     srednicowy(vol, g, pal, note)
     lazienkowski(vol, g, pal, note)
     swietokrzyski_piers(vol, g, pal, note)
+    kladka_abakanowicz(vol, g, pal, note)
+    osm_piers(vol, g, pal, note)
+
+
+PIERS = []  # OSM bridge:support polygons (grid coords), set by voxelize.py / patch.py
+
+
+def osm_piers(vol, g, pal, note):
+    """Every OSM bridge:support polygon under a deck stands as a concrete pier from the riverbed up to the deck's
+    underside: the head (the polygon, as the ortho sees it) 3 m deep, the shaft under it inset by 30 % of the half-width
+    (the footbridge's piers flare like this in the photos) -- unless a curated pier already stands there (more than half
+    its cells solid at mid-height). Markers inside a bigger polygon skip."""
+    from shapely.geometry import Point as _P
+    conc = pal(_hex("#d6d4ce"), MAT_IDS["concrete"])
+    big = [p for p in PIERS if p.area >= 4]
+    n = n_skip = 0
+    for p in PIERS:
+        if p.area < 4 and any(q.contains(p.centroid) for q in big if q is not p):
+            continue
+        c0, r0, c1, r1 = (int(v) for v in p.bounds)
+        c0, r0, c1, r1 = max(c0 - 1, 0), max(r0 - 1, 0), min(c1 + 2, g.shape[1]), min(r1 + 2, g.shape[0])
+        if c1 <= c0 or r1 <= r0:
+            continue
+        cells = [(r, c) for r in range(r0, r1) for c in range(c0, c1) if p.buffer(0.35).contains(_P(c + 0.5, r + 0.5))]
+        if not cells:
+            continue
+        dk = DECK[r0:r1, c0:c1]
+        if not (dk > 0).any():
+            continue
+        top = int(np.median(dk[dk > 0])) - 3  # the underside: the 2-voxel deck and a girder voxel stay
+        mid = [(int(g[r, c]) + top) // 2 for r, c in cells]
+        if np.mean([vol[m, r, c] != 0 for (r, c), m in zip(cells, mid)]) > 0.5:
+            n_skip += 1
+            continue
+        m = np.zeros((r1 - r0, c1 - c0), bool)
+        for r, c in cells:
+            m[r - r0, c - c0] = True
+        inner = ndimage.distance_transform_edt(np.pad(m, 1))[1:-1, 1:-1]
+        w = inner.max()
+        for r, c in cells:
+            z0 = int(g[r, c]) - 1
+            d = inner[r - r0, c - c0]
+            shaft = d > 0.3 * w - 0.01
+            for z in range(z0, top):
+                if (shaft or z >= top - 3) and vol[z, r, c] == 0:
+                    vol[z, r, c] = conc
+        n += 1
+    note(f"OSM piers: {n} drawn, {n_skip} already there")
+
+
+# Kładka Magdaleny Abakanowicz (Karowa - Okrzei, opened 2024, Schuessler-Plan; inzynierbudownictwa.pl): 452.9 m, spans
+# 50-113 m, the deck 6.9-16.3 m wide in a zigzag plan ("lightning"), a corten-painted steel box girder on white
+# concrete piers, two ramps down to the left-bank boulevard, two viewing zones with wooden seating. Commons
+# ("Vistula pedestrian and bicycle bridge in Warsaw", 40 photos 2024-25): mesh railings on corten posts, the box's
+# sides inclined, and at the Praga zone a corten frame on the south edge -- a long diagonal up from the deck, a top
+# chord ~8 m over it, a steep leg back down -- over a sloped wooden backrest. Its line from the LiDAR ridge (DSM 2025:
+# 14 m at the deck end, 21-22 at the knee, 17-19 at the top chord's end).
+KLADKA = dict(box=(25, 245, 2355, 2835),
+              frame=[(2655, 104, 0), (2688, 92, 9), (2700, 86, 7), (2712, 80, 0)])  # (col, row, m over the deck)
+
+
+def kladka_abakanowicz(vol, g, pal, note):
+    """The deck's real outline from the LiDAR (the OSM way is one 5 m line): cells within 10 m of the deck whose DSM
+    samples lie within -1.2..+3 m of the deck level over a drop; then the girder, railings, seating and the frame."""
+    r0, r1, c0, c1 = KLADKA["box"]
+    p = np.load("data/prep.npz", mmap_mode="r")
+    dtm_all = p["dtm"]
+    BASE = math.floor(float(np.min(dtm_all))) - 3
+    dsm = np.asarray(p["dsm"][2 * r0:2 * r1, 2 * c0:2 * c1], np.float32).reshape(r1 - r0, 2, c1 - c0, 2)
+    dtm = np.asarray(dtm_all[r0:r1, c0:c1], np.float32)
+    dk = DECK[r0:r1, c0:c1].astype(np.int32)
+    on = dk > 0
+    if not on.any():
+        note("kładka: no deck")
+        return
+    dist, (ir, ic) = ndimage.distance_transform_edt(~on, return_indices=True)
+    zref = dk[ir, ic]  # the nearest deck cell's top (first free voxel)
+    ref_m = zref + BASE  # ~ the deck surface, m a.s.l.
+    rel = dsm - ref_m[:, None, :, None]
+    cnt = ((rel > -1.2) & (rel < 3.0)).sum((1, 3))
+    drop = dtm < ref_m - 2.5
+    F = (cnt >= 2) & (dist <= 10) & drop
+    F = ndimage.binary_closing(F, iterations=1) & drop
+    lab, _ = ndimage.label(F | on)
+    F = np.isin(lab, np.unique(lab[on])) & (F | (on & ~drop))  # the ends on the banks stay as the build made them
+    F &= ~((cnt == 0) & on & drop)  # an OSM deck cell over the drop with no deck in the LiDAR: off
+    deck_c = pal(_hex("#c4c0b8"), 0)
+    corten = pal(_hex("#985a3c"), MAT_IDS["metal"])  # rust-orange in sun (Commons 2024-25), not maroon
+    rail = pal(_hex("#a3a29c"), MAT_IDS["metal"])  # the see-through steel mesh between the corten posts
+    wood = pal(_hex("#6e5240"), 0)
+    n_add = n_rm = 0
+    rr, cc = np.nonzero(on & ~F)
+    for r, c in zip(rr, cc):  # off: the deck voxels and whatever stands on them
+        z = int(dk[r, c])
+        vol[max(z - 3, 0):z + 3, r + r0, c + c0] = 0
+        DECK[r + r0, c + c0] = 0
+        n_rm += 1
+    rr, cc = np.nonzero(F)
+    zt = zref[rr, cc]
+    for r, c, z in zip(rr, cc, zt):
+        R, Cc = r + r0, c + c0
+        if not on[r, c]:
+            vol[z - 2:z, R, Cc] = deck_c
+            DECK[R, Cc] = z
+            n_add += 1
+    # the box girder under the deck (~3 m with the deck), its sides inclined: one layer under the whole deck, one
+    # inset 2 cells
+    over = F & drop
+    e1 = ndimage.binary_erosion(over, iterations=1)
+    e2 = ndimage.binary_erosion(over, iterations=2)
+    edge = over & ndimage.binary_dilation(~F & drop)  # railings only where one would fall off, not across the ends
+    for m, dz in ((over, 3), (e2, 4)):
+        for r, c in zip(*np.nonzero(m)):
+            z = int(zref[r, c]) - dz
+            if z > g[r + r0, c + c0]:
+                vol[z, r + r0, c + c0] = corten
+    for r, c in zip(*np.nonzero(edge)):  # the fascia, and the mesh railing on corten posts (one voxel, 1.1 m)
+        z = int(zref[r, c])
+        vol[z - 2:z, r + r0, c + c0] = corten  # (the photos: a corten kerb and fascia, no grey deck edge)
+        if vol[z, r + r0, c + c0] == 0:
+            vol[z, r + r0, c + c0] = rail
+    # the wooden seating: long LiDAR bands 0.8-3 m over the deck inside the railing (people are short blobs)
+    hmax = rel.max((1, 3))
+    S = e1 & (hmax > 0.8) & (hmax < 3.0)
+    lab, n = ndimage.label(S, np.ones((3, 3)))
+    n_seat = 0
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        if sl is None or max(sl[0].stop - sl[0].start, sl[1].stop - sl[1].start) < 6:
+            continue
+        for r, c in zip(*np.nonzero(lab[sl] == i)):
+            r, c = r + sl[0].start, c + sl[1].start
+            z = int(zref[r, c])
+            h = 1 if hmax[r, c] < 1.6 else 2
+            col = vol[z:z + h, r + r0, c + c0]
+            col[col == 0] = wood
+            n_seat += 1
+    # the frame at the Praga zone: two voxels deep, face-connected
+    pts = []
+    for cx, ry, h in KLADKA["frame"]:
+        r, c = ry - r0, cx - c0
+        pts.append((float(zref[r, c] + h), float(ry) + 0.5, float(cx) + 0.5))
+    nf = 0
+    for a, b in zip(pts, pts[1:]):
+        for dz in (0, 1):
+            nf += _line6(vol, (a[0] + dz, a[1], a[2]), (b[0] + dz, b[1], b[2]), corten)
+    note(f"kładka Abakanowicz: deck {n_add} cells added, {n_rm} off (LiDAR outline), {n_seat} seat cells, "
+         f"frame {nf} voxels")
 
 
 # Most średnicowy (rail, 1931, rebuilt 1947; pl.wikipedia: five spans of ~93 m, 445 m, two parallel decks of two
