@@ -130,14 +130,41 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds, under) {
             if (a !== 0 && a !== SOLID_BELOW && a !== OCC) {
               const ni = idx + dir * sd, nb = vol[ni];
               if (nb === 0 || (border && nb !== SOLID_BELOW && nb !== OCC)) {
-                const s10 = vol[ni - su] !== 0 ? 1 : 0, s12 = vol[ni + su] !== 0 ? 1 : 0, s01 = vol[ni - sv] !== 0 ? 1 : 0, s21 = vol[ni + sv] !== 0 ? 1 : 0;
-                const ao = (a1, a2, c) => (a1 && a2 ? 0 : 3 - (a1 + a2 + c));
-                const aob = nb === 0 ? (ao(s10, s01, vol[ni - su - sv] !== 0 ? 1 : 0) | (ao(s12, s01, vol[ni + su - sv] !== 0 ? 1 : 0) << 2) | (ao(s12, s21, vol[ni + su + sv] !== 0 ? 1 : 0) << 4) | (ao(s10, s21, vol[ni - su + sv] !== 0 ? 1 : 0) << 6)) : 255;
                 // ground level of this column (metres) rides along as a vertex attribute for the facade shader;
                 // faces only merge over the same ground, so it is exact on every quad
                 const px = d === 0 ? sl : u === 0 ? i : j, py = d === 1 ? sl : u === 1 ? i : j;
                 const gm = ground[(px + 1) + S * (py + 1)];
-                key = (((a * 256 + aob) * 256 + gm) * 16384 + bidAt(px, py)) + 1; // < 2^53: palette < 4096, ids < 16384
+                // a wall at an angle to the grid is a staircase of x- and y-facing faces, lit by turns bright and
+                // dark: vertical stripes down every rotated facade. Its true direction in plan, from the occupancy
+                // of the 5x5 cells around it in this layer, lights it instead (24 directions; 0 = the face's own)
+                let ang = 0;
+                if (d < 2 && nb === 0) {
+                  const cz = d === 0 ? j : i;
+                  let gx = 0, gy = 0;
+                  for (let dy = -2; dy <= 2; dy++) {
+                    const Y = py + dy;
+                    if (Y < -1 || Y > N) continue;
+                    for (let dx = -2; dx <= 2; dx++) {
+                      const X = px + dx;
+                      if (X < -1 || X > N || (dx === 0 && dy === 0)) continue;
+                      const o = vol[(X + 1) + sx * ((Y + 1) + sy * (cz + 1))];
+                      if (o !== 0 && o !== OCC) { gx -= dx; gy -= dy; }
+                    }
+                  }
+                  const gl = Math.hypot(gx, gy);
+                  const ax = d === 0 ? dir : 0, ay = d === 1 ? dir : 0;
+                  if (gl >= 3 && (gx * ax + gy * ay) / gl > 0.05) ang = 1 + (Math.round(Math.atan2(gy, gx) / (Math.PI / 12)) + 24) % 24;
+                }
+                let s10 = vol[ni - su] !== 0 ? 1 : 0, s12 = vol[ni + su] !== 0 ? 1 : 0, s01 = vol[ni - sv] !== 0 ? 1 : 0, s21 = vol[ni + sv] !== 0 ? 1 : 0;
+                let c00 = vol[ni - su - sv] !== 0 ? 1 : 0, c20 = vol[ni + su - sv] !== 0 ? 1 : 0, c22 = vol[ni + su + sv] !== 0 ? 1 : 0, c02 = vol[ni - su + sv] !== 0 ? 1 : 0;
+                // on a staircase wall the next step is no occluder (its corner AO drew a dark line down every step):
+                // only what is above or below darkens it
+                if (ang) {
+                  if (d === 0) { s10 = s12 = 0; c00 = c20 = c22 = c02 = 0; } else { s01 = s21 = 0; c00 = c20 = c22 = c02 = 0; }
+                }
+                const ao = (a1, a2, c) => (a1 && a2 ? 0 : 3 - (a1 + a2 + c));
+                const aob = nb === 0 ? (ao(s10, s01, c00) | (ao(s12, s01, c20) << 2) | (ao(s12, s21, c22) << 4) | (ao(s10, s21, c02) << 6)) : 255;
+                key = ((((ang * 4096 + a) * 256 + aob) * 256 + gm) * 16384 + bidAt(px, py)) + 1; // < 2^53: ang < 25, palette < 4096, ids < 16384
                 any = true;
               }
             }
@@ -158,7 +185,8 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds, under) {
             }
             for (let jj = 0; jj < h; jj++) for (let ii = 0; ii < w; ii++) mask[i + ii + (j + jj) * nu] = 0;
             const k0 = key - 1, bid = k0 % 16384, k1 = Math.floor(k0 / 16384);
-            const gm = k1 % 256, aoBits0 = Math.floor(k1 / 256) % 256, palIdx = Math.floor(k1 / 65536);
+            const gm = k1 % 256, aoBits0 = Math.floor(k1 / 256) % 256, palIdx = Math.floor(k1 / 65536) % 4096;
+            const ang = Math.floor(k1 / (65536 * 4096));
             const aoBits = aoBits0 === 255 ? 255 : aoBits0; // 255 = border skirt face: no AO darkening
             const aos = aoBits === 255 ? [3, 3, 3, 3] : [aoBits & 3, (aoBits >> 2) & 3, (aoBits >> 4) & 3, (aoBits >> 6) & 3];
             const base = [0, 0, 0];
@@ -178,7 +206,7 @@ function meshNode(N, s, x0, y0, counts, ground, runs, detail, bldIds, under) {
             for (let k = 0; k < 4; k++) {
               const c = ord[k], cc = corners[c], v3 = (vcount + k) * 3, v4 = (vcount + k) * 4;
               pos[v3] = cc[0] * s + x0; pos[v3 + 1] = cc[2] * s; pos[v3 + 2] = cc[1] * s + y0; // metres, three.js axes
-              attr[v4] = normalIdx; attr[v4 + 1] = aos[c]; attr[v4 + 2] = gm; attr[v4 + 3] = s;
+              attr[v4] = normalIdx + 8 * ang; attr[v4 + 1] = aos[c]; attr[v4 + 2] = gm; attr[v4 + 3] = s;
               pal[vcount + k] = palIdx; bv[vcount + k] = bid;
             }
             vcount += 4;

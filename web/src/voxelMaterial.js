@@ -42,7 +42,7 @@ export function makeBuildDepthMaterial(uniforms) {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>${BUILD_PARS}
         vec3 nIdx(float i){ return i < 0.5 ? vec3(-1.,0.,0.) : i < 1.5 ? vec3(1.,0.,0.) : i < 2.5 ? vec3(0.,0.,-1.) : i < 3.5 ? vec3(0.,0.,1.) : i < 4.5 ? vec3(0.,-1.,0.) : vec3(0.,1.,0.); }`)
-      .replace('#include <begin_vertex>', `#include <begin_vertex>${BUILD_VERTEX('nIdx(vattr.x)')}`);
+      .replace('#include <begin_vertex>', `#include <begin_vertex>${BUILD_VERTEX('nIdx(mod(vattr.x, 8.0))')}`);
   };
   m.customProgramCacheKey = () => 'voxel-build-depth';
   return m;
@@ -104,6 +104,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         attribute float vpal;
         varying vec3 vVox;
         varying vec3 vN;
+        varying vec3 vNs;
         varying float vAO;
         varying float vGz;
         flat varying int vPal;
@@ -117,9 +118,16 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           if (i < 4.5) return vec3(0.,-1.,0.);
           return vec3(0.,1.,0.);
         }`)
-      .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalFromIdx(vattr.x);`)
+      // vattr.x: the face's axis (0-5) + 8 x its wall's direction in plan (1-24, 15 deg steps; mesher.worker.js): a
+      // staircase wall is lit as the plane it stands for, the facade pattern still follows the voxel face (vN)
+      .replace('#include <beginnormal_vertex>', `float nAx = mod(vattr.x, 8.0), nAng = floor(vattr.x / 8.0 + 0.01);
+        vec3 objectNormal = nAng > 0.5 ? vec3(cos((nAng - 1.0) * 0.261799), 0., sin((nAng - 1.0) * 0.261799)) : normalFromIdx(nAx);`)
+      // a staircase wall's steps shade each other in the sun (1 m deep): its shadow lookups step out 1.2 m further
+      // along the true wall direction, so the wall is lit or shaded as the plane it stands for
+      .replace('#include <shadowmap_vertex>', THREE.ShaderChunk.shadowmap_vertex.replace(
+        'directionalLightShadows[ i ].shadowNormalBias', '(directionalLightShadows[ i ].shadowNormalBias + (nAng > 0.5 ? 1.2 : 0.0))'))
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vVox = position; vN = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5); vHide = 0.0;
+        vVox = position; vN = normalFromIdx(nAx); vNs = objectNormal; vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5); vHide = 0.0;
         ${'uStage' in uniforms ? BUILD_VERTEX('objectNormal') + 'vHide = hideB;' : ''}`);
     if ('uStage' in uniforms) shader.vertexShader = shader.vertexShader.replace('attribute vec4 vattr;\n        attribute float vpal;', BUILD_PARS);
 
@@ -128,7 +136,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         uniform sampler2D uPalette; uniform sampler2D uLampMap;
         uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
         uniform vec2 uFocus; uniform float uRad; uniform int uFow;
-        varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
+        varying vec3 vVox; varying vec3 vN; varying vec3 vNs; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
         float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
         vec3 gEmissive; float gRough; float gMetal;
@@ -149,6 +157,12 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
         bool vert = abs(vN.y) < 0.5;
         float u = abs(vN.x) > 0.5 ? cell.z : cell.x;      // along the facade
         float wpos = abs(vN.x) > 0.5 ? cell.x : cell.z;   // constant across one facade plane
+        if (abs(vNs.y) < 0.5 && dot(vNs, vN) < 0.999) {
+          // a staircase wall (mesher: its direction in plan): windows and panels run along the true wall, not restart
+          // on each 1 m step -- they alternated window / wall step by step, striping every rotated facade
+          u = floor(dot(cell.xz + 0.5, vec2(-vNs.z, vNs.x)) + 0.5);
+          wpos = floor(dot(cell.xz + 0.5, vNs.xz) + 0.5);
+        }
         float h = hash13(cell);
         gEmissive = vec3(0.); gRough = 0.88; gMetal = 0.0;
         vec3 col = base * (0.97 + 0.06 * h);

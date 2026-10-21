@@ -659,6 +659,39 @@ for f in render:
     if pal.entries[f["wall"]][3] == M_GLASS and wc is not None and wc == rc:
         f["roof"] = f["wall"]
 
+# parts under 1 m wide along a bigger one (Focus's dark frame round its glass box, trims, fins): at 1 m they are one
+# cell per step of a rotated wall, a dotted staircase that striped the whole facade -- they take the bigger part's wall
+_pl = [f for f in render if f["part"] and f["maxh"]]
+_thin, _thk = [], []
+for f in _pl:
+    rr_, cc_ = f["rr"], f["cc"]
+    m_ = np.zeros((rr_.max() - rr_.min() + 3, cc_.max() - cc_.min() + 3), bool)
+    m_[rr_ - rr_.min() + 1, cc_ - cc_.min() + 1] = True
+    (_thin if ndimage.distance_transform_edt(m_).max() <= 1.5 else _thk).append(f)  # (1.41: 2 across on a diagonal)
+_bb = np.array([(f["rr"].min(), f["rr"].max(), f["cc"].min(), f["cc"].max()) for f in _thk]) if _thk else np.zeros((0, 4))
+n_thin = 0
+for f in _thin:
+    rr_, cc_ = f["rr"], f["cc"]
+    lo_ = f["minh"] or 0
+    # parts overlap (a lobby under a tower): every thick part within 2 m spanning the same storeys, the biggest wins
+    k_ = np.nonzero((_bb[:, 0] <= rr_.max() + 2) & (_bb[:, 1] >= rr_.min() - 2) & (_bb[:, 2] <= cc_.max() + 2) & (_bb[:, 3] >= cc_.min() - 2))[0]
+    best = None
+    for k in k_:
+        p_ = _thk[k]
+        if abs(p_["maxh"] - f["maxh"]) > 6 or abs((p_["minh"] or 0) - lo_) > 6:
+            continue
+        r0_, c0_ = rr_.min() - 2, cc_.min() - 2
+        m_ = np.zeros((rr_.max() - r0_ + 3, cc_.max() - c0_ + 3), bool)
+        m_[rr_ - r0_, cc_ - c0_] = True
+        m_ = ndimage.binary_dilation(m_, iterations=2)
+        q_ = (p_["rr"] >= r0_) & (p_["rr"] < r0_ + m_.shape[0]) & (p_["cc"] >= c0_) & (p_["cc"] < c0_ + m_.shape[1])
+        if q_.any() and m_[p_["rr"][q_] - r0_, p_["cc"][q_] - c0_].any() and (best is None or len(p_["rr"]) > len(best["rr"])):
+            best = p_
+    if best is not None:
+        f["wall"] = best["wall"]
+        n_thin += 1
+note("thin parts given their neighbour's wall:", n_thin, "of", len(_thin))
+
 H = int(max(topi.max() + g.max(), g.max()) + 12)
 note("volume height", H)
 vol = np.zeros((H, D, W), np.uint16)
@@ -699,7 +732,10 @@ for f in render:
         if d_[i_, j_] > 4:
             continue
         p_ = _parts[sub_[ir_[i_, j_], ic_[i_, j_]] - 1]
-        if abs(p_["maxh"] - topi[r_, c_]) <= 6 and p_["wall"] != basewall[r_, c_]:
+        # a rim up to 2 m wide round a part (Focus: one outline cell per step of its rotated walls, striping its
+        # glass in the outline's dark grey) as soon as it stands 70 % of the part's height; up to 4 m when as tall
+        ok_ = (d_[i_, j_] <= 2 and topi[r_, c_] >= 0.7 * p_["maxh"]) or abs(p_["maxh"] - topi[r_, c_]) <= 6
+        if ok_ and p_["wall"] != basewall[r_, c_]:
             basewall[r_, c_] = p_["wall"]
             n_pw += 1
 note("outline cells given their adjacent part's wall:", n_pw)
@@ -745,6 +781,14 @@ for f in sorted(render, key=lambda f: f["maxh"] or 0):
     roofcol[f["rr"], f["cc"]] = f["roof"]
 roofcol = np.where(roofcol_fix > 0, roofcol_fix, roofcol)
 green_roof = bmask & (exg > 0.08) & (topi < 40) & ~over
+# a green roof is an area, not a rim: the ortho's green along parapets (crowns hanging over the edge, copper, moss)
+# put lime garden voxels on cornices and ledges all over the city. Opened by 1 cell, patches of 12+ cells, and not
+# where the LiDAR stands 2 m above the roof (a crown over it)
+green_roof &= nd_max < topi + 2
+green_roof = ndimage.binary_opening(green_roof, iterations=1)
+_gl, _gn = ndimage.label(green_roof)
+if _gn:
+    green_roof &= np.r_[False, ndimage.sum(green_roof, _gl, range(1, _gn + 1)) >= 12][_gl]
 # a small step in a facade (a 1-3 m setback, a stair of a sloping wing, an edge left lower by the LiDAR) is wall, not
 # roof: the building's roof colour (taken from the ortho over its whole top) put cream blobs and checkerboards on glass
 # towers (Rondo 1, Złota 44's wing). Patches under 25 cells more than 6 m below the highest top within 3 m.
@@ -758,6 +802,31 @@ note("facade steps topped with wall colour:", int(_ledge.sum()))
 rr, cc = np.nonzero(bmask)
 vol[zt[rr, cc] - 1, rr, cc] = np.where(green_roof[rr, cc], C["garden"], roofcol[rr, cc])
 note("green roof cells:", int(green_roof.sum()))
+# rooftop plant rooms, lift housings and stair heads (1.5-8 m over a building's main roof, under 150 cells) are roof
+# material, not facade: they wore the facade's office windows and read as little houses on every roof (Metropolitan)
+n_rb = 0
+for f in render:
+    rr_, cc_ = f["rr"], f["cc"]
+    if len(rr_) < 100 or f["part"]:
+        continue
+    t_ = topi[rr_, cc_]
+    med_ = int(np.median(t_))
+    if med_ < 6:
+        continue
+    up_ = (t_ > med_ + 1.5) & (t_ <= med_ + 8)
+    if not up_.any():
+        continue
+    m_ = np.zeros((rr_.max() - rr_.min() + 1, cc_.max() - cc_.min() + 1), bool)
+    m_[rr_[up_] - rr_.min(), cc_[up_] - cc_.min()] = True
+    lab_, nl_ = ndimage.label(m_)
+    small_ = np.r_[False, ndimage.sum(m_, lab_, range(1, nl_ + 1)) < 150]
+    k_ = up_ & small_[lab_[rr_ - rr_.min(), cc_ - cc_.min()]]
+    for r_, c_ in zip(rr_[k_], cc_[k_]):
+        z0_, z1_ = int(g[r_, c_]) + med_, int(zt[r_, c_]) - 1
+        col_ = vol[z0_:z1_, r_, c_]
+        col_[col_ != 0] = roofcol[r_, c_]
+        n_rb += 1
+note("rooftop structures in roof material:", n_rb)
 
 # ---------------------------------------------------------------- vegetation (LiDAR canopy + OSM trees)
 trees = [(oid, t, p) for oid, t, p in osm.nodes if t.get("natural") == "tree"]

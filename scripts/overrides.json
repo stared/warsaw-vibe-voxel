@@ -305,6 +305,13 @@
       "name": "Zebra Tower (Commons 2009-2019: gold spandrel bands between dark glass on every side, a gold crown; OSM maps a gold and a black half)",
       "stripes": {"colours": ["#ad9358"], "material": "metal", "bands": [{"to": 4, "colour": "#2c343b", "material": "glass"}, {"to": 57, "repeat": [[1, "#ad9358", "metal"], [2, "#323e48", "glass"]]}, {"colour": "#ad9358", "material": "metal"}]}
     },
+    "239250320": {
+      "wall": {
+        "colour": "#bdb6a8",
+        "material": "wall"
+      },
+      "_note": "Centrum Systemów Telekomunikacyjnych: one pale beige concrete tower with dark window strips (Commons 2019-2022); OSM splits it into a beige part and the outline in brown glass #967c5c, which rendered half the tower brown"
+    },
     "Central Point": {
       "min_part_height": 40,
       "wall": {
