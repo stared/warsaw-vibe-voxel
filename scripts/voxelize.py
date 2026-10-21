@@ -149,19 +149,20 @@ nd_mean = dsm_mean - dtm
 def wall_clean(dsm):
     """The DSM is interpolated across vertical walls: a sample on a tower's edge reads 69, 95, 115 m between a 150 m
     roof and a 21 m podium (Rondo 1). Taken as the cell's max, each became a 1 m column of partial height glued to
-    the facade, ending mid-air (dark streaks down the towers). A sample on a step of 10 m or more (3x3), 3 m or more
-    from both sides and with fewer than two neighbours at its height (a ledge or a canopy band along the wall has
-    them) goes to the nearer side."""
-    lo = ndimage.minimum_filter(dsm, 3)
-    hi = ndimage.maximum_filter(dsm, 3)
+    the facade, ending mid-air (dark streaks down the towers). A sample on a step of 10 m or more (7x7), 3 m or more
+    from both levels around it and steep goes to the nearer level."""
+    # the two levels from 3.5 m around: a wall the DSM ramps across in 3-4 samples (Górnośląska 3: 12, 25, 36, 43 m
+    # between a 4 m podium and a 50 m roof) snapped sample by sample to its ramp neighbours stayed a ramp
+    lo = ndimage.minimum_filter(dsm, 7)
+    hi = ndimage.maximum_filter(dsm, 7)
     mixed = (hi - lo >= 10) & (dsm - lo >= 3) & (hi - dsm >= 3)
+    # and steep: 3 m or more to a 4-neighbour (6 m per metre; a pitched roof rises under 2) -- a ramp along a straight
+    # wall repeats row after row, so similar neighbours along the wall do not make it a surface
     pad = np.pad(dsm, 1, mode="edge")
-    near = np.zeros(dsm.shape, np.int8)
-    for dr in (-1, 0, 1):
-        for dc in (-1, 0, 1):
-            if dr or dc:
-                near += np.abs(pad[1 + dr:1 + dr + dsm.shape[0], 1 + dc:1 + dc + dsm.shape[1]] - dsm) <= 2
-    mixed &= near < 2
+    steep = np.zeros(dsm.shape, bool)
+    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        steep |= np.abs(pad[1 + dr:1 + dr + dsm.shape[0], 1 + dc:1 + dc + dsm.shape[1]] - dsm) >= 3
+    mixed &= steep
     out = np.where(mixed, np.where(dsm - lo < hi - dsm, lo, hi), dsm)
     note("DSM wall-edge samples snapped to roof or street:", int(mixed.sum()))
     return out
