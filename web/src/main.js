@@ -6,6 +6,7 @@ import { makePaletteTexture, makeVoxelMaterial } from './voxelMaterial.js';
 import { Sky } from './sky.js';
 import { Fountains } from './fountains.js';
 import { StreetLife } from './sim.js';
+import { Flood } from './flood.js';
 import { Nav } from './nav.js';
 import { TileStreamer } from './stream.js';
 import { PlaceSearch } from './search.js';
@@ -115,7 +116,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 let state = { hour: 18.9, night: 0 };
-let fountains = null, life = null, lastT = performance.now();
+let fountains = null, life = null, flood = null, lastT = performance.now();
 let world = null;
 let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3(), streamer = null;
 
@@ -390,6 +391,14 @@ fShow.add(P, 'labels').name('labels');
 fShow.add(P, 'life').name('traffic & trams').onChange((v) => { if (life) life.group.visible = v; });
 fShow.add(P, 'fountains').onChange((v) => { if (fountains) fountains.mesh.visible = v; });
 fShow.add(P, 'tilt').name('miniature blur');
+// the Vistula's level on the Warszawa-Bulwary gauge (cm, the scale since 1 Nov 2025: older readings +100), flood.js
+const RIVER = { 'record low (Sep 2025)': 104, 'as mapped (LiDAR day)': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
+  'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the dykes': 1120 };
+P.river = 185; P.riverPreset = 'as mapped (LiDAR day)';
+const fRiver = gui.addFolder('Vistula level').close();
+const setRiver = (cm) => { if (flood?.info) flood.set((cm - flood.info.lidar_cm) / 100); };
+const riverCtl = fRiver.add(P, 'river', 90, 1150, 1).name('gauge, cm').onChange((v) => { P.riverPreset = Object.keys(RIVER).find((k) => RIVER[k] === v) || 'custom'; riverPresetCtl.updateDisplay(); setRiver(v); }).disable();
+const riverPresetCtl = fRiver.add(P, 'riverPreset', [...Object.keys(RIVER), 'custom']).name('stage').onChange((k) => { if (k in RIVER) riverCtl.setValue(RIVER[k]); });
 const fCam = gui.addFolder('Camera').close();
 fCam.add(P, 'fov', 15, 75, 1).name('field of view').onChange((f) => { camera.fov = f; camera.updateProjectionMatrix(); });
 fCam.add(P, 'speed', 0.25, 4, 0.05).name('move speed');
@@ -628,6 +637,8 @@ function flyTo(v) {
   });
   search.setItems(items);
   fountains = new Fountains(scene, meta.jets || []);
+  flood = new Flood(scene, uniforms, meta);
+  flood.load().then(() => { RIVER['as mapped (LiDAR day)'] = flood.info.lidar_cm; riverCtl.enable(); setRiver(P.river); }).catch((e) => console.warn('flood', e));
   fetch('data/traffic.json').then((r) => r.json()).then((td) => {
     life = nav.life = new StreetLife(scene, td);
     life.world = world;
@@ -673,4 +684,4 @@ renderer.setAnimationLoop((now) => {
   composer.render();
   updateLabels();
 });
-window.__three = { camera, controls, applyTime, flyTo, nav, gui, P, labelEls, scene, renderer, sun, bbox, center };
+window.__three = { camera, controls, applyTime, flyTo, nav, gui, P, labelEls, scene, renderer, sun, bbox, center, riverCtl };

@@ -57,6 +57,8 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
     uDeep: { value: 0 },
     uTime: { value: 0 },
     uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
+    // water level (flood.js): how far the river is below its LiDAR-day surface, and the estimated bed depth (G, dm)
+    uDrop: { value: 0 }, uFlood: { value: (() => { const t = new THREE.DataTexture(new Uint8Array(2), 1, 1, THREE.RGFormat); t.needsUpdate = true; return t; })() },
     // PROTOTYPE (proto-ghost): treatment with distance from the look-at point (0 none, 1 fog of war, 2 haze)
     uFocus: { value: new THREE.Vector2(0, 0) }, uRad: { value: 1e9 }, uFow: { value: 0 },
   };
@@ -135,6 +137,7 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
       .replace('#include <common>', `#include <common>
         uniform sampler2D uPalette; uniform sampler2D uLampMap;
         uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
+        uniform float uDrop; uniform sampler2D uFlood;
         uniform vec2 uFocus; uniform float uRad; uniform int uFow;
         varying vec3 vVox; varying vec3 vN; varying vec3 vNs; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
         float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
@@ -235,6 +238,14 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           col = mix(col, uHorizon * 0.8, clamp(0.08 + 0.55 * fres, 0.0, 0.55));
           // glints: now and then a cell catches the sun (by day)
           if (vN.y > 0.5 && hash12(cell.xz * 0.37 + floor(uTime * 1.7 + h * 9.0)) < 0.006) col += vec3(0.35, 0.4, 0.38) * (1.0 - uNight) * (1.0 - uNight);
+          // a drought: where the (estimated) bed is shallower than the drop, a sandbank -- wet at the waterline, dry above
+          if (uDrop > 0.0) {
+            float bed = texelFetch(uFlood, ivec2(cell.x, cell.z), 0).g * 25.5;
+            if (bed < uDrop) {
+              col = mix(vec3(0.3, 0.24, 0.15), vec3(0.62, 0.52, 0.36), smoothstep(0.05, 0.35, uDrop - bed)) * (0.92 + 0.12 * h);
+              gRough = 0.95; gMetal = 0.0;
+            }
+          }
         } else if (m == ${MAT.LAMP}) {
           col = base; gEmissive = vec3(1.0, 0.82, 0.55) * (0.15 + 3.2 * uNight);
         } else if (m == ${MAT.METAL}) {
