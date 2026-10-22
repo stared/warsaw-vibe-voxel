@@ -66,6 +66,8 @@ export class Nav {
       this.shift = e.shiftKey;
       const k = KEYMAP[e.code];
       if (k) this.keys.delete(k);
+      // done turning: the focus goes onto what is now in the middle of the screen, so the mouse turns about it
+      if (this._turned && ![...this.keys].some((q) => q[0] === 't')) { this._turned = false; this.retarget(); }
     });
     addEventListener('blur', () => this.keys.clear());
 
@@ -233,6 +235,17 @@ export class Nav {
   }
   setFov(f) { this.camera.fov = THREE.MathUtils.clamp(f, 20, 80); this.camera.updateProjectionMatrix(); }
 
+  // turn the view about the camera itself (A/D, Q/E): the camera stays put, the nose moves; keeps the focus distance.
+  // Never above level: OrbitControls (maxPolarAngle) would swing the camera to keep the focus below it.
+  turn(dyaw, dpitch) {
+    const d = this.dir(), len = d.length() || 1;
+    const yaw = Math.atan2(d.x, d.z) + dyaw;
+    const pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(d.y / len, -1, 1)) + dpitch, -1.5, -0.08);
+    this.controls.target.set(
+      this.camera.position.x + len * Math.sin(yaw) * Math.cos(pitch),
+      this.camera.position.y + len * Math.sin(pitch),
+      this.camera.position.z + len * Math.cos(yaw) * Math.cos(pitch));
+  }
   // rotate the camera about the focus point (turntable)
   orbit(dyaw, dpitch) {
     const t = this.controls.target, off = this.camera.position.clone().sub(t);
@@ -247,7 +260,10 @@ export class Nav {
     if (!this.world || this.mode !== 'orbit') return;
     const d = this.dir().clone().normalize();
     const t = this.world.raycast(this.camera.position, d, 3000);
-    const len = isFinite(t) ? Math.max(5, t) : Math.min(this.dir().length(), 800);
+    let len = isFinite(t) ? Math.max(5, t) : Math.min(this.dir().length(), 800);
+    // a focus off the map (looking out over the edge) would make keepInside() shift the camera: keep it on the map
+    const W = this.world, on = (L) => { const x = this.camera.position.x + d.x * L, z = this.camera.position.z + d.z * L; return W.inside(x - 61, z - 61) && W.inside(x + 61, z + 61); };
+    while (len > 5 && !on(len)) len *= 0.85;
     this.controls.target.copy(this.camera.position).addScaledVector(d, len);
   }
   // look around at street level / on a ride (drag)
@@ -541,20 +557,23 @@ export class Nav {
       return this.updateRide();
     }
     const cam = this.camera, ctl = this.controls;
-    // A/D turn and Q/E tilt about the focus (what is in the middle of the screen stays there); Shift: faster
+    // A/D turn and Q/E nose up/down, in place (as on the street); Shift: faster
     const tr = (K.has('tr') ? 1 : 0) - (K.has('tl') ? 1 : 0), tp = (K.has('tu') ? 1 : 0) - (K.has('td') ? 1 : 0);
-    if (tr || tp) this.orbit(-tr * (this.shift ? 2.4 : 1.2) * dt, -tp * 0.8 * dt);
-    // W/S: move over the ground where you look; speed scales with height above the ground
-    const fwd = this.dir().clone().setY(0);
-    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
-    fwd.normalize();
-    const gnd = this.world ? this.world.groundAt(cam.position.x, cam.position.z) : 15;
-    const h = Math.max(3, cam.position.y - gnd);
-    const speed = this.speed * (this.shift ? 3 : 1) * Math.min(400, 8 + h * 0.9) * dt;
-    const d = new THREE.Vector3();
-    if (K.has('f')) d.add(fwd);
-    if (K.has('b')) d.sub(fwd);
-    if (d.lengthSq()) { d.multiplyScalar(speed); cam.position.add(d); ctl.target.add(d); }
+    if (tr || tp) { this.turn(-tr * (this.shift ? 2.4 : 1.2) * dt, tp * 0.8 * dt); this._turned = true; }
+    // W/S: fly forward/back along the view, as in a game (down into the city when you look down); speed scales with
+    // height above the ground. The focus stays on what is ahead, so A/D/Q/E and the mouse turn about it.
+    const go = (K.has('f') ? 1 : 0) - (K.has('b') ? 1 : 0);
+    if (!go || !this.world) return;
+    const look = this.dir().clone().normalize();
+    const h = Math.max(3, cam.position.y - this.world.groundAt(cam.position.x, cam.position.z));
+    let step = go * this.speed * (this.shift ? 3 : 1) * Math.min(400, 8 + h * 0.9) * dt;
+    const ahead = this.world.raycast(cam.position, look, 4000);
+    if (go > 0 && ahead < 8) { this.setMode('walk'); return; } // reached the street or a building: land on the street there
+    if (go > 0) step = Math.min(step, ahead - 6);
+    if (go < 0 && h + step * look.y > 3600) return; // not off into the fog
+    cam.position.addScaledVector(look, step);
+    ctl.target.copy(cam.position).addScaledVector(look, isFinite(ahead) ? Math.max(5, ahead - step) : this.dir().length());
+    this._zoomT = performance.now(); // low over the street: clamp() lands you there
   }
 
   // keep the orbit camera above the terrain (called after controls.update)

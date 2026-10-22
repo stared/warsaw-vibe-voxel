@@ -85,17 +85,25 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 
 
 /* HUD: a legend, not a control panel -- outlines only, semi-transparent, never in the way of the pointer */
-#hud { position: fixed; left: 14px; bottom: 14px; z-index: 4; pointer-events: none; display: flex; align-items: flex-end; gap: 14px;
-  font: 11.5px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: rgba(255,255,255,.82); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+#hud { --o: rgba(255,255,255,.55); position: fixed; left: 14px; bottom: 14px; z-index: 4; pointer-events: none;
+  font: 11px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+#hud .who { font-weight: 600; color: #fff; margin-bottom: 6px; }
+#hud .who:empty { display: none; }
+#hud .row { display: flex; align-items: flex-end; gap: 16px; }
 #hud .keys { display: grid; grid-template-columns: repeat(3, 30px); gap: 4px; }
-#hud .keys span { position: relative; height: 30px; border: 1px solid rgba(255,255,255,.5); border-radius: 5px; box-shadow: 0 0 2px rgba(0,0,0,.45), inset 0 0 2px rgba(0,0,0,.3);
-  font: 600 12px ui-monospace, Menlo, monospace; padding: 3px 0 0 5px; box-sizing: border-box; transition: background .08s, border-color .08s; }
-#hud .keys i { position: absolute; right: 4px; bottom: 1px; font: 12px -apple-system, sans-serif; font-style: normal; opacity: .75; }
-#hud .keys span.on { background: rgba(255,255,255,.28); border-color: #fff; }
-#hud .lines { display: flex; flex-direction: column; gap: 2px; }
-#hud .lines b { color: #fff; font-weight: 600; margin-bottom: 2px; }
-#hud .lines span { display: inline-block; min-width: 92px; color: #fff; font-weight: 600; }
-@media (max-width: 600px) { #hud { left: 8px; bottom: 8px; font-size: 11px; } #hud .lines span { min-width: 80px; } }
+#hud .cap { position: relative; display: block; height: 30px; min-width: 30px; border: 1px solid var(--o); border-radius: 5px; box-sizing: border-box;
+  box-shadow: 0 0 2px rgba(0,0,0,.45), inset 0 0 2px rgba(0,0,0,.3); font: 600 12px ui-monospace, Menlo, monospace; padding: 3px 0 0 5px; transition: background .08s, border-color .08s; }
+#hud .cap i { position: absolute; right: 4px; bottom: 1px; font: 12px -apple-system, sans-serif; font-style: normal; opacity: .75; }
+#hud .on.cap, #hud .on .cap { background: rgba(255,255,255,.28); border-color: #fff; }
+#hud .mouse { display: flex; gap: 10px; }
+#hud figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+#hud figure .cap { padding: 7px 5px 0; font-size: 11px; }
+#hud svg { height: 30px; width: 26px; fill: none; stroke: var(--o); stroke-width: 1.3; stroke-linecap: round; filter: drop-shadow(0 0 1px rgba(0,0,0,.6)); overflow: visible; }
+#hud svg .btn { fill: var(--o); stroke: none; }
+#hud .on svg { stroke: #fff; } #hud .on svg .btn { fill: #fff; }
+#hud figcaption { font-size: 10.5px; }
+#hud .touch { max-width: 70vw; }
+@media (max-width: 600px) { #hud { left: 8px; bottom: 8px; } }
 .noui #hud { display: none; }
 /* PROTOTYPE: what the city is building while it fills in (caption.js) */
 .caption { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;

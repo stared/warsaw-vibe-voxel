@@ -424,7 +424,7 @@ function onMode(m, ride) {
 }
 // keep the focus over the city: zooming out at a grazing angle must not slide the view off the edge of the map
 function keepInside() {
-  if (bbox.isEmpty()) return;
+  if (bbox.isEmpty() || nav._turned) return; // turning in place with A/D/Q/E moves only the focus (put back on the map on release)
   const t = controls.target, m = 60;
   const cx = Math.min(Math.max(t.x, bbox.min.x + m), bbox.max.x - m), cz = Math.min(Math.max(t.z, bbox.min.z + m), bbox.max.z - m);
   if (cx !== t.x || cz !== t.z) { const d = new THREE.Vector3(cx - t.x, 0, cz - t.z); t.add(d); camera.position.add(d); }
@@ -548,7 +548,7 @@ function flyTo(v) {
   }
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
-  hud = new Hud({ nav });
+  hud = new Hud({ nav, dom: renderer.domElement });
   makeLabels(meta);
   const items = [];
   Object.values(VIEWS).forEach((v) => {
