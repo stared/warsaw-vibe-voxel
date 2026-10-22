@@ -84,38 +84,18 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .noui #labels { display: none !important; }
 
 
-/* HUD: same strict palette as the panel — black surfaces, white text, one grey */
-#hud { --bg: rgba(0,0,0,.78); --w: #1f1f1f; --t: #fff; --t2: #a8a8a8; font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: var(--t); }
-#hud button { font: inherit; color: var(--t); background: var(--w); border: 0; border-radius: 0; padding: 0 10px; height: 28px; cursor: pointer; white-space: nowrap; touch-action: none; }
-#hud button:hover { background: #333; }
-#hud .bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px;
-  max-width: calc(100vw - 120px); background: var(--bg); padding: 5px 6px 5px 12px; }
-#hud .who { font-weight: 600; white-space: nowrap; }
-#hud .who:empty { display: none; }
-#hud .hint { color: var(--t2); line-height: 1.35; }
-#hud .btns { display: flex; gap: 4px; }
-#hud .btns:empty { display: none; }
-#hud.compact .hint { display: none; }
-#hud .side { position: fixed; right: 14px; bottom: 14px; z-index: 4; display: flex; flex-direction: column; gap: 4px; }
-#hud .side button { width: 36px; height: 36px; padding: 0; font-size: 18px; background: var(--bg); box-shadow: 0 0 0 1px rgba(255,255,255,.28); } /* findable on the night city too */
-#hud .compass svg { width: 26px; height: 26px; display: block; margin: auto; }
-#hud .compass .rose { transition: transform .1s linear; }
-#hud[data-mode=walk] .zin, #hud[data-mode=walk] .zout, #hud[data-mode=ride] .zin, #hud[data-mode=ride] .zout,
-#hud[data-mode=walk] .walker, #hud[data-mode=ride] .walker { display: none; } /* one way up: the Fly up button in the bar */
-#hud .walker { cursor: grab; }
-#hud .tip { position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity .12s; background: var(--bg); padding: 4px 8px; white-space: nowrap; }
-#hud .offer { position: fixed; left: 0; top: 0; z-index: 6; opacity: 0; pointer-events: none; transition: opacity .15s; height: 34px !important; background: #2fa1d6 !important; font-weight: 600; }
-#hud .offer.on { opacity: 1; pointer-events: auto; }
-#hud .ghost { position: fixed; left: 0; top: 0; z-index: 7; display: none; font-size: 28px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
-#hud .toast { position: fixed; left: 50%; bottom: 62px; transform: translateX(-50%); z-index: 6; background: var(--bg); padding: 7px 12px; transition: opacity .5s; }
-#hud .toast.off { opacity: 0; }
-@media (max-width: 600px) {
-  #hud .bar { left: 8px; right: 56px; bottom: 8px; transform: none; max-width: none; flex-wrap: wrap; padding: 6px 8px; gap: 6px; }
-  #hud .hint { font-size: 11px; flex-basis: 100%; }
-  #hud .side { right: 8px; bottom: 8px; }
-  #hud .side button { width: 42px; height: 42px; }
-  #hud button { height: 34px; }
-}
+/* HUD: a legend, not a control panel -- outlines only, semi-transparent, never in the way of the pointer */
+#hud { position: fixed; left: 14px; bottom: 14px; z-index: 4; pointer-events: none; display: flex; align-items: flex-end; gap: 14px;
+  font: 11.5px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: rgba(255,255,255,.82); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+#hud .keys { display: grid; grid-template-columns: repeat(3, 30px); gap: 4px; }
+#hud .keys span { position: relative; height: 30px; border: 1px solid rgba(255,255,255,.5); border-radius: 5px; box-shadow: 0 0 2px rgba(0,0,0,.45), inset 0 0 2px rgba(0,0,0,.3);
+  font: 600 12px ui-monospace, Menlo, monospace; padding: 3px 0 0 5px; box-sizing: border-box; transition: background .08s, border-color .08s; }
+#hud .keys i { position: absolute; right: 4px; bottom: 1px; font: 12px -apple-system, sans-serif; font-style: normal; opacity: .75; }
+#hud .keys span.on { background: rgba(255,255,255,.28); border-color: #fff; }
+#hud .lines { display: flex; flex-direction: column; gap: 2px; }
+#hud .lines b { color: #fff; font-weight: 600; margin-bottom: 2px; }
+#hud .lines span { display: inline-block; min-width: 92px; color: #fff; font-weight: 600; }
+@media (max-width: 600px) { #hud { left: 8px; bottom: 8px; font-size: 11px; } #hud .lines span { min-width: 80px; } }
 .noui #hud { display: none; }
 /* PROTOTYPE: what the city is building while it fills in (caption.js) */
 .caption { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;

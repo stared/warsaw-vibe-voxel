@@ -250,7 +250,7 @@ function updateLabels() {
   if (!panelRect) measurePanel();
   const pr = panelRect;
   const placed = gui._hidden ? [] : [{ x0: pr.left - 8, x1: pr.right, y0: pr.top, y1: pr.bottom + 8 }];
-  if (hud) placed.push(...hud.rects); // and so are the on-screen buttons
+  if (hud) placed.push(...hud.rects); // and so is the key legend
   const free = (r) => r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && r.y1 <= innerHeight - 4 &&
     !placed.some((q) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
   const TOP = 8;
@@ -307,6 +307,7 @@ function updateLabels() {
         if (inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight) { ex = x; ey = y; } // on screen but crowded out
         ex = Math.min(Math.max(ex, 14), innerWidth - ew - 4); ey = Math.min(Math.max(ey, 14), innerHeight - 14);
         if (!gui._hidden && ex + ew > pr.left - 8 && ey < pr.bottom + 20) { if (ex > innerWidth / 2) ex = pr.left - ew - 8; else ey = pr.bottom + 24; } // keep clear of the panel
+        for (const q of hud?.rects || []) if (ex < q.x1 && ex + ew > q.x0 && ey > q.y0 - 10) ey = q.y0 - 14; // and of the key legend
         L.edge.style.transform = `translate(${ex.toFixed(0)}px, ${ey.toFixed(0)}px)`;
         L.edge.querySelector('i').style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;
       }
@@ -385,7 +386,6 @@ const search = new PlaceSearch(fGo.$children);
 search.onPick = () => { if (innerWidth < 600) gui.close(); }; // phone: get the panel out of the way of where we fly
 renderer.domElement.addEventListener('pointerdown', () => { if (innerWidth < 600 && !gui._closed) gui.close(); }); // phone: tapping the map puts the panel away
 const streetCtl = fGo.add(P, 'street').name('street level').onChange((v) => { if (v) nav.setMode('walk'); else nav.flyUp(); });
-const kbd = (el, k) => { el.querySelector(':scope > kbd')?.remove(); const b = document.createElement('kbd'); b.textContent = k; el.appendChild(b); };
 const fShow = gui.addFolder('Show').close();
 fShow.add(P, 'labels').name('labels');
 fShow.add(P, 'life').name('traffic & trams').onChange((v) => { if (life) life.group.visible = v; });
@@ -409,18 +409,6 @@ fLook.add(P, 'bloom', 0, 3, 0.05);
 fLook.add(P, 'ao', 0, 5, 0.1).name('occlusion').onChange((v) => { n8.configuration.intensity = v; });
 fLook.add(P, 'saturation', -0.5, 0.6, 0.01).onChange((v) => { hueSat.saturation = v; });
 fLook.add(P, 'contrast', -0.3, 0.4, 0.01).onChange((v) => { bc.contrast = v; });
-const fKeys = gui.addFolder('Mouse & keys').close(); // the HUD bar carries the essentials
-kbd(fKeys.$title, 'H');
-const HELP = [
-  ['drag', 'move the map'], ['right / shift drag', 'rotate & tilt'], ['scroll · pinch', 'zoom to cursor'], ['double-click', 'fly there'],
-  ['click a tram, car, person', 'ride along'], ['🚶 button', 'street view (drag it onto a street)'],
-  ['street: drag', 'look around'], ['street: click', 'walk there'], ['W A S D', 'move  (shift: faster) · Space jump'],
-  ['G · Esc', 'street level · back up'], ['/', 'search'], ['1 – 7', 'views'], ['[  ]', 'time −/+ 15 min'], ['L', 'labels'],
-];
-const help = document.createElement('div');
-help.className = 'help';
-help.innerHTML = HELP.map(([k, v]) => `<span class="k">${k}</span><span>${v}</span>`).join('');
-fKeys.$children.appendChild(help);
 const fAbout = gui.addFolder('About').close();
 const foot = document.createElement('div');
 foot.className = 'foot';
@@ -428,9 +416,6 @@ foot.innerHTML = '<div id="sources"></div><div id="stats">loading…</div><div><
 fAbout.$children.appendChild(foot);
 // one plain sentence for first-time visitors, first thing in the panel
 if (innerWidth < 600) gui.close();
-function toggleHelp(show) {
-  fKeys.openAnimated(show === undefined ? fKeys._closed : show);
-}
 function onMode(m, ride) {
   document.body.classList.toggle('walking', m !== 'orbit');
   P.street = m !== 'orbit'; streetCtl.updateDisplay();
@@ -448,32 +433,6 @@ function keepInside() {
   const px = Math.min(Math.max(p.x, bbox.min.x - M), bbox.max.x + M), pz = Math.min(Math.max(p.z, bbox.min.z - M), bbox.max.z + M);
   if (px !== p.x || pz !== p.z) { p.x = px; p.z = pz; }
 }
-// the whole map framed for this screen (a portrait phone needs a different distance than a laptop): from the south,
-// steep, far enough that the key landmarks all project inside the frame
-function fitHome() {
-  const L = (n) => VIEWS && meta0.labels.find((l) => l.name === n);
-  const pts = ['Pałac Kultury i Nauki', 'PGE Narodowy', 'Warszawa Centralna', 'Centrum Nauki Kopernik', 'Ogród Saski', 'Politechnika Warszawska']
-    .map(L).filter(Boolean).map((l) => new THREE.Vector3(l.x, l.z || 40, l.y));
-  if (pts.length < 2) return VIEWS.city || VIEWS.overview;
-  const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(pts.length); c.y = 40;
-  // portrait screens look from the west, so the long PKiN-to-stadium axis runs up the screen instead of across it
-  const dir = (camera.aspect < 1 ? new THREE.Vector3(-2100, 3500, 0) : new THREE.Vector3(0, 3500, 2100)).normalize(), cam = camera.clone();
-  // an open settings panel covers the right of the screen: fit into the strip left of it
-  const r = gui.domElement.getBoundingClientRect();
-  const x1 = !gui._closed && r.height > 150 && r.left > innerWidth * 0.5 ? (r.left - 8) / innerWidth * 2 - 1 : 1;
-  let d = 1500, m = 0;
-  for (let k = 0; k < 40; k++, d *= 1.08) {
-    cam.position.copy(c).addScaledVector(dir, d); cam.lookAt(c); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-    const v = pts.map((p) => p.clone().project(cam)), xs = v.map((q) => q.x);
-    m = (Math.min(...xs) + Math.max(...xs)) / 2;
-    if (Math.max(...xs) - Math.min(...xs) < x1 + 1 - 0.36 && v.every((q) => Math.abs(q.y) < 0.8)) break;
-  }
-  // slide sideways so the landmarks sit in the middle of the free strip
-  const half = c.distanceTo(cam.position) * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect;
-  const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
-  c.addScaledVector(right, (m - (x1 - 1) / 2) * half);
-  return { pos: c.clone().addScaledVector(dir, d).toArray(), target: c.toArray() };
-}
 // ride the nearest vehicle of a kind to what you look at (moving trams are hard to click from the air)
 function rideNearest(kind) {
   if (!life) return;
@@ -481,33 +440,11 @@ function rideNearest(kind) {
   const ag = life.nearest(kind, { x: f.x, z: f.z }, null);
   if (ag) { if (kind === 'tram') ag.label = ag.label || 'tram'; nav.startRide(ag); }
 }
-function zoomBy(f) {
-  const off = camera.position.clone().sub(controls.target);
-  const L = THREE.MathUtils.clamp(off.length() * f, controls.minDistance, controls.maxDistance);
-  flyTo({ pos: controls.target.clone().add(off.setLength(L)).toArray(), target: controls.target.toArray(), ms: 600 });
-}
-// turn the bird's-eye view so north is up (orbit about the focus)
-function northUp() {
-  if (nav.mode !== 'orbit') { nav.walkLook(nav.heading(), 0); return; }
-  const off = camera.position.clone().sub(controls.target), a = nav.heading();
-  const t0 = performance.now(), p0 = off.clone();
-  fly = (now) => {
-    const t = Math.min(1, (now - t0) / 700), e = t * t * (3 - 2 * t);
-    camera.position.copy(controls.target).add(p0.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), a * e));
-    if (t >= 1) fly = null;
-  };
-}
 let hud = null, meta0 = null;
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('.lil-gui input'))) return;
-  if (e.code === 'KeyG') { if (nav.mode === 'orbit') nav.setMode('walk'); else nav.flyUp(); }
-  else if (e.key === '/') { search.input.focus(); e.preventDefault(); }
-  else if (e.code === 'KeyH' || e.key === '?') toggleHelp();
-  else if (e.code === 'KeyL') { P.labels = !P.labels; gui.controllersRecursive().forEach((c) => c.updateDisplay()); }
-  else if (e.code === 'BracketLeft' || e.code === 'BracketRight') { anim = null; applyTime(Math.min(23.5, Math.max(4.5, state.hour + (e.code === 'BracketLeft' ? -0.25 : 0.25)))); }
-  else if (/^Digit[1-9]$/.test(e.code) && viewCtls[+e.code.slice(5) - 1]) viewCtls[+e.code.slice(5) - 1]();
+  if (e.key === '/') { gui.open(); fGo.open(); search.input.focus(); e.preventDefault(); }
 });
-const viewCtls = [];
 let anim = null;
 function animateTo(h) {
   const from = state.hour, t0 = performance.now();
@@ -594,7 +531,7 @@ function flyTo(v) {
     u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
     location.search = u.toString(); };
   const fExp = gui.addFolder('Experimental').close();
-  gui.$children.insertBefore(fExp.domElement, fKeys.domElement);
+  gui.$children.insertBefore(fExp.domElement, fAbout.domElement);
   fExp.add({ engine: engineOf() }, 'engine', Object.keys(ENGINES)).name('engine').onChange((k) => reloadWith(ENGINES[k]));
   if (zones) {
     const sync = () => { const u = new URLSearchParams(location.search); u.set('shape', zones.shape); u.set('r', zones.r); u.set('budget', zones.budget); u.set('outside', zones.outside); u.set('blur', zones.blur);
@@ -611,26 +548,21 @@ function flyTo(v) {
   }
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
-  hud = new Hud({ nav, dom: renderer.domElement, onZoom: zoomBy, onNorth: northUp,
-    // the search button starts a fresh query (people's taps appended to the last one)
-    onSearch: () => { gui.open(); fGo.open(); search.input.value = ''; search.render(); search.input.focus(); },
-    onHome: () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(fitHome()); },
-    onRideTram: () => rideNearest('tram') });
+  hud = new Hud({ nav });
   makeLabels(meta);
   const items = [];
-  Object.values(VIEWS).forEach((v, i) => {
+  Object.values(VIEWS).forEach((v) => {
     const go = () => { if (nav.mode !== 'orbit') nav.setMode('orbit'); pinPlace(null); flyTo(v); };
-    viewCtls.push(go);
-    items.push({ name: v.label, kind: `viewpoint · ${i + 1}`, featured: true, go });
+    items.push({ name: v.label, kind: 'viewpoint', featured: true, go });
   });
   for (const l of meta.labels) items.push({ name: l.name, alt: `${l.alt || ''} ${l.note}`, kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R || 20) * 1.4), null, l.name) });
   // things to do, found by search too ("tram" found a school and a dentist)
-  items.push({ name: 'Ride a tram', alt: 'tramwaj tram ride jedź', kind: 'action', go: () => rideNearest('tram') });
-  items.push({ name: 'Ride a car', alt: 'samochód car bus autobus ride jedź', kind: 'action', go: () => rideNearest('car') });
+  items.push({ name: 'Follow a tram', alt: 'tramwaj tram ride follow jedź', kind: 'action', go: () => rideNearest('tram') });
+  items.push({ name: 'Follow a car', alt: 'samochód car bus autobus ride follow jedź', kind: 'action', go: () => rideNearest('car') });
   // zouk evenings on the stone disc by Centrum Nauki Kopernik (sim.js DANCE): an evening hour if it isn't one
   items.push({ name: 'Zouk at Kopernik', alt: 'dance taniec zouk Centrum Nauki Kopernik evening wieczór', kind: 'action',
     go: () => { if (state.hour < 19 || state.hour > 23) applyTime(20.5); goPlace(2626, 741, 30, { name: 'Zouk', note: 'evenings' }); } });
-  items.push({ name: 'Walk with someone', alt: 'person people pieszy przechodzień idź walk', kind: 'action', go: () => rideNearest('person') });
+  items.push({ name: 'Follow someone', alt: 'person people pieszy przechodzień idź walk with follow', kind: 'action', go: () => rideNearest('person') });
   fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
     for (const [name, kind, x, y, size, alt] of places) items.push({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) });
     search.setItems(items);
@@ -667,7 +599,6 @@ renderer.setAnimationLoop((now) => {
   if (P.rate && !anim) applyTime(state.hour + P.rate * dtf > 23.5 ? 4.5 : state.hour + P.rate * dtf);
   nav.update(dtf);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
-  hud?.update();
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
   const camH = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3; // height above the street (was absolute: the map's base moved with the Vistula)
   tiltPass.enabled = P.tilt && camH > 60;

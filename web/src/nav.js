@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 
-// Camera navigation, three modes, one gesture language (mouse, trackpad and touch alike):
+// Camera navigation, three modes, one set of keys (as in games: W/S forward and back, A/D turn, Q/E nose up and down,
+// Shift faster; arrows do the same) and one gesture language (mouse, trackpad and touch alike):
 //   orbit (fly-over): drag moves the map · right-drag (or Shift/Ctrl-drag, two fingers) rotates & tilts · wheel/pinch zooms
-//                     at the cursor · double-click flies there · click a tram, car or person to ride along
+//                     at the cursor · double-click flies there · click a tram, car or person to follow it
 //   walk (street):    drag looks around · click the street to walk there · wheel steps forward/back · pinch zooms the lens
-//                     WASD/arrows walk, Shift runs, Space jumps · Esc flies back up
-//   ride (possess):   see through the eyes of a pedestrian, a driver or a tram driver (or follow from behind) · drag looks around
+//                     Space jumps · Esc flies back up
+//   ride (follow):    the camera follows a pedestrian, a car or a tram · drag looks around · any move key: walk on your own
 const KEYMAP = {
-  KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', KeyQ: 'down', KeyE: 'up', PageDown: 'down', PageUp: 'up',
-  ArrowLeft: 'tl', ArrowRight: 'tr', ArrowUp: 'tu', ArrowDown: 'td',
+  KeyW: 'f', KeyS: 'b', KeyA: 'tl', KeyD: 'tr', KeyQ: 'tu', KeyE: 'td',
+  ArrowUp: 'f', ArrowDown: 'b', ArrowLeft: 'tl', ArrowRight: 'tr',
 };
 const EYE = 1.7, STEP = 1.05, HEAD = 1.9, GRAV = 16;
 // where the camera sits on each kind of agent: eyes (first person) and behind (chase)
@@ -53,12 +54,10 @@ export class Nav {
       this.shift = e.shiftKey;
       if (e.code === 'Escape') { this.back(); return; }
       if (e.code === 'Space' && this.mode === 'walk') { if (this.vy === 0) this.vy = 5.2; e.preventDefault(); return; }
-      if (e.code === 'KeyV' && this.mode === 'ride') { this.toggleView(); return; }
-      if (e.code === 'KeyN' && this.mode === 'ride') { this.nextRide(); return; }
-      if ((e.code === 'KeyF' || e.code === 'KeyE') && this.mode === 'walk') { this.takeNearest(); return; } // GTA: get in
       const k = KEYMAP[e.code];
       if (!k) return;
       this.keys.add(k);
+      if (this.mode === 'ride') this.hopOff(); // following someone: a move key and you walk on from there
       this.goal = null;
       this.cancelFly?.();
       e.preventDefault();
@@ -66,9 +65,7 @@ export class Nav {
     addEventListener('keyup', (e) => {
       this.shift = e.shiftKey;
       const k = KEYMAP[e.code];
-      if (!k) return;
-      this.keys.delete(k);
-      if (k[0] === 't' && this._turned && !this.keys.size) { this._turned = false; this.retarget(); }
+      if (k) this.keys.delete(k);
     });
     addEventListener('blur', () => this.keys.clear());
 
@@ -216,10 +213,10 @@ export class Nav {
     if (air) { // from the air a click on a vehicle/person rides it (only once it's a few px tall: no accidents)
       const ag = this.pickAgent(cx, cy, coarse ? 26 : 16, 5);
       if (ag) { this.startRide(ag); return; }
-    } else { // on the street people and cars move under your finger: a tap near one offers the ride, but still walks
-      const ag = this.pickAgent(cx, cy, coarse ? 30 : 20, 0);
-      if (ag) this.onOffer?.(ag, cx, cy);
-      if (this.mode === 'ride') return;
+    } else { // on the street: a click on a person or vehicle follows it, anywhere else walks there
+      const ag = this.pickAgent(cx, cy, coarse ? 24 : 12, 0);
+      if (ag) { this.startRide(ag); return; }
+      if (this.mode === 'ride') { this.hopOff(); return; }
     }
     if (this.mode === 'walk') {
       const g = this.walkTarget(cx, cy);
@@ -236,17 +233,6 @@ export class Nav {
   }
   setFov(f) { this.camera.fov = THREE.MathUtils.clamp(f, 20, 80); this.camera.updateProjectionMatrix(); }
 
-  // rotate the view direction about the camera (turn your head); keeps the focus distance
-  turn(dyaw, dpitch) {
-    const d = this.dir(), len = d.length() || 1;
-    let yaw = Math.atan2(d.x, d.z), pitch = Math.asin(THREE.MathUtils.clamp(d.y / len, -1, 1));
-    yaw += dyaw;
-    pitch = THREE.MathUtils.clamp(pitch + dpitch, -1.5, 1.2);
-    this.controls.target.set(
-      this.camera.position.x + len * Math.sin(yaw) * Math.cos(pitch),
-      this.camera.position.y + len * Math.sin(pitch),
-      this.camera.position.z + len * Math.cos(yaw) * Math.cos(pitch));
-  }
   // rotate the camera about the focus point (turntable)
   orbit(dyaw, dpitch) {
     const t = this.controls.target, off = this.camera.position.clone().sub(t);
@@ -270,10 +256,9 @@ export class Nav {
     else if (this.mode === 'ride') { const R = this.ride; R.dyaw += dyaw; R.dpitch = THREE.MathUtils.clamp(R.dpitch + dpitch, -1.2, 1.2); R.idle = performance.now(); }
   }
 
-  // Esc / "back": ride -> walk on the spot, walk -> fly up
+  // Esc: back to the bird's-eye view
   back() {
-    if (this.mode === 'ride') this.hopOff();
-    else if (this.mode === 'walk') this.flyUp();
+    if (this.mode !== 'orbit') this.flyUp();
   }
   // leave street level: rise to a bird's-eye view over where you were looking
   flyUp() {
@@ -363,7 +348,7 @@ export class Nav {
   startRide(ag) {
     const prev = this.mode;
     if (prev === 'orbit') { this._fov0 = this.camera.fov; this._sky = { pos: this.camera.position.clone(), target: this.controls.target.clone() }; }
-    this.ride = { ...ag, view: this.ride?.kind === ag.kind ? this.ride.view : ag.kind === 'person' ? 'eyes' : 'behind', dyaw: 0, dpitch: 0, idle: 0,
+    this.ride = { ...ag, view: 'behind', dyaw: 0, dpitch: 0, idle: 0,
       t0: performance.now(), from: this.camera.position.clone(), fromQ: this.camera.quaternion.clone(), fromFov: this.camera.fov };
     this.mode = 'ride';
     if (this.life) this.life.keep = ag.obj;
@@ -371,33 +356,6 @@ export class Nav {
     this.goal = null; this.marker.visible = false;
     this.dom.style.cursor = 'default';
     this.onMode?.(this.mode, this.ride);
-  }
-  // the nearest person or vehicle in front of you at street level
-  takeNearest() {
-    if (!this.life) return;
-    const f = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), P = this.walkPos;
-    let best = null, bd = 25;
-    for (const [kind, list] of [['person', this.life.people], ['car', this.life.cars], ['tram', this.life.trams]]) for (const o of list) {
-      if (!o.rp) continue;
-      const dx = o.rp.x - P.x, dz = o.rp.z - P.z, d = Math.hypot(dx, dz);
-      if (d < bd && (dx * f.x + dz * f.z) / (d || 1) > 0.5) { bd = d; best = { kind, obj: o }; }
-    }
-    if (!best) { this.onNotice?.('Nobody close enough in front of you'); return; }
-    best.label = best.kind === 'tram' ? (this.life.tramPaths[best.obj.p].ref ? `tram ${this.life.tramPaths[best.obj.p].ref}` : 'tram') : best.kind === 'car' ? (best.obj.bus ? 'bus' : 'car') : 'person';
-    this.startRide(best);
-  }
-  toggleView() {
-    if (!this.ride) return;
-    const R = this.ride;
-    R.view = R.view === 'eyes' ? 'behind' : 'eyes';
-    Object.assign(R, { t0: performance.now(), from: this.camera.position.clone(), fromQ: this.camera.quaternion.clone(), fromFov: this.camera.fov });
-    this.onMode?.(this.mode, R);
-  }
-  nextRide() {
-    if (!this.ride || !this.life) return;
-    const pose = this.life.pose(this.ride.kind, this.ride.obj);
-    const ag = pose && this.life.nearest(this.ride.kind, pose, this.ride.obj);
-    if (ag) this.startRide(ag);
   }
   hopOff() {
     const R = this.ride, pose = R && this.life.pose(R.kind, R.obj);
@@ -444,7 +402,6 @@ export class Nav {
     if (!pose) { // it left the map: hop on the nearest one of the same kind, else continue on foot
       const last = { x: this.camera.position.x, z: this.camera.position.z };
       const ag = this.life && this.life.nearest(R.kind, last, R.obj);
-      this.onRideEnd?.(R, !!ag);
       if (ag) { const v = R.view; this.startRide(ag); this.ride.view = v; } else this.hopOff();
       return;
     }
@@ -581,41 +538,23 @@ export class Nav {
     const K = this.keys;
     if (this.mode === 'walk') return this.updateWalk(dt);
     if (this.mode === 'ride') {
-      const tr = (K.has('tr') ? 1 : 0) - (K.has('tl') ? 1 : 0), tp = (K.has('tu') ? 1 : 0) - (K.has('td') ? 1 : 0);
-      if (tr || tp) this.look(-tr * 1.6 * dt, tp * 1.0 * dt);
-      if ((K.has('f') || K.has('b') || K.has('l') || K.has('r')) && performance.now() - (this._keyNote || 0) > 4000) {
-        this._keyNote = performance.now(); this.onNotice?.('You’re riding along — Esc or “Hop off” to walk on your own');
-      }
       return this.updateRide();
     }
     const cam = this.camera, ctl = this.controls;
-    // arrows: turn in place; Shift+arrows: orbit around the focus
+    // A/D turn and Q/E tilt about the focus (what is in the middle of the screen stays there); Shift: faster
     const tr = (K.has('tr') ? 1 : 0) - (K.has('tl') ? 1 : 0), tp = (K.has('tu') ? 1 : 0) - (K.has('td') ? 1 : 0);
-    if (tr || tp) {
-      if (this.shift) this.orbit(tr * 1.2 * dt, -tp * 0.8 * dt);
-      else { this.turn(-tr * 1.3 * dt, tp * 0.8 * dt); this._turned = true; }
-    }
-    // WASD: move over the ground relative to the view; speed scales with height above the ground
+    if (tr || tp) this.orbit(-tr * (this.shift ? 2.4 : 1.2) * dt, -tp * 0.8 * dt);
+    // W/S: move over the ground where you look; speed scales with height above the ground
     const fwd = this.dir().clone().setY(0);
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
     fwd.normalize();
-    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
     const gnd = this.world ? this.world.groundAt(cam.position.x, cam.position.z) : 15;
     const h = Math.max(3, cam.position.y - gnd);
     const speed = this.speed * (this.shift ? 3 : 1) * Math.min(400, 8 + h * 0.9) * dt;
     const d = new THREE.Vector3();
     if (K.has('f')) d.add(fwd);
     if (K.has('b')) d.sub(fwd);
-    if (K.has('r')) d.add(right);
-    if (K.has('l')) d.sub(right);
-    if (d.lengthSq()) d.normalize().multiplyScalar(speed);
-    if (K.has('up')) d.y += speed * 0.7;
-    if (K.has('down')) d.y -= speed * 0.7;
-    if (d.lengthSq()) {
-      cam.position.add(d); ctl.target.add(d);
-      // no flying off into the fog with Q/E (only for key flight: views and zoom may legitimately be higher)
-      if (cam.position.y > gnd + 3600) { const k = gnd + 3600 - cam.position.y; cam.position.y += k; ctl.target.y += k; }
-    }
+    if (d.lengthSq()) { d.multiplyScalar(speed); cam.position.add(d); ctl.target.add(d); }
   }
 
   // keep the orbit camera above the terrain (called after controls.update)
@@ -655,13 +594,11 @@ export class Nav {
   updateWalk(dt) {
     const K = this.keys, w = this.world, cam = this.camera, P = this.walkPos;
     const tr = (K.has('tr') ? 1 : 0) - (K.has('tl') ? 1 : 0), tp = (K.has('tu') ? 1 : 0) - (K.has('td') ? 1 : 0);
-    if (tr || tp) this.walkLook(-tr * 1.6 * dt, tp * 1.0 * dt);
-    const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)), right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    if (tr || tp) this.walkLook(-tr * (this.shift ? 2.6 : 1.8) * dt, tp * 1.0 * dt);
+    const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const m = new THREE.Vector3();
     if (K.has('f')) m.add(fwd);
     if (K.has('b')) m.sub(fwd);
-    if (K.has('r')) m.add(right);
-    if (K.has('l')) m.sub(right);
     if (m.lengthSq()) {
       this.stepBy(m.normalize().multiplyScalar((this.shift ? 20 : 6) * this.speed * dt)); // brisk walk; Shift: sprint
     } else if (this.goal) {
