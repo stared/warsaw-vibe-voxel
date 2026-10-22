@@ -393,7 +393,7 @@ fShow.add(P, 'fountains').onChange((v) => { if (fountains) fountains.mesh.visibl
 fShow.add(P, 'tilt').name('miniature blur');
 // the Vistula's level on the Warszawa-Bulwary gauge (cm, the scale since 1 Nov 2025: older readings +100), flood.js
 const RIVER = { 'record low (Sep 2025)': 104, 'as mapped (LiDAR day)': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
-  'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the dykes': 1120 };
+  'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the embankments': 1120 };
 P.river = 185; P.riverPreset = 'as mapped (LiDAR day)';
 const fRiver = gui.addFolder('Vistula level').close();
 const setRiver = (cm) => { if (flood?.info) flood.set((cm - flood.info.lidar_cm) / 100); };

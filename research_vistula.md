@@ -21,7 +21,7 @@ Sources: [IMGW API](https://danepubliczne.imgw.pl/api/data/hydro/id/152210170), 
 
 In the model (DTM in whole metres; area newly reached, km², at the gauge-row level — the river falls ~0.6 m across the
 map, so ±30 cm by place): 300 cm 0.02 · 400 0.12 · 500 0.19 · 600 0.18 · 700 0.10 · 800 0.13 · 900 0.23 ·
-1000 0.54 · **1100 2.49 (the dykes topped: Powiśle, Praga)**. The city plan: the 1% flood stays inside the dykes.
+1000 0.54 · **1100 2.49 (the embankments topped: Powiśle, Praga)**. The city plan: the 1% flood stays inside the embankments.
 The river bed is an estimate (LiDAR doesn't see through water): shelves off natural shores, deeper by the left bank.
 
 ## Photos

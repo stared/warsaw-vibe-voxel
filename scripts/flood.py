@@ -4,7 +4,7 @@ Input: data/ground.npz (voxelize.py: ground height and top colour), data/prep.np
 water surface on the LiDAR day).
 Output: web/public/data/flood.bin = gzip of two [D, W] uint8 grids,
   spill: the lowest water level (m above the model base) at which the river reaches the cell -- the highest ground on
-         the cell's best path from the river (a dyke keeps the land behind it dry until the water tops it); 255 never
+         the cell's best path from the river (an embankment keeps the land behind it dry until the water tops it); 255 never
   depth: the river bed under the LiDAR-day surface, in decimetres, estimated (LiDAR doesn't see through water): shallow
          shelves off the natural shores and sandbanks, a steep drop off the embanked left bank (the boulevards)
 and web/public/data/flood.json: the LiDAR-day surface and its fall along the map.

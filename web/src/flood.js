@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // The Vistula's level (scripts/flood.py). The voxels hold the river as it was on the LiDAR day; a level above that is
-// one sheet of water over every cell the river reaches (its spill height: a dyke keeps the land behind it dry until
+// one sheet of water over every cell the river reaches (its spill height: an embankment keeps the land behind it dry until
 // the water tops it), sloping as the river falls northwards; a level below it turns the shallows of the (estimated)
 // bed into sandbanks in the voxel shader (uDrop).
 export class Flood {
