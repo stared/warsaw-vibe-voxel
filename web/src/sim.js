@@ -19,6 +19,10 @@ const BLEND = 7; // m either side of a junction node over which lane offsets are
 const BOX_IN = 7, BOX_OUT = 9; // junction lock zone: last/first metres of incoming/outgoing edges
 const STEP = 1 / 30; // fixed sim tick; render() interpolates cars/trams between the last two ticks (and extrapolates people), so motion stays smooth at any fps
 const TRAM = { sec: 10.5, gap: 0.6, n: 3, v: 11, a: 1.0, b: 1.6, headway: 300 };
+// Zouk evenings on the dark stone disc in the garden south-east of Centrum Nauki Kopernik (OSM way 603145360, an
+// oval ~11 x 14 m): couples in close hold, rocking on the beat, turning about their own centre, the follower now and
+// then spun out and back; the couples drift slowly round the disc
+const DANCE = { x: 2626.2, y: 741.0, rx: 3.6, ry: 5.0, couples: 7, from: 18.5, to: 23.5, bpm: 84 };
 
 // rule switches (for diagnosis: ?sim=nobox,nospatial,...)
 const CFG = { box: true, spatial: true, room: true, level: true, tramobs: true, hold: true };
@@ -859,7 +863,8 @@ export class StreetLife {
       this.mLegs.setMatrixAt(i, m); this.mTorso.setMatrixAt(i, m);
       this.mTorso.instanceColor.setXYZ(i, p.col.r, p.col.g, p.col.b);
     });
-    this.mLegs.count = this.mTorso.count = this.people.length;
+    const nd = this.renderDancers(this.people.length, m, q, pos, sc);
+    this.mLegs.count = this.mTorso.count = this.people.length + nd;
     this.mLegs.instanceMatrix.needsUpdate = this.mTorso.instanceMatrix.needsUpdate = this.mTorso.instanceColor.needsUpdate = true;
 
     const LAMP = { R: [2.2, 0.12, 0.08, 3.95], Y: [2.2, 1.3, 0.1, 3.6], G: [0.1, 2.0, 0.6, 3.25] };
@@ -872,6 +877,48 @@ export class StreetLife {
     });
     this.mLamp.count = this.heads.length;
     this.mLamp.instanceMatrix.needsUpdate = this.mLamp.instanceColor.needsUpdate = true;
+  }
+
+  // the zouk couples (DANCE), drawn after the walkers from instance i0; returns how many people that is
+  renderDancers(i0, m, q, pos, sc) {
+    const hh = this.hh ?? 12, gz = this.world?.groundAt(DANCE.x, DANCE.y);
+    if (hh < DANCE.from || hh > DANCE.to || !gz) return 0;
+    // they arrive over the first hour and leave over the last
+    const n = Math.round(DANCE.couples * Math.min(1, (hh - DANCE.from) / 1, (DANCE.to - hh) / 1));
+    const beat = this.t * DANCE.bpm / 60 * Math.PI; // one radian-pi per beat: sin(beat) swings once every 2 beats
+    const SH = ['#b03a48', '#f0f0f0', '#2f2f33', '#d9a441', '#8b5fa8', '#3d6fa8', '#e07a9a', '#5a8fa3', '#c8553d', '#1f6f5c'];
+    const Y = new THREE.Vector3(0, 1, 0), tilt = new THREE.Quaternion(), ax = new THREE.Vector3();
+    const col = new THREE.Color();
+    let i = i0;
+    for (let k = 0; k < n && i + 1 < this.MAXP; k++) {
+      const a = (k / DANCE.couples) * 2 * Math.PI + this.t * 0.03, rr = 0.25 + 0.6 * hash(k + 41);
+      const cx = DANCE.x + Math.cos(a) * DANCE.rx * rr, cy = DANCE.y + Math.sin(a) * DANCE.ry * rr;
+      const turn = hash(k + 7) * 6.28 + this.t * (0.25 + 0.3 * hash(k + 3)) * (k % 2 ? 1 : -1);
+      // a spin every ~10 s (staggered): the follower steps out to arm's length and turns once on the spot
+      const sp = (this.t * 0.1 + hash(k + 13)) % 1, spin = sp < 0.15 ? sstep(0, 1, sp / 0.15) : 0;
+      const open = Math.sin(Math.PI * spin);
+      const rock = 0.12 * Math.sin(beat + k), sep = 0.27 + 0.45 * open;
+      const dx = Math.sin(turn), dy = Math.cos(turn); // leader -> follower
+      for (const lead of [true, false]) {
+        const s = lead ? -1 : 1, d = lead ? sep * 0.6 : sep;
+        const x = cx + dx * (s * d + rock), y = cy + dy * (s * d + rock);
+        let h = turn + (lead ? 0 : Math.PI); // face each other
+        if (!lead) h += spin * 2 * Math.PI;
+        q.setFromAxisAngle(Y, h);
+        // the follower's body lean (zouk's head movement, as a swaying torso), the leader's small counter-lean
+        const lean = lead ? 0.04 * Math.sin(beat * 0.5 + k) : 0.16 * Math.sin(beat * 0.25 + k * 1.7) * (1 - open);
+        ax.set(Math.cos(h), 0, -Math.sin(h)); // the body's own side axis: lean back and forth
+        tilt.setFromAxisAngle(ax, lean);
+        q.premultiply(tilt);
+        pos.set(x, gz + 0.03 * Math.abs(Math.sin(beat)), y);
+        m.compose(pos, q, sc.set(1, lead ? 1.04 : 0.96, 1));
+        this.mLegs.setMatrixAt(i, m); this.mTorso.setMatrixAt(i, m);
+        col.set(SH[Math.floor(hash(k * 2 + (lead ? 0 : 1) + 101) * SH.length)]);
+        this.mTorso.instanceColor.setXYZ(i, col.r, col.g, col.b);
+        i++;
+      }
+    }
+    return i - i0;
   }
 
   // ------------------------------------------------------------------ riding along
@@ -933,7 +980,7 @@ export class StreetLife {
       const A = this.active, R = 900;
       if (!A || (A.x - focus.x) ** 2 + (A.z - focus.z) ** 2 > 120 * 120) this.setActive(focus.x, focus.z, R);
     }
-    const hh = ((hour % 24) + 24) % 24;
+    const hh = this.hh = ((hour % 24) + 24) % 24;
     const bell = (c, w) => Math.exp(-(((hh - c) / w) ** 2));
     const cars = Math.min(1, 0.18 + 0.55 * bell(8, 2.2) + 0.5 * bell(17, 2.6) + 0.45 * bell(13, 5));
     const peds = Math.min(1, 0.08 + 0.4 * bell(8.5, 1.8) + 0.85 * bell(16, 4.5) + 0.25 * bell(21, 2));

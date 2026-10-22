@@ -31,7 +31,7 @@ def kind_of(t):
         return "stop"
     if "highway" in t:  # streets come from the merged lines above
         return None
-    for k in ("tourism", "amenity", "shop", "historic", "office", "leisure"):
+    for k in ("tourism", "amenity", "shop", "historic", "office", "leisure", "club"):
         if k in t:
             return t[k].replace("_", " ") if k != "shop" else "shop"
     if "building" in t:
@@ -39,7 +39,7 @@ def kind_of(t):
     return None
 
 
-RANK = {"square": 0, "park": 1, "station": 2, "street": 3, "building": 4, "museum": 4, "theatre": 4, "attraction": 4, "hotel": 5}
+RANK = {"square": 0, "Osiedle Jazdów": 1, "park": 1, "station": 2, "street": 3, "building": 4, "domek fiński": 4, "museum": 4, "theatre": 4, "attraction": 4, "hotel": 5}
 best = {}
 
 
@@ -73,6 +73,28 @@ for _, _, t, poly in osm.areas:
 for _, t, pt in osm.nodes:
     if t.get("name"):
         add(t["name"], kind_of(t), pt, t.get("name:en", ""))
+
+# the Finnish houses of Osiedle Jazdów (1945, ~27 left; Otwarty Jazdów: NGOs, culture and grassroots groups): every
+# one found by its address ("Jazdów 3/5") and by "domki fińskie", named after its OSM name or the groups inside it
+import re
+jazdow = unary_union(streets.get("Jazdów", [])).buffer(120) if streets.get("Jazdów") else None
+domki = []
+for _, _, t, poly in osm.areas:
+    nr = t.get("addr:housenumber", "")
+    if jazdow is None or t.get("building") not in ("detached", "house", "ruins", "yes") or not re.fullmatch(r"\d+A?/\d+", nr) \
+            or not jazdow.contains(poly.representative_point()):
+        continue
+    inside_ = [t2["name"] for _, t2, pt in osm.nodes if t2.get("name") and poly.buffer(1.5).contains(pt)]
+    name = t.get("name") or (inside_[0] if len(inside_) == 1 else f"Jazdów {nr}")
+    alt = " ".join([f"Jazdów {nr}", "domek fiński Finnish house", *[n for n in inside_ if n != name]])
+    c = poly.representative_point()
+    for k in [k for k, r in best.items() if k[0] == name and (r[2] - c.x) ** 2 + (r[3] - c.y) ** 2 < 30 ** 2]:
+        del best[k]  # the same house under its amenity/office kind
+    add(name, "domek fiński", poly, alt)
+    domki.append(poly)
+if domki:
+    add("Domki fińskie", "Osiedle Jazdów", unary_union(domki).convex_hull, "Finnish houses Otwarty Jazdów Jazdow")
+    print(len(domki), "Finnish houses on Jazdów")
 
 places = sorted(best.values(), key=lambda r: (RANK.get(r[1], 6), -r[4]))
 OUT.write_text(json.dumps({"places": places}, ensure_ascii=False, separators=(",", ":")))

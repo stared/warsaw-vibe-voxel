@@ -123,7 +123,7 @@ C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "pole": pal("#3a3e42", M_METAL), "steps": pal("#a8a296"), "hatch": pal("#d9c860", M_MARK),
     "fence": pal("#dfe3e6", M_METAL), "crane": pal("#e7b23c", M_METAL), "crane_d": pal("#3d4249", M_METAL),
     "shelter": pal("#a9c3cf", M_GLASS), "deck": pal("#a7a49d", M_CONCRETE), "parking": pal("#6a6d73"),
-    "track": pal("#b8875a"), "kerb": pal("#cfc7b8"), "granite_d": pal("#55595c"), "jet": pal("#dff1f7", 17),
+    "track": pal("#b8875a"), "kerb": pal("#cfc7b8"), "granite_d": pal("#55595c"), "woodfloor": pal("#6b5847"), "jet": pal("#dff1f7", 17),
     "benchkerb": pal("#dcd9d1", M_CONCRETE),
 }
 PERENNIALS = [pal(c, M_LEAF) for c in ["#8e6fae", "#a690c4", "#6f9a4f", "#8aa27a", "#5f8a49", "#7c9c5a", "#c98fb0"]]
@@ -350,7 +350,11 @@ burn(gcol, rail_beds)
 burn(gcol, rails, all_touched=True)
 
 # water
-water = [(geom, C["granite_d"] if t.get("fountain") == "splash_pad" else C["water"]) for oid, typ, t, geom in osm.areas
+# the dark disc in the garden by Kopernik is mapped as natural=water + surface=paving_stones, but it is a wooden
+# floor (zouk evenings are danced on it: sim.js DANCE): weathered dark wood
+WOOD_FLOOR = {603145360}
+water = [(geom, C["granite_d"] if t.get("fountain") == "splash_pad" else C["woodfloor"] if oid in WOOD_FLOOR
+          else C["water"]) for oid, typ, t, geom in osm.areas
          if (t.get("amenity") == "fountain" or t.get("natural") == "water" or t.get("water")) and not tunnelish(t)]
 burn(gcol, water)
 # the Vistula (and ponds): one flat surface per water body -- the DTM over water steps in 1 m terraces that show as

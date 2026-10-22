@@ -226,12 +226,15 @@ export function makeVoxelMaterial({ paletteTex, lampTex, W, D, ghost = null, sha
           col = base * (0.88 + 0.2 * h); gRough = 1.0;
         } else if (m == ${MAT.WATER}) {
           float r = sin(cell.x * 0.9 + uTime * 1.3) * sin(cell.z * 1.1 - uTime) * 0.5 + 0.5;
-          col = base * (0.75 + 0.25 * r); gRough = 0.04; gMetal = 0.3;
+          // game water, not the ortho's murky olive (#6F6448, read as mud): deep teal, slow swells of a lighter one
+          vec3 deep = vec3(0.012, 0.085, 0.15), swell = vec3(0.03, 0.2, 0.26);
+          col = mix(deep, swell, r * r) * (0.94 + 0.12 * h); gRough = 0.04; gMetal = 0.3;
           // a river mirrors the sky, more so at grazing angles (Fresnel): without it the Vistula read as grey concrete
           vec3 V = normalize(cameraPosition - vVox);
           float fres = pow(1.0 - max(dot(vN, V), 0.0), 4.0);
-          // the Vistula is murky (ortho #6F6448): a muted, darker mirror, never the bright horizon itself
-          col = mix(col, uHorizon * 0.72, clamp(0.06 + 0.5 * fres, 0.0, 0.5));
+          col = mix(col, uHorizon * 0.8, clamp(0.08 + 0.55 * fres, 0.0, 0.55));
+          // glints: now and then a cell catches the sun (by day)
+          if (vN.y > 0.5 && hash12(cell.xz * 0.37 + floor(uTime * 1.7 + h * 9.0)) < 0.006) col += vec3(0.35, 0.4, 0.38) * (1.0 - uNight) * (1.0 - uNight);
         } else if (m == ${MAT.LAMP}) {
           col = base; gEmissive = vec3(1.0, 0.82, 0.55) * (0.15 + 3.2 * uNight);
         } else if (m == ${MAT.METAL}) {

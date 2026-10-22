@@ -618,6 +618,9 @@ function flyTo(v) {
   // things to do, found by search too ("tram" found a school and a dentist)
   items.push({ name: 'Ride a tram', alt: 'tramwaj tram ride jedź', kind: 'action', go: () => rideNearest('tram') });
   items.push({ name: 'Ride a car', alt: 'samochód car bus autobus ride jedź', kind: 'action', go: () => rideNearest('car') });
+  // zouk evenings on the stone disc by Centrum Nauki Kopernik (sim.js DANCE): an evening hour if it isn't one
+  items.push({ name: 'Zouk at Kopernik', alt: 'dance taniec zouk Centrum Nauki Kopernik evening wieczór', kind: 'action',
+    go: () => { if (state.hour < 19 || state.hour > 23) applyTime(20.5); goPlace(2626, 741, 30, { name: 'Zouk', note: 'evenings' }); } });
   items.push({ name: 'Walk with someone', alt: 'person people pieszy przechodzień idź walk', kind: 'action', go: () => rideNearest('person') });
   fetch('data/places.json').then((r) => r.json()).then(({ places }) => {
     for (const [name, kind, x, y, size, alt] of places) items.push({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) });
@@ -627,6 +630,7 @@ function flyTo(v) {
   fountains = new Fountains(scene, meta.jets || []);
   fetch('data/traffic.json').then((r) => r.json()).then((td) => {
     life = nav.life = new StreetLife(scene, td);
+    life.world = world;
     window.__life = life;
     life.group.visible = P.life;
   });
