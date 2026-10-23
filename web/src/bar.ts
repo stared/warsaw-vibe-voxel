@@ -9,7 +9,7 @@ interface SliderSpec {
   step: number;
   marks: Record<string, number>;
   snap: number;
-  show: (v: number, mark?: string) => string;
+  show: (v: number) => string;
   onInput: (v: number, jump: boolean) => void;
 }
 
@@ -34,7 +34,8 @@ class Slider {
 
   set(v: number) {
     this.input.value = String(v);
-    this.val.textContent = this.spec.show(v, Object.keys(this.spec.marks).find((k) => this.spec.marks[k] === v));
+    const mark = Object.keys(this.spec.marks).find((k) => this.spec.marks[k] === v);
+    this.val.innerHTML = `${this.spec.show(v)}${mark ? ` <span class="mark">${mark}</span>` : ''}`;
   }
 
   private commit(v: number, jump: boolean) {
@@ -58,8 +59,8 @@ export class Bar {
   }) {
     this.el.id = 'bar';
     this.search = new PlaceSearch(this.el, 'Search Warsaw…');
-    this.time = new Slider(this.el, { min: 4.5, max: 23.5, step: 1 / 60, marks: times, snap: 0, show: (h, n) => (n ? `${hhmm(h)} · ${n}` : hhmm(h)), onInput: onHour });
-    this.river = new Slider(this.el, { min: 90, max: 1150, step: 1, marks: river, snap: 12, show: (cm, n) => `Vistula ${cm} cm${n ? ` · ${n}` : ''}`, onInput: onRiver });
+    this.time = new Slider(this.el, { min: 4.5, max: 23.5, step: 1 / 60, marks: times, snap: 1 / 12, show: hhmm, onInput: onHour });
+    this.river = new Slider(this.el, { min: 90, max: 1150, step: 1, marks: river, snap: 12, show: (cm) => `Vistula ${cm} cm`, onInput: onRiver });
     this.river.input.disabled = true;
   }
 

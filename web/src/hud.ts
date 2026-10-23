@@ -20,9 +20,9 @@ const MOUSE: Record<Mode, [string, string, string][]> = {
   ride: [['l', mouse('l', true), 'look'], ['Escape', ESC, 'fly up']],
 };
 const TOUCH: Record<Mode, string> = {
-  orbit: 'drag: move · two fingers: zoom, turn · tap a person: follow',
-  walk: 'drag: look · tap: walk · tap a person: follow',
-  ride: 'drag: look · tap the street: walk',
+  orbit: 'Drag to move, two fingers to zoom and turn, tap a person to follow.',
+  walk: 'Drag to look, tap to walk, tap a person to follow.',
+  ride: 'Drag to look, tap the street to walk.',
 };
 const WHO: Record<string, string> = { you: 'You are this pedestrian', person: 'Following a pedestrian', car: 'Following a car', bus: 'Following a bus', tram: 'Following a tram' };
 
