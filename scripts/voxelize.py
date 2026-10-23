@@ -351,7 +351,7 @@ burn(gcol, rails, all_touched=True)
 
 # water
 # the dark disc in the garden by Kopernik is mapped as natural=water + surface=paving_stones, but it is a wooden
-# floor (zouk evenings are danced on it: sim.js DANCE): weathered dark wood
+# floor (zouk evenings are danced on it: web/src/sim/dance.ts): weathered dark wood
 WOOD_FLOOR = {603145360}
 water = [(geom, C["granite_d"] if t.get("fountain") == "splash_pad" else C["woodfloor"] if oid in WOOD_FLOOR
           else C["water"]) for oid, typ, t, geom in osm.areas

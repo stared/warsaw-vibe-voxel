@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "shot": "node tools/shot.mjs"
+    "shot": "node tools/shot.mjs",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "n8ao": "^2.0.1",
@@ -14,7 +15,9 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@types/three": "^0.186.0",
     "playwright-core": "^1.64.0",
+    "typescript": "^7.0.2",
     "vite": "^8.3.4"
   },
   "packageManager": "pnpm@12.11.2"

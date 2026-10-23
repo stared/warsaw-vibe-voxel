@@ -1,4 +1,4 @@
-"""Quadtree of streamable voxel tiles for the viewer (web/src/stream.js).
+"""Quadtree of streamable voxel tiles for the viewer (web/src/stream.ts).
 
 Level s in (1, 2, 4, 8) has cells of s x s x s metres; every node holds N x N cells (N = 128, so a node spans
 128 * s metres) plus a 1-cell apron on each side for face culling and AO at the node edge.
@@ -9,7 +9,7 @@ Node file  tiles/{s}/{nx}_{ny}.bin, gzip of:
   runs    uint16[3 * sum]   (z0, len, palette) per run, z in cells of the level, bottom -> top
   detail  uint16[4 * n]     (x, y, z, palette) 1 m voxels in metres from the node's corner (levels 2 and 4)
 
-Foliage at level 1 is its own file, loaded after every building (web/src/all1m.js): tiles/1f/{nx}_{ny}.bin, the same
+Foliage at level 1 is its own file, loaded after every building (web/src/city.ts): tiles/1f/{nx}_{ny}.bin, the same
 format, holding only trees, trunks and grass (`fol_ids`, `grass_ids`); in tiles/1/ trees and trunks are left out and
 grass is bare earth (`bare_id`), the surface the grass is then drawn on.
 

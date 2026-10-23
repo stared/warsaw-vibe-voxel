@@ -1,4 +1,4 @@
-"""Road + pedestrian graphs with real signal positions for the live simulation (web/src/sim.js).
+"""Road + pedestrian graphs with real signal positions for the live simulation (web/src/sim/life.ts).
 
 Output traffic.json, coordinates in grid metres (x = col, y = row) with z = walking/driving surface voxel level.
 - roads: directed edges between junctions (OSM ways split at shared nodes), lanes per direction, speed,

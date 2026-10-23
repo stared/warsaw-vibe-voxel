@@ -13,7 +13,7 @@ Golden hour, midday and night are presets on a time-of-day slider.
 cd web && pnpm install && pnpm dev     # http://localhost:5173  (?view=pkin&hour=22.6&tilt=0&ui=0)
 ```
 
-## Streaming (web/src/stream.js)
+## Streaming (web/src/stream.ts)
 
 The city is a quadtree of tiles (`web/public/data/tiles/{1,2,4,8}/x_y.bin`, ~15 MB gzipped in all): 128 × 128 cells
 of 1, 2, 4 or 8 m. The viewer loads the whole map at 8 m up front (0.3 MB), then refines what is in view until a
