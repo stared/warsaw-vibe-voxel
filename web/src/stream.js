@@ -19,7 +19,6 @@ export class TileStreamer {
     scene.add(this.group);
     this.queue = [];
     this.inflight = 0;
-    this.tris = 0;
     this.version = 0;  // bumps when column data changes (for caches)
     // workers exist while there is work (a 1 m tile meshes in ~45 ms), retired after 4 s idle
     // down to one, so a settled view doesn't keep several worker heaps alive (each ~35 MB)
@@ -131,15 +130,11 @@ export class TileStreamer {
       mesh.visible = false;
       mesh.matrixAutoUpdate = false;
       this.group.add(mesh);
-      n.mesh = mesh; n.tris = m.quads * 2;
-      mesh.userData.bytes = m.pos.byteLength + m.attr.byteLength + m.pal.byteLength + (m.bld ? m.bld.byteLength : 0);
-      n.bytes = mesh.userData.bytes; // GPU-side
+      n.mesh = mesh;
     }
     if (m.data) this.setData(n, m.data);
     n.state = 'ready';
-    if (m.ms) (this.timing ||= []).push([n.s, ...m.ms]);
     n.resolve();
-    this.dirty = true;
     this.pump();
   }
 
@@ -161,7 +156,6 @@ export class TileStreamer {
     for (let i = 0; i < S * S; i++) off[i + 1] = off[i] + counts[i];
     const [x0, y0] = this.bounds(n.s, n.tx, n.ty);
     n.data = { s: n.s, x0, y0, S, counts, ground, runs, off };
-    n.bytes = (n.bytes || 0) + counts.byteLength + ground.byteLength + runs.byteLength + off.byteLength;
     this.version++;
   }
 
@@ -177,14 +171,6 @@ export class TileStreamer {
         ps.push(this.request(fine, tx, ty, 1e8, true));
     this.pump();
     return Promise.all(ps);
-  }
-  stats() {
-    let geo = 0, data = 0, n = 0;
-    for (const v of this.nodes.values()) {
-      if (v.mesh) { n++; geo += v.bytes - (v.data ? v.data.counts.byteLength + v.data.ground.byteLength + v.data.runs.byteLength + v.data.off.byteLength : 0); }
-      if (v.data) data += v.data.counts.byteLength + v.data.ground.byteLength + v.data.runs.byteLength + v.data.off.byteLength;
-    }
-    return { nodes: this.nodes.size, meshes: n, geoMB: +(geo / 2 ** 20).toFixed(1), dataMB: +(data / 2 ** 20).toFixed(1), tris: this.tris };
   }
 }
 
@@ -245,20 +231,6 @@ export class StreamWorld {
     const c = this.col(n, x, r), R = n.runs;
     for (let k = n.off[c + 1] - 1; k >= n.off[c]; k--) if (!this.leaf[R[k * 3 + 2]]) return (R[k * 3] + R[k * 3 + 1]) * n.s;
     return n.ground[c];
-  }
-  extent(x0, r0, minTop, cap = 40000) {
-    x0 = Math.floor(x0); r0 = Math.floor(r0);
-    const seen = new Set([r0 * this.W + x0]), q = [[x0, r0]];
-    let R = 0;
-    while (q.length && seen.size < cap) {
-      const [x, r] = q.pop();
-      R = Math.max(R, Math.hypot(x - x0, r - r0));
-      for (const [dx, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = x + dx, nr = r + dr, k = nr * this.W + nx;
-        if (!seen.has(k) && this.inside(nx, nr) && this.top(nx, nr) >= minTop) { seen.add(k); q.push([nx, nr]); }
-      }
-    }
-    return R;
   }
   support(x, r, top) {
     if (!this.inside(x, r)) return 0;

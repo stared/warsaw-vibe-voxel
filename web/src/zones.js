@@ -42,7 +42,7 @@ class ZoneBlur extends Effect {
 const MODES = { square: 1, circle: 2, building: 3, block: 4, budget: 5, ragged: 6 };
 
 export async function installZones({ streamer: S, material, meta, paletteTex, controls, nav, qs, composer, n8, camera }) {
-  let mode = MODES[qs.get('shape')] || 4, R = +(qs.get('r') || 250), BUDGET = +(qs.get('budget') || 2) * 1e6;
+  const mode = MODES[qs.get('shape')] || 4, R = +(qs.get('r') || 250), BUDGET = +(qs.get('budget') || 2) * 1e6;
   const U = material.userData.uniforms, { W, D } = meta;
   const [zbuf, zj] = await Promise.all([
     fetch('data/zones.bin').then((r) => new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()),
@@ -56,7 +56,7 @@ export async function installZones({ streamer: S, material, meta, paletteTex, co
   U.uZFBlk.value = fBlk; U.uZFBld.value = fBld; U.uZMode.value = mode; U.uZRad.value = 0;
 
   // the clay: all of level 8, loaded once, never changes
-  const clay = makeVoxelMaterial({ paletteTex, lampTex: U.uLampMap.value, W, D, ghost: { style: 1, mask: null }, shared: U });
+  const clay = makeVoxelMaterial({ paletteTex, lampTex: U.uLampMap.value, W, D, ghost: { style: 1 }, shared: U });
   const G = clay.userData.ghost;
   G.uGStyle.value = qs.get('outside') === 'colour' ? 0 : 1;
   // the real-area map for the blur: 4 m cells, block / building ids sampled at each cell's centre
@@ -134,25 +134,15 @@ export async function installZones({ streamer: S, material, meta, paletteTex, co
     if (mode <= 3) { let ok = true; for (const k of need) if (!ready(k)) ok = false; if (ok) shownR = R; U.uZRad.value = shownR; }
     if (blurPass.enabled) { const key = mode <= 3 ? `${mode},${Math.round(f.x / 4)},${Math.round(f.z / 4)},${shownR},${[...onBld].join()}` : `${mode},${[...onBlk].join()},${[...onBld].join()}`;
       if (key !== realKey) { realKey = key; fillReal(f.x, f.z, shownR); } }
-    let tris = 0;
     for (const n of [...S.nodes.values()]) {
-      if (n.clay) { tris += n.tris || 0; continue; }
+      if (n.clay) continue;
       if (n.fol) { const base = S.nodes.get(S.key(1, n.tx, n.ty)), on = need.has(S.key(1, n.tx, n.ty)) && n.state === 'ready' && base?.state === 'ready';
-        if (n.mesh) { n.mesh.visible = on; n.mesh.material = folMat; } if (on) { tris += n.tris || 0; n.used = now; } else if (n.state === 'ready' && now - (n.used || 0) > 4000) S.free(n); continue; }
+        if (n.mesh) { n.mesh.visible = on; n.mesh.material = folMat; } if (on) n.used = now; else if (n.state === 'ready' && now - (n.used || 0) > 4000) S.free(n); continue; }
       const on = n.s === 1 && need.has(n.key) && n.state === 'ready';
       if (n.mesh) n.mesh.visible = on;
-      if (on) { tris += n.tris || 0; n.used = now; }
+      if (on) n.used = now;
       else if (n.state === 'ready' && n.s !== 8 && now - (n.used || 0) > 4000 && !(n.pinned > now)) S.free(n);
     }
-    S.tris = tris;
     S.queue = S.queue.filter((n) => need.has(n.fol ? S.key(1, n.tx, n.ty) : n.key) || n.s === 8);
   };
-  window.__zones = { onBlk, onBld };
-  // the Experimental menu changes these live
-  return { MODES, get shape() { return Object.keys(MODES).find((k) => MODES[k] === mode); },
-    set shape(v) { mode = MODES[v]; U.uZMode.value = mode; S._t = 0; },
-    get r() { return R; }, set r(v) { R = v; S._t = 0; },
-    get budget() { return BUDGET / 1e6; }, set budget(v) { BUDGET = v * 1e6; S._t = 0; },
-    get outside() { return G.uGStyle.value ? 'clay' : 'colour'; }, set outside(v) { G.uGStyle.value = v === 'clay' ? 1 : 0; },
-    get blur() { return blur.uniforms.get('uCell').value; }, set blur(v) { setBlur(v); realKey = ''; S._t = 0; } };
 }

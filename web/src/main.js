@@ -118,7 +118,7 @@ let state = { hour: 18.9, night: 0 };
 let bar = null; // bar.js: search, time, Vistula
 let fountains = null, life = null, flood = null, lastT = performance.now();
 let world = null;
-let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3(), streamer = null;
+let uniforms, bloom, bbox = new THREE.Box3(), streamer = null;
 
 function applyTime(hour) {
   state.hour = hour;
@@ -148,8 +148,7 @@ function applyTime(hour) {
   sun.shadow.normalBias = Math.min(3, Math.max(0.5, 0.3 / Math.max(dir.y, 0.05)));
   updateShadowCam(dir);
   if (uniforms) { uniforms.uNight.value = night; uniforms.uDeep.value = deep; }
-  if (bloom) bloom.intensity = lerp(0.15, 0.9, night) * P.bloom;
-  renderer.toneMappingExposure = 1;
+  if (bloom) bloom.intensity = lerp(0.15, 0.9, night);
   scene.fog = new THREE.Fog(sky.horizon.clone(), 2500, 7000);
   if (uniforms) uniforms.uHorizon.value.copy(sky.horizon).convertSRGBToLinear();
   // environment for reflections (regenerated only when the sky has visibly changed, so time-lapse stays cheap)
@@ -163,7 +162,6 @@ function applyTime(hour) {
   P.hour = hour;
   bar?.setHour(hour);
 }
-const hhmm = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60) % 60).padStart(2, '0')}`;
 
 // The shadow map covers the part of the city in view, not all 4 x 3 km: a square around the focus that grows with
 // camera distance (600 m at street level -> sharper than before; the whole map from far away, where a texel
@@ -324,10 +322,9 @@ n8.configuration.depthAwareUpsampling = true;
 composer.addPass(n8);
 bloom = new BloomEffect({ intensity: 0.2, luminanceThreshold: 0.92, luminanceSmoothing: 0.15, mipmapBlur: true, radius: 0.55 });
 const tilt = new TiltShiftEffect({ offset: 0.0, rotation: 0, focusArea: 0.8, feather: 0.22, kernelSize: 2 });
-const qsBoot = new URLSearchParams(location.search);
-const tone = new ToneMappingEffect({ mode: ToneMappingMode[qsBoot.get('tm') || 'ACES_FILMIC'] });
-const hueSat = new HueSaturationEffect({ saturation: +(qsBoot.get('sat') || 0.12) });
-const bc = new BrightnessContrastEffect({ brightness: 0.0, contrast: +(qsBoot.get('con') || 0.06) });
+const tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
+const hueSat = new HueSaturationEffect({ saturation: 0.12 });
+const bc = new BrightnessContrastEffect({ brightness: 0.0, contrast: 0.06 });
 const vignette = new VignetteEffect({ offset: 0.3, darkness: 0.45 });
 const tiltPass = new EffectPass(camera, tilt);
 composer.addPass(new EffectPass(camera, bloom));
@@ -356,7 +353,7 @@ const PRESETS = { morning: 7.5, midday: 13.0, 'golden hour': 17.7, 'blue hour': 
 // the Vistula's level on the Warszawa-Bulwary gauge (cm, the scale since 1 Nov 2025: older readings +100), flood.js
 const RIVER = { 'record low, Sep 2025': 104, 'as mapped': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
   'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the embankments': 1120 };
-const P = { hour: 18.9, river: 185, tilt: true, bloom: 1 };
+const P = { hour: 18.9, river: 185, tilt: true };
 camera.fov = 28; camera.updateProjectionMatrix();
 const setRiver = (cm) => { P.river = cm; if (flood?.info) flood.set((cm - flood.info.lidar_cm) / 100); };
 bar = new Bar({ times: PRESETS, river: RIVER,
@@ -369,7 +366,6 @@ const credits = document.createElement('div');
 credits.id = 'credits';
 credits.innerHTML = `GUGiK 2025 · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · <a href="https://github.com/stared/warsaw-vibe-voxel" target="_blank" rel="noopener">source</a>`;
 document.body.appendChild(credits);
-// one plain sentence for first-time visitors, first thing in the panel
 function onMode(m, ride) {
   document.body.classList.toggle('walking', m !== 'orbit');
   hud?.set(m, ride);
@@ -392,7 +388,7 @@ function rideNearest(kind) {
   const ag = life.nearest(kind, { x: f.x, z: f.z }, null);
   if (ag) { if (kind === 'tram') ag.label = ag.label || 'tram'; nav.startRide(ag); }
 }
-let hud = null, meta0 = null;
+let hud = null;
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('input'))) return;
   if (e.key === '/') { search.input.focus(); e.preventDefault(); }
@@ -457,9 +453,7 @@ function flyTo(v) {
   streamer = new TileStreamer({ meta, material, scene });
   window.__streamer = streamer;
   bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(meta.W, meta.H, meta.D));
-  bbox.getCenter(center);
   VIEWS = meta.views;
-  meta0 = meta;
   world = nav.world = streamer.world;
   nav.streamer = streamer;
   const qsp = new URLSearchParams(location.search);
@@ -470,13 +464,12 @@ function flyTo(v) {
   if (qsp.get('cam')) { const c = qsp.get('cam').split(',').map(Number); camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); }
   applyTime(qsp.get('hour') ? +qsp.get('hour') : PRESETS['golden hour']);
   status('Loading the map data…');
-  const zones = qsp.get('shape') ? await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera }) : null;
-  if (!zones) {
+  if (qsp.get('shape')) await (await import('./zones.js')).installZones({ streamer, material, meta, paletteTex, controls, nav, qs: qsp, composer, n8, camera });
+  else {
     const caption = (await import('./caption.js')).makeCaption();
-    await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, scene, controls, nav, caption, P });
+    await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, scene, controls, nav, caption });
   }
-  const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
-  nav.north.set(Math.sin(th), 0, -Math.cos(th));
+  theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   hud = new Hud({ nav, dom: renderer.domElement });
   makeLabels(meta);
   const items = [];
@@ -537,4 +530,4 @@ renderer.setAnimationLoop((now) => {
   composer.render();
   updateLabels();
 });
-window.__three = { camera, controls, applyTime, flyTo, nav, bar, P, labelEls, scene, renderer, sun, bbox, center };
+window.__three = { camera, controls, applyTime, flyTo, nav, bar, P, labelEls, scene, renderer, sun, bbox };

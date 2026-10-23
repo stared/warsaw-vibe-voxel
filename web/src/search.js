@@ -66,7 +66,6 @@ export class PlaceSearch {
     this.list.innerHTML = '';
     this.input.blur();
     it.go();
-    this.onPick?.(it);
     setTimeout(() => { this.input.value = ''; }, 50); // the next search starts empty (people typed onto the old query)
   }
 }

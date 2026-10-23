@@ -21,21 +21,17 @@ const RIG = {
 };
 
 export class Nav {
-  constructor({ camera, controls, dom, scene, flyTo, onMode, north }) {
+  constructor({ camera, controls, dom, scene, flyTo, onMode }) {
     Object.assign(this, { camera, controls, dom, flyTo, onMode });
     this.world = null;
     this.life = null;        // StreetLife, for picking agents to ride
     this.mode = 'orbit';
     this.keys = new Set();
     this.shift = false;
-    this.speed = 1;          // user multiplier
-    this.lookSens = 1;
-    this.gameLook = false; // false: drag moves the picture (Street View, what most visitors know); true: drag turns your head (games)
     this.walkFov = 65;
     this.yaw = 0; this.pitch = 0; this.feet = 0; this.vy = 0;
     this.goal = null;        // click-to-walk target
     this.ride = null;        // { kind, obj, view: 'eyes'|'behind', dyaw, dpitch, t0, from, fromQ }
-    this.north = north || new THREE.Vector3(0, 0, -1);
     this._v = new THREE.Vector3();
     // map convention: drag pans the ground; right-drag / modifier-drag rotates (OrbitControls swaps PAN->ROTATE with Ctrl/Meta/Shift)
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
@@ -77,7 +73,6 @@ export class Nav {
     let press = null, pinch0 = null;
     dom.addEventListener('pointerdown', (e) => {
       document.activeElement?.blur?.(); // keys belong to the map again (not to the last panel widget)
-      this.onHover?.(null);
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
       // rotating pivots on what is in the middle of the screen, so the thing you look at stays put
       if (this.mode === 'orbit' && (e.button === 2 || (e.button === 0 && (e.shiftKey || e.ctrlKey || e.metaKey)) || ptrs.size === 2)) {
@@ -120,8 +115,7 @@ export class Nav {
       }
       if (press && !press.moved) return;
       // look like in a game: drag right turns right, drag down looks down (what every play-tester expected)
-      // the picture follows the finger/mouse (Street View); game-style look is an option in Camera
-      const k = (e.pointerType === 'touch' ? 2.4 : 1.2) * (this.camera.fov * Math.PI / 180) / innerHeight * this.lookSens * (this.gameLook ? -1 : 1);
+      const k = (e.pointerType === 'touch' ? 2.4 : 1.2) * (this.camera.fov * Math.PI / 180) / innerHeight;
       this.look(dx * k, dy * k * 0.7); // up/down a bit calmer than left/right: easy to keep the horizon
       this.marker.visible = false;
     });
@@ -135,7 +129,7 @@ export class Nav {
     };
     dom.addEventListener('pointerup', up);
     dom.addEventListener('pointercancel', up);
-    dom.addEventListener('pointerleave', () => { this.marker.visible = false; this.onHover?.(null); });
+    dom.addEventListener('pointerleave', () => { this.marker.visible = false; });
     dom.addEventListener('contextmenu', (e) => e.preventDefault());
     dom.addEventListener('wheel', (e) => {
       if (this.mode === 'orbit') { this._zoomT = performance.now(); return; } // OrbitControls zooms
@@ -191,7 +185,6 @@ export class Nav {
     if (now - (this._hoverT || 0) < 60 || now - (this._quietT || 0) < 350) return;
     this._hoverT = now;
     const ag = this.pickAgent(cx, cy, this.mode === 'orbit' ? 14 : 3, this.mode === 'orbit' ? 7 : 0);
-    this.onHover?.(ag, cx, cy);
     this.dom.style.cursor = ag ? 'pointer' : this.mode === 'orbit' ? 'grab' : 'default';
     if (this.mode !== 'walk' || ag) { this.marker.visible = false; return; }
     const g = this.walkTarget(cx, cy);
@@ -228,12 +221,6 @@ export class Nav {
   }
 
   dir() { return this._v.subVectors(this.controls.target, this.camera.position); }
-  // compass heading of the view (0 = north, +90° = east), for the HUD compass
-  heading() {
-    const f = this.mode === 'orbit' ? this.dir().clone() : this.camera.getWorldDirection(new THREE.Vector3());
-    const n = this.north, e = new THREE.Vector3(-n.z, 0, n.x); // east is north turned clockwise seen from above
-    return Math.atan2(f.x * e.x + f.z * e.z, f.x * n.x + f.z * n.z);
-  }
   setFov(f) { this.camera.fov = THREE.MathUtils.clamp(f, 20, 80); this.camera.updateProjectionMatrix(); }
 
   // turn the view about the camera itself (A/D, Q/E): the camera stays put, the nose moves; keeps the focus distance.
@@ -294,23 +281,12 @@ export class Nav {
     this.flyTo({ pos: pos.toArray(), target: tgt.toArray() });
   }
 
-  // where full 1 m detail must be loaded (streaming): where you stand, ride, or are about to land
-  focusPoints() {
-    const pts = [];
-    if (this.mode === 'walk' && this.walkPos) pts.push(this.walkPos);
-    else if (this.mode !== 'orbit') pts.push(this.camera.position);
-    else if (this.world && this.camera.position.y - this.world.groundAt(this.camera.position.x, this.camera.position.z) < 90) pts.push(this.camera.position);
-    if (this._pending) pts.push(this._pending);
-    return pts;
-  }
-
   setMode(m, opts = {}) {
     if (m === this.mode && !opts.at) return;
     // street level needs the full-detail tiles around the landing spot: fetch them first (usually already there)
     if (m === 'walk' && this.streamer && !opts._ready) {
       const t = opts.at || this.controls.target;
-      this._pending = new THREE.Vector3(t.x, 0, t.z);
-      this.streamer.ensure(t.x, t.z, 200).then(() => { this._pending = null; this.setMode('walk', { ...opts, _ready: true }); });
+      this.streamer.ensure(t.x, t.z, 200).then(() => this.setMode('walk', { ...opts, _ready: true }));
       return;
     }
     const prev = this.mode;
@@ -433,7 +409,7 @@ export class Nav {
       cam.fov = R.fromFov + (fov - R.fromFov) * e;
     } else {
       cam.position.copy(pos); cam.quaternion.copy(q);
-      if (Math.abs(cam.fov - fov) > 0.01 && !R.zoomed) cam.fov += (fov - cam.fov) * 0.1;
+      if (Math.abs(cam.fov - fov) > 0.01) cam.fov += (fov - cam.fov) * 0.1;
     }
     cam.updateProjectionMatrix();
     this.controls.target.copy(cam.position).addScaledVector(look, 10);
@@ -570,7 +546,7 @@ export class Nav {
     if (!go || !this.world) return;
     const len0 = this.dir().length(), look = this.dir().clone().normalize();
     const h = Math.max(3, cam.position.y - this.world.groundAt(cam.position.x, cam.position.z));
-    let step = go * this.speed * (this.shift ? 3 : 1) * Math.min(400, 8 + h * 0.9) * dt;
+    let step = go * (this.shift ? 3 : 1) * Math.min(400, 8 + h * 0.9) * dt;
     const ahead = this.world.raycast(cam.position, look, 4000);
     if (go > 0 && ahead < 8) { this.setMode('walk'); return; } // reached the street or a building: land on the street there
     if (go > 0) step = Math.min(step, ahead - 6);
@@ -646,7 +622,7 @@ export class Nav {
     if (tp) R.dpitch = THREE.MathUtils.clamp(R.dpitch + tp * dt, -1.2, 1.2);
     this.yaw += R.dyaw; R.dyaw = 0; // through their eyes: looking around (drag) turns them, as in a game
     const go = (K.has('f') ? 1 : 0) - (K.has('b') ? 1 : 0);
-    C.moving = !!go && this.stepBy(new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(go * (this.shift ? 7 : 2.2) * this.speed * dt));
+    C.moving = !!go && this.stepBy(new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(go * (this.shift ? 7 : 2.2) * dt));
     this.stand(dt);
     C.x = P.x; C.y = this.feet; C.z = P.z; C.h = this.yaw;
   }
@@ -660,13 +636,13 @@ export class Nav {
     if (K.has('f')) m.add(fwd);
     if (K.has('b')) m.sub(fwd);
     if (m.lengthSq()) {
-      this.stepBy(m.normalize().multiplyScalar((this.shift ? 20 : 6) * this.speed * dt)); // brisk walk; Shift: sprint
+      this.stepBy(m.normalize().multiplyScalar((this.shift ? 20 : 6) * dt)); // brisk walk; Shift: sprint
     } else if (this.goal) {
       // click-to-walk: glide to the target, quicker for far targets; give up if a wall stops us
       const G = this.goal, d = new THREE.Vector3(G.x - P.x, 0, G.z - P.z), L = d.length();
       if (L < 0.15) { this.goal = null; this.marker.visible = false; }
       else {
-        const v = Math.min(L * 2.2, Math.max(4, Math.min(22, L * 0.9))) * this.speed;
+        const v = Math.min(L * 2.2, Math.max(4, Math.min(22, L * 0.9)));
         const step = d.multiplyScalar(Math.min(L, v * dt) / L);
         let moved = this.stepBy(step);
         for (const a of [0.6, -0.6, 1.2, -1.2]) { if (moved) break; moved = this.stepBy(step.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), a)); } // around a post

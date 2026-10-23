@@ -17,7 +17,7 @@ async function fetchBytes(url, onBytes) { // with progress: the caption shows th
 }
 const gunzip = (buf) => new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
 
-export async function installAll1m({ streamer: S, material, meta, paletteTex, scene, controls, nav, caption: cap, P }) {
+export async function installAll1m({ streamer: S, material, meta, paletteTex, scene, controls, nav, caption: cap }) {
   const d = S.dims[1], total = d.nx * d.ny, U = material.userData.uniforms, { W, D } = meta, T = 128;
   S.update = () => {};
   // 1. terrain
@@ -82,20 +82,18 @@ export async function installAll1m({ streamer: S, material, meta, paletteTex, sc
   // labels: a building's label once it shows; the others (parks, the river) with the foliage
   const lblB = new Map(meta.labels.map((l) => [`${l.x + 0.5},${l.y + 0.5}`, bldAt(l.x, l.y)]));
   window.__labelGate = (x, z) => { const b = lblB.get(`${x},${z}`); return b >= 0 ? on[b + 1] > 0 : stage >= 4; };
-  const t0 = performance.now();
   S.update = (camera) => {
     if (performance.now() - (S._t || 0) < 100) return;
     S._t = performance.now();
     S.retire();
     const f = nav.mode === 'orbit' ? controls.target : camera.position;
     look(camera);
-    let tris = 0, changed = false;
+    let changed = false;
     for (const n of S.nodes.values()) {
       if (n.s !== 1) continue;
       if (n.state === 'queued') { n.prio = prio(n.tx, n.ty, f); continue; }
       if (n.fol) { // a foliage tile: drawn over the base, winning where its grass lies on the base's bare earth
         if (n.state === 'ready' && !n.counted) { n.counted = true; folIn++; if (n.mesh) { n.mesh.material = folMat; n.mesh.visible = true; } }
-        if (n.mesh) tris += n.tris;
         continue;
       }
       if (n.state !== 'ready') continue;
@@ -108,15 +106,14 @@ export async function installAll1m({ streamer: S, material, meta, paletteTex, sc
           if (isLm.has(b) || stage >= 2) { show(b); changed = true; }
         }
       }
-      if (n.mesh) tris += n.tris;
     }
     // the stages follow what has arrived: everything else once every landmark is in, the foliage once every tile is
     if (stage === 1 && lmShown === landmarks.length) { stage = 2; U.uStage.value = 2; for (let b = 0; b < nb; b++) if (complete[b]) show(b); changed = true; }
     if (stage === 2 && tilesIn === total) {
-      stage = 3; U.uStage.value = 3; console.log(`buildings: ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+      stage = 3; U.uStage.value = 3;
       for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) S.requestFoliage(tx, ty, (seen[ty * d.nx + tx] ? 1e5 : 0) - Math.hypot((tx + 0.5) * T - f.x, (ty + 0.5) * T - f.z));
     }
-    if (stage === 3 && folIn === total) { stage = 4; console.log(`whole city at 1 m with foliage: ${((performance.now() - t0) / 1000).toFixed(1)} s`); }
+    if (stage === 3 && folIn === total) stage = 4;
     // a tile's terrain piece goes once its own ground shows (stage 2); before, the hidden ground is folded under it
     if (stage >= 2) for (let i = 0; i < total; i++) if (inTile[i] && terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
     if (stage >= 3 && ttex.image.data) { ttex.dispose(); ttex.image.data = null; } // the last terrain piece is gone
@@ -136,7 +133,6 @@ export async function installAll1m({ streamer: S, material, meta, paletteTex, sc
     if (stage < 3) cap.show(stage === 1 ? 'Landmarks' : RINGS[now][0], tilesIn, 2 * total);
     else if (stage === 3) cap.show('Foliage', total + folIn, 2 * total);
     else cap.finish('Foliage', 2 * total);
-    S.tris = tris;
     S.pump();
   };
 }
