@@ -3,51 +3,41 @@
 html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* pinches zoom the map, never the page */ background: #1b1d22; font-family: Inter, system-ui, sans-serif; color: var(--ink); }
 #app canvas { display: block; }
 
-/* Panel: dat.gui's language with a strict palette —
-   surfaces: black + one widget tone; text: white + one grey; colour only in the type stripes. */
-.lil-gui.panel {
-  /* leave the bottom-right buttons free (compass, zoom, home, walker) */
-  --bg: #000; --w: #1f1f1f; --t: #fff; --t2: #8c8c8c;
-  --background-color: var(--bg); --widget-color: var(--w); --hover-color: var(--w); --focus-color: var(--w);
-  --text-color: var(--t); --title-background-color: var(--bg); --title-text-color: var(--t);
-  --number-color: #2fa1d6; --string-color: #1ed36f;
-  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; --font-size: 11px; --input-font-size: 11px;
-  --widget-height: 22px; --spacing: 4px; --padding: 6px; --widget-border-radius: 0; --folder-indent: 0px;
-  position: fixed; top: 0; right: 14px; z-index: 5; max-height: calc(100vh - 290px); overflow-y: auto;
-}
-.lil-gui.panel .lil-gui .lil-controller, .lil-gui.panel .lil-controller { border: none; border-left: 3px solid transparent; margin: 0; padding: 2px 6px 2px 7px; }
-.lil-gui.panel .lil-controller.lil-number { border-left-color: #2fa1d6; }
-.lil-gui.panel .lil-controller.lil-boolean { border-left-color: #806787; }
-.lil-gui.panel .lil-controller.lil-function { border-left-color: #e61d5f; }
-.lil-gui.panel .lil-controller.lil-option { border-left-color: #1ed36f; }
-.lil-gui.panel .lil-controller .lil-name { display: flex; align-items: center; }
-.panel .lil-title { display: flex; align-items: center; font-weight: 600; background: var(--bg); }
-.panel > .lil-title { font-size: 12px; padding-top: 9px; padding-bottom: 9px; }
-.panel .lil-children .lil-title { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; border-top: 1px solid var(--w); }
-.panel .lil-title::before { color: var(--t2); }
-.panel kbd { margin-left: auto; padding: 0 2px 0 8px; font: 10.5px ui-monospace, Menlo, monospace; color: var(--t2); text-transform: none; letter-spacing: 0; }
-.panel .lil-slider { background: var(--w); }
-.panel .lil-fill { background: #2fa1d6; border-right: 0; }
-.panel .lil-option .lil-widget, .panel .lil-option .lil-display { width: 100%; }
-.panel .lil-controller.time .lil-name { min-width: 44px; width: 44px; } /* time gets most of the row */
-.panel .help { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; padding: 6px 10px 9px; }
-.panel .help .k { font: 11px ui-monospace, Menlo, monospace; color: var(--t); white-space: nowrap; }
-.panel .help span:not(.k) { color: var(--t2); }
-.panel .foot { padding: 6px 10px 9px; font-size: 10px; line-height: 1.5; color: var(--t2); }
-.panel .foot a { color: var(--t); }
-/* search: type-ahead in the "Go to" folder, green like dat.gui strings */
-.panel .search { border-left: 3px solid #1ed36f; padding: 6px 6px 8px 7px; }
-.panel .search .box { position: relative; }
-.panel .search .x { position: absolute; right: 2px; top: 3px; width: 24px; height: 24px; border: 0; background: none; color: var(--t2); cursor: pointer; font-size: 12px; }
-.panel .search li.none { color: var(--t2); cursor: default; white-space: normal; }
-.panel .search input { width: 100%; height: 30px; box-sizing: border-box; border: 0; outline: 0; padding: 0 7px; background: var(--w); color: var(--t); font: inherit; font-size: 12px; border-radius: 0; }
-.panel .search input::placeholder { color: var(--t2); }
-.panel .search ol { list-style: none; margin: 0; padding: 0; }
-.panel .search li { display: flex; gap: 8px; padding: 4px 7px; cursor: pointer; white-space: nowrap; }
-.panel .search li span { overflow: hidden; text-overflow: ellipsis; }
-.panel .search li em { margin-left: auto; font-style: normal; color: var(--t2); }
-.panel .search li.sel, .panel .search li:hover { background: var(--w); }
-@media (max-width: 600px) { .lil-gui.panel { right: 0; left: 0; width: 100% !important; } }
+/* The bar: search, time, Vistula. One quiet card, top left; dark glass, white text, no folders, no headers. */
+#bar { --t2: rgba(255,255,255,.62); position: fixed; left: 14px; top: 14px; z-index: 5; width: 280px; padding: 6px 12px 10px; border-radius: 10px;
+  background: rgba(16,17,20,.62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #fff;
+  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; font-variant-numeric: tabular-nums; }
+#bar .search { position: relative; margin: 0 -6px 4px; }
+#bar .search input { width: 100%; height: 32px; border: 0; outline: 0; padding: 0 30px 0 28px; border-radius: 6px; background: transparent; color: #fff; font: inherit; font-size: 13px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='white' stroke-opacity='.6' stroke-width='1.6'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cpath d='M9.5 9.5L13 13'/%3E%3C/svg%3E") 8px 50% no-repeat; }
+#bar .search input:focus { background-color: rgba(255,255,255,.08); }
+#bar .search input::placeholder { color: var(--t2); }
+#bar .search .x { position: absolute; right: 2px; top: 4px; width: 24px; height: 24px; border: 0; background: none; color: var(--t2); cursor: pointer; font-size: 11px; }
+#bar .search input:placeholder-shown + .x { display: none; }
+#bar .search ol { list-style: none; margin: 0; padding: 0; }
+#bar .search li { display: flex; gap: 8px; padding: 5px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+#bar .search li span { overflow: hidden; text-overflow: ellipsis; }
+#bar .search li em { margin-left: auto; font-style: normal; color: var(--t2); }
+#bar .search li.sel, #bar .search li:hover { background: rgba(255,255,255,.1); }
+#bar .search li.none { color: var(--t2); cursor: default; white-space: normal; }
+#bar .row { display: block; padding-top: 6px; }
+#bar .val { display: block; color: var(--t2); margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bar .track { position: relative; display: block; height: 16px; }
+#bar .track i { position: absolute; top: 3px; width: 9px; height: 10px; margin-left: -4.5px; cursor: pointer; z-index: 1; }
+#bar .track i::after { content: ''; position: absolute; left: 4px; top: 2px; width: 1px; height: 6px; background: rgba(255,255,255,.45); }
+#bar .track i:hover::after { background: #fff; }
+#bar input[type=range] { position: absolute; inset: 0; width: 100%; margin: 0; background: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
+#bar input[type=range]::-webkit-slider-runnable-track { height: 2px; background: rgba(255,255,255,.3); border-radius: 1px; }
+#bar input[type=range]::-moz-range-track { height: 2px; background: rgba(255,255,255,.3); }
+#bar input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,.25); position: relative; z-index: 2; }
+#bar input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; }
+#bar input[type=range]:disabled { opacity: .35; cursor: default; }
+@media (max-width: 600px) { #bar { left: 8px; right: 8px; top: 8px; width: auto; } }
+/* credits, bottom right: a small pill (attribution is required, not decoration) */
+#credits { position: fixed; right: 12px; bottom: 12px; z-index: 4; padding: 3px 9px; border-radius: 10px; background: rgba(16,17,20,.5); color: rgba(255,255,255,.7);
+  font: 10.5px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+#credits a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.35); }
+.noui #bar, .noui #credits { display: none; }
 
 /* walk mode: no centre dot any more (you look by dragging, not by aiming) */
 

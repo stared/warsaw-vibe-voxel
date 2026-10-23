@@ -9,9 +9,8 @@ import { StreetLife } from './sim.js';
 import { Flood } from './flood.js';
 import { Nav } from './nav.js';
 import { TileStreamer } from './stream.js';
-import { PlaceSearch } from './search.js';
+import { Bar } from './bar.js';
 import { Hud } from './hud.js';
-import GUI from 'lil-gui';
 import './style.css';
 
 // Phones get the real area + clay (zones.js): the whole city at 1 m needs ~1 GB of GPU memory. Set in the address
@@ -116,6 +115,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 let state = { hour: 18.9, night: 0 };
+let bar = null; // bar.js: search, time, Vistula
 let fountains = null, life = null, flood = null, lastT = performance.now();
 let world = null;
 let uniforms, bloom, center = new THREE.Vector3(), bbox = new THREE.Box3(), streamer = null;
@@ -161,7 +161,7 @@ function applyTime(hour) {
   }
   scene.environmentIntensity = lerp(0.38, lerp(0.55, 0.3, deep), night); // glass reflects the blue sky
   P.hour = hour;
-  hourCtl?.updateDisplay();
+  bar?.setHour(hour);
 }
 const hhmm = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.round((h % 1) * 60) % 60).padStart(2, '0')}`;
 
@@ -229,11 +229,8 @@ function makeLabels(meta) {
 let labelFrame = 0;
 // panel rect is cached (reading it every frame forces a layout); refreshed whenever the panel or window changes size
 let panelRect = null;
-const measurePanel = () => { panelRect = gui.domElement.getBoundingClientRect(); };
+const measurePanel = () => { panelRect = bar ? bar.rect : new DOMRect(); };
 function updateLabels() {
-  const host = $('#labels');
-  host.style.display = P.labels ? '' : 'none';
-  if (!P.labels) return;
   const v = new THREE.Vector3(), dir = new THREE.Vector3();
   // occlusion is checked a few labels per frame (voxel DDA from the camera)
   if (world) for (let k = 0; k < 4 && labelEls.length; k++) {
@@ -246,10 +243,10 @@ function updateLabels() {
     const hx = camera.position.x + dir.x * t - L.p.x, hz = camera.position.z + dir.z * t - L.p.z;
     L.occluded = t < dist - 3 && hx * hx + hz * hz > L.R * L.R;
   }
-  // the panel is an obstacle like any placed label
+  // the bar is an obstacle like any placed label
   if (!panelRect) measurePanel();
   const pr = panelRect;
-  const placed = gui._hidden ? [] : [{ x0: pr.left - 8, x1: pr.right, y0: pr.top, y1: pr.bottom + 8 }];
+  const placed = !pr.width ? [] : [{ x0: pr.left - 8, x1: pr.right, y0: pr.top, y1: pr.bottom + 8 }];
   if (hud) placed.push(...hud.rects); // and so is the key legend
   const free = (r) => r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && r.y1 <= innerHeight - 4 &&
     !placed.some((q) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0);
@@ -267,11 +264,11 @@ function updateLabels() {
         if (v.z < 1 && (-v.y * 0.5 + 0.5) * innerHeight > TOP + STEM + L.h + 30) {
           y = TOP + L.h + 4; pinned = true;
           // below the panel when the panel spans this column (phone: a full-width bar)
-          if (!gui._hidden && x > pr.left - 8 && x - 4 < pr.right) y = Math.max(y, pr.bottom + 12 + L.h + 8);
+          if (pr.width && x > pr.left - 8 && x - 4 < pr.right) y = Math.max(y, pr.bottom + 12 + L.h + 8);
         }
       }
       // no room above the anchor because of the panel bar: tuck the label just below the panel instead
-      const tuck = !gui._hidden && x > pr.left - 8 && x < pr.right && y - STEM - L.h < pr.bottom + 8 && y > pr.top;
+      const tuck = pr.width && x > pr.left - 8 && x < pr.right && y - STEM - L.h < pr.bottom + 8 && y > pr.top;
       if (tuck) { y = Math.max(y, pr.bottom + 12 + L.h + 8); pinned = true; }
       if (y <= innerHeight + 4) {
         const st = pinned ? 4 : STEM;
@@ -306,7 +303,7 @@ function updateLabels() {
         let ex = innerWidth / 2 + dx * k, ey = innerHeight / 2 + dy * k;
         if (inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight) { ex = x; ey = y; } // on screen but crowded out
         ex = Math.min(Math.max(ex, 14), innerWidth - ew - 4); ey = Math.min(Math.max(ey, 14), innerHeight - 14);
-        if (!gui._hidden && ex + ew > pr.left - 8 && ey < pr.bottom + 20) { if (ex > innerWidth / 2) ex = pr.left - ew - 8; else ey = pr.bottom + 24; } // keep clear of the panel
+        if (pr.width && ex + ew > pr.left - 8 && ey < pr.bottom + 20) { if (ex > innerWidth / 2) ex = pr.left - ew - 8; else ey = pr.bottom + 24; } // keep clear of the panel
         for (const q of hud?.rects || []) if (ex < q.x1 && ex + ew > q.x0 && ey > q.y0 - 10) ey = q.y0 - 14; // and of the key legend
         L.edge.style.transform = `translate(${ex.toFixed(0)}px, ${ey.toFixed(0)}px)`;
         L.edge.querySelector('i').style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;
@@ -353,74 +350,29 @@ addEventListener('resize', () => {
   panelRect = null;
 });
 
-// ------------------------------------------------------------------ UI: one dat.gui-style panel holds everything
-// (title, controls, key help, stats, attribution); nothing else floats over the map except the labels.
+// ------------------------------------------------------------------ UI: the bar (bar.js), the key legend (hud.js), a credit
+// line and the labels; nothing else over the map. Look and feel are fixed choices, not settings.
 const PRESETS = { morning: 7.5, midday: 13.0, 'golden hour': 17.7, 'blue hour': 20.95, night: 23.0 };
-const RATES = { off: 0, '1 min / s': 1 / 60, '10 min / s': 1 / 6, '1 h / s': 1 };
-const P = {
-  hour: 18.9, preset: 'golden hour', rate: 0, street: false,
-  labels: true, life: true, fountains: true, tilt: true,
-  fov: 28, bloom: 1, ao: 2.2, saturation: 0.12, contrast: 0.06,
-  speed: 1, look: 1,
-};
-const gui = new GUI({ title: 'Warszawa', width: 290 });
-gui.domElement.classList.add('panel');
-new ResizeObserver(() => { panelRect = null; }).observe(gui.domElement);
-const fTime = gui.addFolder('Time');
-const hourCtl = fTime.add(P, 'hour', 4.5, 23.5, 0.01).name('time').onChange((h) => { anim = null; P.preset = 'custom'; presetCtl.updateDisplay(); applyTime(h); });
-hourCtl.updateDisplay = function () { if (document.activeElement !== this.$input) this.$input.value = hhmm(this.getValue()); const t = (this.getValue() - 4.5) / 19; this.$fill.style.setProperty('width', `${t * 100}%`); return this; };
-hourCtl.$input.type = 'text'; // lil-gui makes it type=number on touch devices, which refuses "17:42" (blank readout)
-hourCtl.domElement.classList.add('time'); // wider slider: a whole day in ~95 px was too twitchy to find dusk
-// typed times ("18:05", "18.5", "18") are read when you press Enter or leave the field; lil-gui parsed every keystroke and snapped to 04:30
-const commitTime = () => {
-  const m = hourCtl.$input.value.trim().match(/^(\d{1,2})(?:\s*[:h]\s*(\d{1,2})|[.,](\d+))?$/);
-  if (m) hourCtl.setValue(Math.min(23.5, Math.max(4.5, +m[1] + (m[2] ? +m[2] / 60 : m[3] ? +('0.' + m[3]) : 0))));
-  hourCtl.updateDisplay();
-};
-for (const ev of ['input', 'change', 'blur']) hourCtl.$input.addEventListener(ev, (e) => { e.stopImmediatePropagation(); if (ev !== 'input') commitTime(); }, true);
-hourCtl.$input.addEventListener('keydown', (e) => { e.stopImmediatePropagation(); e.stopPropagation(); if (e.key === 'Enter') hourCtl.$input.blur(); }, true);
-const presetCtl = fTime.add(P, 'preset', [...Object.keys(PRESETS), 'custom']).name('light').onChange((k) => { if (k in PRESETS) animateTo(PRESETS[k]); });
-fTime.add(P, 'rate', RATES).name('animate day');
-const fGo = gui.addFolder('Go to');
-const search = new PlaceSearch(fGo.$children);
-search.onPick = () => { if (innerWidth < 600) gui.close(); }; // phone: get the panel out of the way of where we fly
-renderer.domElement.addEventListener('pointerdown', () => { if (innerWidth < 600 && !gui._closed) gui.close(); }); // phone: tapping the map puts the panel away
-const streetCtl = fGo.add(P, 'street').name('street level').onChange((v) => { if (v) nav.setMode('walk'); else nav.flyUp(); });
-const fShow = gui.addFolder('Show').close();
-fShow.add(P, 'labels').name('labels');
-fShow.add(P, 'life').name('traffic & trams').onChange((v) => { if (life) life.group.visible = v; });
-fShow.add(P, 'fountains').onChange((v) => { if (fountains) fountains.mesh.visible = v; });
-fShow.add(P, 'tilt').name('miniature blur');
 // the Vistula's level on the Warszawa-Bulwary gauge (cm, the scale since 1 Nov 2025: older readings +100), flood.js
-const RIVER = { 'record low (Sep 2025)': 104, 'as mapped (LiDAR day)': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
+const RIVER = { 'record low, Sep 2025': 104, 'as mapped': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
   'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the embankments': 1120 };
-P.river = 185; P.riverPreset = 'as mapped (LiDAR day)';
-const fRiver = gui.addFolder('Vistula level').close();
-const setRiver = (cm) => { if (flood?.info) flood.set((cm - flood.info.lidar_cm) / 100); };
-const riverCtl = fRiver.add(P, 'river', 90, 1150, 1).name('gauge, cm').onChange((v) => { P.riverPreset = Object.keys(RIVER).find((k) => RIVER[k] === v) || 'custom'; riverPresetCtl.updateDisplay(); setRiver(v); }).disable();
-const riverPresetCtl = fRiver.add(P, 'riverPreset', [...Object.keys(RIVER), 'custom']).name('stage').onChange((k) => { if (k in RIVER) riverCtl.setValue(RIVER[k]); });
-const fCam = gui.addFolder('Camera').close();
-fCam.add(P, 'fov', 15, 75, 1).name('field of view').onChange((f) => { camera.fov = f; camera.updateProjectionMatrix(); });
-fCam.add(P, 'speed', 0.25, 4, 0.05).name('move speed');
-fCam.add(P, 'look', 0.3, 3, 0.05).name('look speed').onChange((s) => { nav.lookSens = s; });
-fCam.add(nav, 'gameLook').name('game-style look'); // drag turns your head (as in games) instead of moving the picture
-const fLook = gui.addFolder('Render').close();
-fLook.add(P, 'bloom', 0, 3, 0.05);
-fLook.add(P, 'ao', 0, 5, 0.1).name('occlusion').onChange((v) => { n8.configuration.intensity = v; });
-fLook.add(P, 'saturation', -0.5, 0.6, 0.01).onChange((v) => { hueSat.saturation = v; });
-fLook.add(P, 'contrast', -0.3, 0.4, 0.01).onChange((v) => { bc.contrast = v; });
-const fAbout = gui.addFolder('About').close();
-const foot = document.createElement('div');
-foot.className = 'foot';
-foot.innerHTML = '<div id="sources"></div><div id="stats">loading…</div><div><a href="https://github.com/stared/warsaw-vibe-voxel" target="_blank" rel="noopener">source code on GitHub</a></div>';
-fAbout.$children.appendChild(foot);
+const P = { hour: 18.9, river: 185, tilt: true, bloom: 1 };
+camera.fov = 28; camera.updateProjectionMatrix();
+const setRiver = (cm) => { P.river = cm; if (flood?.info) flood.set((cm - flood.info.lidar_cm) / 100); };
+bar = new Bar({ times: PRESETS, river: RIVER,
+  onHour: (h, jump) => { if (jump) animateTo(h); else { anim = null; applyTime(h); } },
+  onRiver: setRiver });
+bar.setRiver(P.river);
+new ResizeObserver(() => { panelRect = null; }).observe(bar.el);
+const search = bar.search;
+const credits = document.createElement('div');
+credits.id = 'credits';
+credits.innerHTML = `GUGiK 2025 · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · <a href="https://github.com/stared/warsaw-vibe-voxel" target="_blank" rel="noopener">source</a>`;
+document.body.appendChild(credits);
 // one plain sentence for first-time visitors, first thing in the panel
-if (innerWidth < 600) gui.close();
 function onMode(m, ride) {
   document.body.classList.toggle('walking', m !== 'orbit');
-  P.street = m !== 'orbit'; streetCtl.updateDisplay();
   hud?.set(m, ride);
-  if (m !== 'orbit' && innerWidth < 1200) gui.close(); // the street and the ride need the whole screen
 }
 // keep the focus over the city: zooming out at a grazing angle must not slide the view off the edge of the map
 function keepInside() {
@@ -442,8 +394,8 @@ function rideNearest(kind) {
 }
 let hud = null, meta0 = null;
 addEventListener('keydown', (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('.lil-gui input'))) return;
-  if (e.key === '/') { gui.open(); fGo.open(); search.input.focus(); e.preventDefault(); }
+  if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('input'))) return;
+  if (e.key === '/') { search.input.focus(); e.preventDefault(); }
 });
 let anim = null;
 function animateTo(h) {
@@ -523,29 +475,6 @@ function flyTo(v) {
     const caption = (await import('./caption.js')).makeCaption();
     await (await import('./all1m.js')).installAll1m({ streamer, material, meta, paletteTex, scene, controls, nav, caption, P });
   }
-  // PROTOTYPE: the experiments from the menu. Switching engine reloads the page (same view and time);
-  // the real-area shape, radius and budget change live.
-  const ENGINES = { 'whole city at 1 m': 'engine=full', 'real area + clay': 'shape=budget&budget=2' };
-  const engineOf = () => (zones ? 'real area + clay' : 'whole city at 1 m');
-  const reloadWith = (q) => { const c = camera.position, t = controls.target, u = new URLSearchParams(q);
-    u.set('cam', [c.x, c.y, c.z, t.x, t.y, t.z].map((v) => v.toFixed(0)).join(',')); u.set('hour', state.hour.toFixed(2));
-    location.search = u.toString(); };
-  const fExp = gui.addFolder('Experimental').close();
-  gui.$children.insertBefore(fExp.domElement, fAbout.domElement);
-  fExp.add({ engine: engineOf() }, 'engine', Object.keys(ENGINES)).name('engine').onChange((k) => reloadWith(ENGINES[k]));
-  if (zones) {
-    const sync = () => { const u = new URLSearchParams(location.search); u.set('shape', zones.shape); u.set('r', zones.r); u.set('budget', zones.budget); u.set('outside', zones.outside); u.set('blur', zones.blur);
-      history.replaceState(null, '', '?' + u); };
-    const SHAPES = { 'blocks, triangle budget': 'budget', 'blocks within radius': 'block', 'whole buildings': 'building', 'circle': 'circle', 'square': 'square', 'ragged': 'ragged' };
-    const show = () => { budgetCtl.show(zones.shape === 'budget'); rCtl.show(zones.shape !== 'budget'); };
-    fExp.add(zones, 'shape', SHAPES).name('real area').onChange(() => { show(); sync(); });
-    const budgetCtl = fExp.add(zones, 'budget', 0.5, 8, 0.25).name('budget (M tris)').onChange(sync);
-    const rCtl = fExp.add(zones, 'r', 100, 800, 10).name('radius (m)').onChange(sync);
-    fExp.add(zones, 'outside', ['clay', 'colour']).name('outside').onChange(sync);
-    fExp.add(zones, 'blur', 0, 24, 1).name('blur outside (m)').onChange(sync);
-    show();
-    fExp.open();
-  }
   const th = theta = (meta.theta_deg || 0) * Math.PI / 180; // grid is rotated: map north in scene coordinates
   nav.north.set(Math.sin(th), 0, -Math.cos(th));
   hud = new Hud({ nav, dom: renderer.domElement });
@@ -570,23 +499,17 @@ function flyTo(v) {
   search.setItems(items);
   fountains = new Fountains(scene, meta.jets || []);
   flood = new Flood(scene, uniforms, meta);
-  flood.load().then(() => { RIVER['as mapped (LiDAR day)'] = flood.info.lidar_cm; riverCtl.enable(); setRiver(P.river); }).catch((e) => console.warn('flood', e));
+  flood.load().then(() => { bar.river.input.disabled = false; setRiver(P.river); }).catch((e) => console.warn('flood', e));
   fetch('data/traffic.json').then((r) => r.json()).then((td) => {
     life = nav.life = new StreetLife(scene, td);
     life.world = world;
     window.__life = life;
-    life.group.visible = P.life;
   });
-  const statsEl = $('#stats');
-  setInterval(() => { statsEl.textContent = `${(meta.W / 1000).toFixed(2)} × ${(meta.D / 1000).toFixed(2)} km · 1 m voxels · ${(streamer.tris / 1e6).toFixed(1)} M tris on screen`; }, 1000);
-  $('#sources').innerHTML = `LiDAR, orthophoto: GUGiK 2025<br>map data © OpenStreetMap contributors, ${meta.sources.osm.slice(0, 10)}`;
   camera.updateProjectionMatrix();
-  P.preset = Object.keys(PRESETS).find((k) => PRESETS[k] === state.hour) || 'custom';
   const qs = new URLSearchParams(location.search);
   // clay has no blur of any kind by default (the miniature blur included): ?tilt=1 brings it back
   if (qs.get('tilt') === '0' || innerWidth < 600 || (qs.get('shape') && qs.get('tilt') !== '1')) P.tilt = false;
-  if (qs.get('ui') === '0') { document.body.classList.add('noui'); gui.hide(); }
-  gui.controllersRecursive().forEach((c) => c.updateDisplay());
+  if (qs.get('ui') === '0') document.body.classList.add('noui');
   $('#loading').classList.add('hidden');
   window.__ready = true;
 })();
@@ -596,7 +519,6 @@ renderer.setAnimationLoop((now) => {
   if (anim) anim(now);
   if (fly) fly(now);
   const dtf = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-  if (P.rate && !anim) applyTime(state.hour + P.rate * dtf > 23.5 ? 4.5 : state.hour + P.rate * dtf);
   nav.update(dtf);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   // tilt-shift is a miniature-diorama effect; fade it out as the camera gets down to street level
@@ -615,4 +537,4 @@ renderer.setAnimationLoop((now) => {
   composer.render();
   updateLabels();
 });
-window.__three = { camera, controls, applyTime, flyTo, nav, gui, P, labelEls, scene, renderer, sun, bbox, center, riverCtl };
+window.__three = { camera, controls, applyTime, flyTo, nav, bar, P, labelEls, scene, renderer, sun, bbox, center };

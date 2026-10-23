@@ -6,12 +6,13 @@ import * as THREE from 'three';
 //                     at the cursor · double-click flies there · click a tram, car or person to follow it
 //   walk (street):    drag looks around · click the street to walk there · wheel steps forward/back · pinch zooms the lens
 //                     Space jumps · Esc flies back up
-//   ride (follow):    the camera follows a pedestrian, a car or a tram · drag looks around · any move key: walk on your own
+//   ride (follow):    the camera follows a pedestrian, a car or a tram · drag looks around · move keys: walk as that
+//                     person (possess them); in a car or tram: get out and walk
 const KEYMAP = {
   KeyW: 'f', KeyS: 'b', KeyA: 'tl', KeyD: 'tr', KeyQ: 'tu', KeyE: 'td',
   ArrowUp: 'f', ArrowDown: 'b', ArrowLeft: 'tl', ArrowRight: 'tr',
 };
-const EYE = 1.7, STEP = 1.05, HEAD = 1.9, GRAV = 16;
+const EYE = 1.7, STEP = 1.05, HEAD = 1.9, GRAV = 16, TILT = Math.PI * 0.48;
 // where the camera sits on each kind of agent: eyes (first person) and behind (chase)
 const RIG = {
   person: { eye: [0, 1.62, 0.2], back: 4.5, up: 2.2, fov: 65 },
@@ -39,7 +40,7 @@ export class Nav {
     // map convention: drag pans the ground; right-drag / modifier-drag rotates (OrbitControls swaps PAN->ROTATE with Ctrl/Meta/Shift)
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
-    controls.maxPolarAngle = Math.PI * 0.48; // from the air you look down or level; looking up at towers is what street level is for
+    controls.maxPolarAngle = TILT; // the mouse tilts from looking down to level; looking up at towers is what street level is for
     dom.style.cursor = 'grab';
 
     // street-level marker: where a click would take you
@@ -57,7 +58,7 @@ export class Nav {
       const k = KEYMAP[e.code];
       if (!k) return;
       this.keys.add(k);
-      if (this.mode === 'ride') this.hopOff(); // following someone: a move key and you walk on from there
+      if (this.mode === 'ride' && this.ride.kind !== 'person') this.hopOff(); // in a vehicle: get out and walk
       this.goal = null;
       this.cancelFly?.();
       e.preventDefault();
@@ -236,11 +237,13 @@ export class Nav {
   setFov(f) { this.camera.fov = THREE.MathUtils.clamp(f, 20, 80); this.camera.updateProjectionMatrix(); }
 
   // turn the view about the camera itself (A/D, Q/E): the camera stays put, the nose moves; keeps the focus distance.
-  // Never above level: OrbitControls (maxPolarAngle) would swing the camera to keep the focus below it.
+  // Above level too (nose up, then W climbs): OrbitControls' tilt limit is lifted to wherever the keys put the view,
+  // so it never swings the camera to get the focus back below it (clamp() restores it once you look down again).
   turn(dyaw, dpitch) {
     const d = this.dir(), len = d.length() || 1;
     const yaw = Math.atan2(d.x, d.z) + dyaw;
-    const pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(d.y / len, -1, 1)) + dpitch, -1.5, -0.08);
+    const pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(d.y / len, -1, 1)) + dpitch, -1.5, 1.2);
+    this.controls.maxPolarAngle = Math.max(TILT, Math.PI / 2 + pitch + 0.02);
     this.controls.target.set(
       this.camera.position.x + len * Math.sin(yaw) * Math.cos(pitch),
       this.camera.position.y + len * Math.sin(pitch),
@@ -554,6 +557,7 @@ export class Nav {
     const K = this.keys;
     if (this.mode === 'walk') return this.updateWalk(dt);
     if (this.mode === 'ride') {
+      if (this.ride.kind === 'person' && (K.size || this._who === this.ride.obj)) this.possess(dt);
       return this.updateRide();
     }
     const cam = this.camera, ctl = this.controls;
@@ -564,21 +568,22 @@ export class Nav {
     // height above the ground. The focus stays on what is ahead, so A/D/Q/E and the mouse turn about it.
     const go = (K.has('f') ? 1 : 0) - (K.has('b') ? 1 : 0);
     if (!go || !this.world) return;
-    const look = this.dir().clone().normalize();
+    const len0 = this.dir().length(), look = this.dir().clone().normalize();
     const h = Math.max(3, cam.position.y - this.world.groundAt(cam.position.x, cam.position.z));
     let step = go * this.speed * (this.shift ? 3 : 1) * Math.min(400, 8 + h * 0.9) * dt;
     const ahead = this.world.raycast(cam.position, look, 4000);
     if (go > 0 && ahead < 8) { this.setMode('walk'); return; } // reached the street or a building: land on the street there
     if (go > 0) step = Math.min(step, ahead - 6);
-    if (go < 0 && h + step * look.y > 3600) return; // not off into the fog
+    if (step * look.y > 0 && h + step * look.y > 3600) return; // not off into the fog
     cam.position.addScaledVector(look, step);
-    ctl.target.copy(cam.position).addScaledVector(look, isFinite(ahead) ? Math.max(5, ahead - step) : this.dir().length());
+    ctl.target.copy(cam.position).addScaledVector(look, isFinite(ahead) ? Math.max(5, ahead - step) : len0);
     this._zoomT = performance.now(); // low over the street: clamp() lands you there
   }
 
   // keep the orbit camera above the terrain (called after controls.update)
   clamp() {
     if (!this.world || this.mode !== 'orbit') return;
+    if (this.controls.maxPolarAngle > TILT && !this._turned && this.controls.getPolarAngle() <= TILT) this.controls.maxPolarAngle = TILT;
     const p = this.camera.position, g = this.world.groundAt(p.x, p.z) + 1.2;
     if (p.y < g) { p.y = g; this.camera.lookAt(this.controls.target); }
     // zoomed right down onto the street: become a pedestrian there instead of staring at asphalt
@@ -610,6 +615,42 @@ export class Nav {
     return false;
   }
 
+  // stand on whatever is under us (steps up kerbs and stairs, falls off ledges); Space jumps
+  stand(dt) {
+    const w = this.world, P = this.walkPos;
+    const sup = w.support(P.x, P.z, this.feet + STEP);
+    if (this.vy !== 0 || this.feet > sup + 0.01) {
+      this.vy -= GRAV * dt; this.feet += this.vy * dt;
+      if (this.feet <= sup) { this.feet = sup; this.vy = 0; }
+    } else this.feet = sup > this.feet ? Math.min(sup, this.feet + 6 * dt) : sup;
+    P.y = this.feet + EYE;
+  }
+
+  // following a person and pressing a move key: you walk as them (W/S walk, A/D turn them, Q/E look up/down), with the
+  // street's collisions; the camera stays behind them. They stay where you leave them.
+  possess(dt) {
+    const R = this.ride, o = R.obj, K = this.keys;
+    if (this._who !== o) {
+      const p = this.life.pose('person', o);
+      if (!p) return;
+      this._who = o;
+      o.ctl = { x: p.x, y: p.y, z: p.z, h: p.h, moving: false };
+      R.label = 'you';
+      Object.assign(R, { view: 'eyes', dyaw: 0, dpitch: 0, t0: performance.now(), from: this.camera.position.clone(), fromQ: this.camera.quaternion.clone(), fromFov: this.camera.fov });
+      this.onMode?.(this.mode, R);
+      this.walkPos = new THREE.Vector3(p.x, p.y + EYE, p.z); this.feet = p.y; this.vy = 0; this.yaw = p.h;
+    }
+    const C = o.ctl, P = this.walkPos;
+    const tr = (K.has('tr') ? 1 : 0) - (K.has('tl') ? 1 : 0), tp = (K.has('tu') ? 1 : 0) - (K.has('td') ? 1 : 0);
+    this.yaw -= tr * (this.shift ? 2.6 : 1.8) * dt;
+    if (tp) R.dpitch = THREE.MathUtils.clamp(R.dpitch + tp * dt, -1.2, 1.2);
+    this.yaw += R.dyaw; R.dyaw = 0; // through their eyes: looking around (drag) turns them, as in a game
+    const go = (K.has('f') ? 1 : 0) - (K.has('b') ? 1 : 0);
+    C.moving = !!go && this.stepBy(new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(go * (this.shift ? 7 : 2.2) * this.speed * dt));
+    this.stand(dt);
+    C.x = P.x; C.y = this.feet; C.z = P.z; C.h = this.yaw;
+  }
+
   updateWalk(dt) {
     const K = this.keys, w = this.world, cam = this.camera, P = this.walkPos;
     const tr = (K.has('tr') ? 1 : 0) - (K.has('tl') ? 1 : 0), tp = (K.has('tu') ? 1 : 0) - (K.has('td') ? 1 : 0);
@@ -632,13 +673,7 @@ export class Nav {
         if (!moved) { G.stuck = (G.stuck || 0) + dt; if (G.stuck > 0.4) { this.goal = null; this.marker.visible = false; } }
       }
     }
-    // stand on whatever is under us (steps up kerbs and stairs, falls off ledges); Space jumps
-    const sup = w.support(P.x, P.z, this.feet + STEP);
-    if (this.vy !== 0 || this.feet > sup + 0.01) {
-      this.vy -= GRAV * dt; this.feet += this.vy * dt;
-      if (this.feet <= sup) { this.feet = sup; this.vy = 0; }
-    } else this.feet = sup > this.feet ? Math.min(sup, this.feet + 6 * dt) : sup;
-    P.y = this.feet + EYE;
+    this.stand(dt);
     const look = this.lookDir();
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(this.pitch, this.yaw + Math.PI, 0, 'YXZ'));
     if (this._landing) {

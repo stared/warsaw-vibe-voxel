@@ -16,7 +16,7 @@ const MOUSE = {
   ride: [['l', mouse('l', true), 'look'], ['Escape', esc, 'fly up']],
 };
 const TOUCH = { orbit: 'drag: move · two fingers: zoom, turn · tap a person: follow', walk: 'drag: look · tap: walk · tap a person: follow', ride: 'drag: look · tap the street: walk' };
-const WHO = { person: 'Following a pedestrian', car: 'Following a car', bus: 'Following a bus', tram: 'Following a tram' };
+const WHO = { you: 'You are this pedestrian', person: 'Following a pedestrian', car: 'Following a car', bus: 'Following a bus', tram: 'Following a tram' };
 
 export class Hud {
   constructor({ nav, dom }) {

@@ -121,7 +121,7 @@ export async function installAll1m({ streamer: S, material, meta, paletteTex, sc
     if (stage >= 2) for (let i = 0; i < total; i++) if (inTile[i] && terrainOf[i]) { scene.remove(terrainOf[i]); terrainOf[i].geometry.dispose(); terrainOf[i] = null; }
     if (stage >= 3 && ttex.image.data) { ttex.dispose(); ttex.image.data = null; } // the last terrain piece is gone
     if (changed) onTex.needsUpdate = true;
-    if (window.__life) window.__life.group.visible = stage >= 4 && P.life;
+    if (window.__life) window.__life.group.visible = stage >= 4;
     // the long building stage in named parts, each a set of tiles loaded in turn: what you see, then the rest of the
     // city in rings around you
     const RINGS = [['Buildings in view', 0], ['Buildings within 1 km', 1000], ['Buildings within 2 km', 2000], ['Buildings to the edge', 1e9]];

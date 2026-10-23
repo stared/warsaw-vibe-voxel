@@ -345,7 +345,7 @@ export class StreetLife {
     const out = this.cars.filter((c) => !this.roadOn[c.e] && c !== this.keep);
     for (const c of out) { const l = this.roads[c.e].lists[c.lane]; l.splice(l.indexOf(c), 1); this.boxLeave(c); }
     if (out.length) { const o = new Set(out); this.cars = this.cars.filter((c) => !o.has(c)); }
-    this.people = this.people.filter((p) => this.pedOn[p.e] || p === this.keep);
+    this.people = this.people.filter((p) => this.pedOn[p.e] || p === this.keep || p.ctl);
     this.active = { x, z, R };
   }
   chooseNext(e) {
@@ -537,6 +537,7 @@ export class StreetLife {
     if (this.people.length > targetPeds) {
       const i = this.people.indexOf(this.keep); // the person someone is riding along with stays in the crowd
       if (i >= targetPeds) [this.people[0], this.people[i]] = [this.people[i], this.people[0]];
+      this.people = [...this.people.filter((p) => p.ctl), ...this.people.filter((p) => !p.ctl)]; // and those you walked
       this.people.length = targetPeds;
     }
 
@@ -742,6 +743,7 @@ export class StreetLife {
 
     // ---- pedestrians
     for (const pe of this.people) {
+      if (pe.ctl) continue; // possessed: the player walks them (nav.js), off the footpath graph
       const e = this.peds[pe.e];
       if (pe.wait) {
         if (pedGreen(this.ctrls[e.x.ctrl], this.t, e.x.axis)) pe.wait = false;
@@ -845,6 +847,17 @@ export class StreetLife {
 
     const k = 1 - Math.exp(-dt * 10);
     this.people.forEach((p, i) => {
+      if (p.ctl) { // possessed (nav.js): where the player put them, legs going while they walk
+        const C = p.ctl;
+        p.rp = (p.rp || new THREE.Vector3()).set(C.x, C.y, C.z); p.rh = C.h;
+        if (C.moving) p.ph += dt * 9;
+        q.setFromAxisAngle(Y, p.rh);
+        pos.copy(p.rp); if (C.moving) pos.y += 0.05 * Math.abs(Math.sin(p.ph));
+        m.compose(pos, q, sc.set(1, 1, 1));
+        this.mLegs.setMatrixAt(i, m); this.mTorso.setMatrixAt(i, m);
+        this.mTorso.instanceColor.setXYZ(i, p.col.r, p.col.g, p.col.b);
+        return;
+      }
       const e = this.peds[p.e];
       const ds = p.wait ? 0 : p.v * lead;
       at(e, p.s + ds * p.dir, 0, A);
