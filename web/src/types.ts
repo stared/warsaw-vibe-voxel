@@ -7,9 +7,18 @@ export interface View {
   ms?: number;
 }
 
-export interface Label {
+export interface Facts {
   name: string;
-  note: string;
+  kind: string;
+  en?: string;
+  height?: number;
+  year?: number;
+  rebuilt?: number;
+  by?: string;
+  building?: boolean;
+}
+
+export interface Label extends Facts {
   alt?: string;
   x: number;
   y: number;

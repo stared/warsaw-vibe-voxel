@@ -9,55 +9,59 @@ from scipy import ndimage
 
 M_WALL, M_GLASS, M_PKIN, M_CONCRETE, M_CLOCK = 1, 2, 7, 13, 14
 
-# OSM name -> (label, note, anchor). Order = label priority (decluttering keeps earlier ones).
-# anchor "top": highest voxel in the footprint (towers, spires); "center": top voxel at the centroid.
+# OSM name -> what a label shows; order = label priority (decluttering keeps earlier ones).
+# Facts, all optional except kind: en (the English name, shown instead of kind), kind (what it is), height (m),
+# year (built or opened), rebuilt, by (architect), building (under construction), alt (other names for search).
+# anchor "top": highest voxel in the footprint (towers, spires); default: top voxel at the centroid.
 LABELS = {
-    "Pałac Kultury i Nauki": ("Pałac Kultury i Nauki", "Palace of Culture and Science · 237 m · 1955", "top"),
-    "Varso Tower": ("Varso Tower", "310 m with spire · Foster + Partners · 2022", "top"),
-    "Złota 44": ("Złota 44", "192 m · Daniel Libeskind · 2017", "top"),
-    "Warszawa Centralna": ("Warszawa Centralna", "main railway station · 1975", "center"),
-    "Złote Tarasy": ("Złote Tarasy", "shopping centre, glass canopy · 2007", "center"),
-    "Muzeum Sztuki Nowoczesnej": ("Muzeum Sztuki Nowoczesnej", "Museum of Modern Art · opened Oct 2024", "center"),
-    "Plac Centralny": ("Plac Centralny", "new square · opened Jun 2025", "center"),
-    "TR Warszawa": ("TR Warszawa", "theatre · under construction", "center"),
-    "Rotunda PKO": ("Rotunda PKO", "rebuilt 2019", "center"),
-    "Park Świętokrzyski": ("Park Świętokrzyski", "", "center"),
-    "Rondo 1": ("Rondo 1", "192 m · 2006", "top"),
-    "Q22": ("Q22", "195 m · 2016", "top"),
-    "InterContinental": ("InterContinental", "164 m · 2004", "top"),
-    "Centrum LIM": ("Marriott", "170 m with antenna · 1989", "top"),
-    "Novotel Warszawa Centrum": ("Novotel", "111 m · 1974", "top"),
-    "Cosmopolitan": ("Cosmopolitan", "160 m · Helmut Jahn · 2013", "top"),
-    "Spektrum Tower": ("Spektrum Tower", "128 m · 2003", "top"),
-    "Central Point": ("Central Point", "2022", "top"),
-    "Ilmet": ("Ilmet", "1997 · to be rebuilt as Warsaw One", "top"),
-    "The Westin Warsaw": ("The Westin", "2003", "top"),
+    "Pałac Kultury i Nauki": dict(en="Palace of Culture and Science", kind="tower", height=237, year=1955, alt="PKiN", anchor="top"),
+    "Varso Tower": dict(kind="office tower", height=310, year=2022, by="Foster + Partners", anchor="top"),
+    "Złota 44": dict(kind="residential tower", height=192, year=2017, by="Daniel Libeskind", anchor="top"),
+    "Warszawa Centralna": dict(en="Central Station", kind="railway station", year=1975, alt="train"),
+    "Złote Tarasy": dict(kind="shopping centre", year=2007, alt="Golden Terraces mall"),
+    "Muzeum Sztuki Nowoczesnej": dict(en="Museum of Modern Art", kind="museum", year=2024),
+    "Plac Centralny": dict(kind="square", year=2025),
+    "TR Warszawa": dict(kind="theatre", building=True),
+    "Rotunda PKO": dict(kind="bank", rebuilt=2019),
+    "Park Świętokrzyski": dict(kind="park"),
+    "Rondo 1": dict(kind="office tower", height=192, year=2006, anchor="top"),
+    "Q22": dict(kind="office tower", height=195, year=2016, anchor="top"),
+    "InterContinental": dict(kind="hotel", height=164, year=2004, anchor="top"),
+    "Centrum LIM": dict(name="Marriott", kind="hotel", height=170, year=1989, alt="Centrum LIM", anchor="top"),
+    "Novotel Warszawa Centrum": dict(name="Novotel", kind="hotel", height=111, year=1974, anchor="top"),
+    "Cosmopolitan": dict(kind="residential tower", height=160, year=2013, by="Helmut Jahn", anchor="top"),
+    "Spektrum Tower": dict(kind="office tower", height=128, year=2003, anchor="top"),
+    "Central Point": dict(kind="office building", year=2022, anchor="top"),
+    "Ilmet": dict(kind="office tower", year=1997, anchor="top"),
+    "The Westin Warsaw": dict(name="The Westin", kind="hotel", year=2003, anchor="top"),
     # the 3.9 x 3.1 km map: Powiśle, the Vistula, Praga, Ogród Saski, Śródmieście Południowe
-    "PGE Narodowy": ("PGE Narodowy", "National Stadium · 2011", "top"),
-    "Centrum Nauki Kopernik": ("Centrum Nauki Kopernik", "Copernicus Science Centre · 2010", "center"),
-    "Most Świętokrzyski": ("Most Świętokrzyski", "cable-stayed bridge · 2000", "top"),
-    "Most Księcia Józefa Poniatowskiego": ("Most Poniatowskiego", "1914 · rebuilt 1946", "center"),
-    "Ogród Saski": ("Ogród Saski", "Saxon Garden · 1727", "center"),
-    "Odbudowa Pałacu Saskiego": ("Pałac Saski", "reconstruction site", "center"),
-    "Teatr Wielki": ("Teatr Wielki", "Grand Theatre · National Opera", "center"),
-    "Zachęta": ("Zachęta", "National Gallery of Art · 1900", "center"),
-    "Gmach Główny PW": ("Politechnika Warszawska", "Main Building · 1901", "center"),
-    "Sejm RP": ("Sejm", "Polish Parliament", "center"),
-    "Hala Koszyki": ("Hala Koszyki", "market hall · 1909", "center"),
-    "Biblioteka Uniwersytecka": ("BUW", "University Library · roof garden · 1999", "center"),
-    "Elektrownia Powiśle": ("Elektrownia Powiśle", "power station, now shops · 2020", "center"),
-    "Stadion Miejski Legii Warszawa": ("Stadion Legii", "Legia Warsaw · 2011", "center"),
-    "Plac Konstytucji": ("Plac Konstytucji", "MDM · 1952", "center"),
+    "PGE Narodowy": dict(en="National Stadium", kind="stadium", year=2011, alt="Stadion Narodowy football", anchor="top"),
+    "Centrum Nauki Kopernik": dict(en="Copernicus Science Centre", kind="science museum", year=2010, alt="CNK", anchor="top"),
+    "Most Świętokrzyski": dict(kind="cable-stayed bridge", year=2000, anchor="top"),
+    "Most Księcia Józefa Poniatowskiego": dict(name="Most Poniatowskiego", kind="bridge", year=1914, rebuilt=1946, alt="Poniatowski"),
+    "Ogród Saski": dict(en="Saxon Garden", kind="park", year=1727),
+    "Odbudowa Pałacu Saskiego": dict(name="Pałac Saski", en="Saxon Palace", kind="palace", building=True),
+    "Teatr Wielki": dict(en="Grand Theatre", kind="opera house", alt="National Opera"),
+    "Zachęta": dict(en="National Gallery of Art", kind="gallery", year=1900),
+    "Gmach Główny PW": dict(name="Politechnika Warszawska", en="Warsaw University of Technology", kind="university", year=1901, alt="Gmach Główny PW Main Building"),
+    "Sejm RP": dict(name="Sejm", en="Parliament", kind="parliament"),
+    "Hala Koszyki": dict(kind="market hall", year=1909),
+    "Biblioteka Uniwersytecka": dict(name="BUW", en="University Library", kind="library", year=1999, alt="Biblioteka Uniwersytecka roof garden"),
+    "Elektrownia Powiśle": dict(kind="power station turned shopping centre", rebuilt=2020),
+    "Stadion Miejski Legii Warszawa": dict(name="Stadion Legii", en="Legia Warsaw Stadium", kind="stadium", year=2011),
+    "Plac Konstytucji": dict(kind="square", year=1952, alt="MDM"),
 }
-# places without a single OSM polygon (EPSG:2180 x, y)
-EXTRA_LABELS = [("Zielona Złota", "street greening · opened Aug 2026", 637420, 487015),
-                ("Wisła", "Vistula", 639034, 487782), ("Bulwary Wiślane", "Vistula boulevards", 638714, 487996)]  # mid-river by Most Świętokrzyski; the boulevard by Kopernik
-# other names people search for (English, the official / colloquial Polish): added to the search keys only
-ALIASES = {"PGE Narodowy": "Stadion Narodowy National Stadium football", "Centrum Nauki Kopernik": "Copernicus Science Centre CNK",
-           "Pałac Kultury i Nauki": "PKiN Palace of Culture and Science", "Most Świętokrzyski": "bridge", "Most Poniatowskiego": "bridge Poniatowski",
-           "Ogród Saski": "Saxon Garden park", "Pałac Saski": "Saxon Palace", "Teatr Wielki": "Grand Theatre Opera", "Sejm": "Parliament",
-           "Warszawa Centralna": "Central Station railway train", "Złote Tarasy": "Golden Terraces mall", "BUW": "Biblioteka Uniwersytecka library",
-           "Wisła": "Vistula river", "Politechnika Warszawska": "Gmach Główny PW Warsaw University of Technology", "Bulwary Wiślane": "boulevards Vistula", "Politechnika Warszawska": "Warsaw University of Technology"}
+# places without a single OSM polygon, at EPSG:2180 x, y (the river mid-stream by Most Świętokrzyski, the boulevard by Kopernik)
+EXTRA_LABELS = {
+    "Zielona Złota": dict(kind="street greening", year=2026, at=(637420, 487015)),
+    "Wisła": dict(en="Vistula", kind="river", at=(639034, 487782)),
+    "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", at=(638714, 487996)),
+}
+
+
+def label(osm_name, facts, x, y, z):
+    keep = {k: v for k, v in facts.items() if k not in ("anchor", "at", "name")}
+    return dict(name=facts.get("name", osm_name), **keep, x=x, y=y, z=z)
 
 
 SMOOTH_ROOFS = {4166727: "PGE Narodowy roof membrane", 4166726: "PGE Narodowy roof ring"}
@@ -408,7 +412,7 @@ def override_labels(feats, g, top_at):
         if o and "label" in o and not f["part"] and len(f["rr"]):
             k = len(f["rr"]) // 2
             r, c = int(np.median(f["rr"])), int(np.median(f["cc"]))
-            out.append(dict(name=o["label"], note=o.get("note", ""), x=c, y=r, z=top_at(r, c), highlight=True))
+            out.append(dict(**label(o["label"]["name"], o["label"], c, r, top_at(r, c)), highlight=True))
     return out
 
 
@@ -565,18 +569,18 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
         n = t.get("name")
         if n not in LABELS or n in found:
             continue
-        label, sub, mode = LABELS[n]
+        facts = LABELS[n]
         if n.startswith("Most "):  # a bridge: on the middle of its carriageway, not on the area's highest cell
             from shapely.ops import linemerge as _lm
-            ln = _lm([l for oid_, t_, l in osm.lines if t_.get("name") in (n, label) and t_.get("highway")])
+            ln = _lm([l for oid_, t_, l in osm.lines if t_.get("name") in (n, facts.get("name")) and t_.get("highway")])
             ln = max(getattr(ln, "geoms", [ln]), key=lambda q: q.length) if not ln.is_empty else None
             if ln is not None:
                 p = ln.interpolate(0.5, normalized=True)
                 r, c = int(p.y), int(p.x)
                 if 0 <= r < vol.shape[1] and 0 <= c < vol.shape[2]:
-                    found[n] = dict(name=label, note=sub, x=c, y=r, z=top_at(r, c))
+                    found[n] = label(n, facts, c, r, top_at(r, c))
                     continue
-        if mode == "top":
+        if facts.get("anchor") == "top":
             rr, cc = cells_of(geom)
             if len(rr) == 0:
                 continue
@@ -587,15 +591,12 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
             r, c = int(p.y), int(p.x)
         if not (0 <= r < vol.shape[1] and 0 <= c < vol.shape[2]):
             continue
-        found[n] = dict(name=label, note=sub, x=c, y=r, z=top_at(r, c))
+        found[n] = label(n, facts, c, r, top_at(r, c))
     labels = override_labels(feats, g, top_at) + [found[n] for n in LABELS if n in found]
     from aoi import to_grid
-    for label, sub, wx, wy in EXTRA_LABELS:
-        c, r = (int(v) for v in to_grid(wx, wy))
-        labels.append(dict(name=label, note=sub, x=c, y=r, z=top_at(r, c)))
-    for l in labels:
-        if l["name"] in ALIASES:
-            l["alt"] = ALIASES[l["name"]]
+    for n, facts in EXTRA_LABELS.items():
+        c, r = (int(v) for v in to_grid(*facts["at"]))
+        labels.append(label(n, facts, c, r, top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
     extra = {"astoria": l for l in labels if l.get("highlight")}
     return labels, make_views(found, osm, g, top_at, note, bmask, extra, vol, leaf_ids)
@@ -682,9 +683,9 @@ def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, l
         if best is None:
             note("no clear viewpoint for", oid)
             continue
-        views[f"b{oid}"] = dict(label=o["label"].split(" ·")[0], target=[float(v) for v in target],
+        views[f"b{oid}"] = dict(label=o["label"]["name"], target=[float(v) for v in target],
                                 pos=[float(v) for v in best])
-        note("viewpoint for", o["label"], "at", [round(float(v)) for v in best])
+        note("viewpoint for", o["label"]["name"], "at", [round(float(v)) for v in best])
     st = at("Warszawa Centralna", 15)
     views["station"] = dict(label="Centralna", target=st, pos=add(st, (300, 120, 40)))
     views["skyline"] = dict(label="Skyline", target=[pk[0], 130, pk[2]], pos=add([pk[0], 130, pk[2]], (1150, -10, 520)))

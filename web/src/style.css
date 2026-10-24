@@ -56,6 +56,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .label.pinned .txt { bottom: 4px; }
 .label b { display: block; font-weight: 600; font-size: 12.5px; line-height: 1.2; }
 .label span { display: block; font-weight: 500; font-size: 10.5px; line-height: 1.3; color: #e8e8e8; }
+.label p { display: flex; gap: 7px; margin: 0; }
+.label.left p { justify-content: flex-end; }
+.label p span { color: #b8b8b8; }
 .label.major b { font-size: 14.5px; }
 .label.hl b { color: var(--hl); }
 .label.hl .dot, .label.hl .stem { background: var(--hl); }

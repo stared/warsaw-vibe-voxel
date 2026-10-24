@@ -14,7 +14,7 @@ import type { SearchItem } from './search';
 import { StreetLife } from './sim/life';
 import type { Kind, TrafficData } from './sim/types';
 import { TileStreamer } from './stream';
-import type { Label, Meta, Place, View } from './types';
+import type { Facts, Label, Meta, Place, View } from './types';
 import { $, coarsePointer, ease, el, fetchJson, lerp } from './util';
 import type { World } from './world';
 import { makeUniforms, makeVoxelMaterial, type BuildUniforms, type Engine, type ZoneUniforms } from './voxelMaterial';
@@ -141,7 +141,7 @@ function flyTo(v: Pick<View, 'pos' | 'target' | 'ms'>) {
 }
 
 // frame a place from the current compass direction, ~30° down, with a label on it; at street level, walk there
-function goPlace(x: number, y: number, size: number, pin: { name: string; note: string } | null, name = pin?.name ?? '') {
+function goPlace(x: number, y: number, size: number, pin: Facts | null, name = pin?.name ?? '') {
   if (!world) return;
   const g = world.groundAt(x, y), top = world.top(Math.floor(x), Math.floor(y)), h = Math.max(0, top - g);
   labels?.pin(pin && { ...pin, x, y, z: Math.max(top, g + 2) });
@@ -163,7 +163,7 @@ function goView(v: View) {
 }
 
 function onLabel(l: Label) {
-  const v = Object.values(views).find((w) => w.label === l.name.split(' ·')[0]);
+  const v = Object.values(views).find((w) => w.label === l.name);
   if (v && nav.mode === 'orbit') goView(v);
   else goPlace(l.x, l.y, 60, null, l.name);
 }
@@ -177,11 +177,11 @@ function followNearest(kind: Kind) {
 function searchItems(meta: Meta): SearchItem[] {
   return [
     ...Object.values(meta.views).map((v) => ({ name: v.label, kind: 'viewpoint', featured: true, go: () => goView(v) })),
-    ...meta.labels.map((l) => ({ name: l.name, alt: `${l.alt ?? ''} ${l.note}`, kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R ?? 20) * 1.4), null, l.name) })),
+    ...meta.labels.map((l) => ({ name: l.name, alt: [l.en, l.kind, l.alt].join(' '), kind: 'landmark', go: () => goPlace(l.x, l.y, Math.max(40, (l.R ?? 20) * 1.4), null, l.name) })),
     { name: 'Follow a tram', alt: 'tramwaj tram ride follow jedź', kind: 'action', go: () => followNearest('tram') },
     { name: 'Follow a car', alt: 'samochód car bus autobus ride follow jedź', kind: 'action', go: () => followNearest('car') },
     { name: 'Zouk at Kopernik', alt: 'dance taniec zouk Centrum Nauki Kopernik evening wieczór', kind: 'action',
-      go: () => { if (daylight.hour < 19 || daylight.hour > 23) setHour(20.5); goPlace(2626, 741, 30, { name: 'Zouk', note: 'evenings' }); } },
+      go: () => { if (daylight.hour < 19 || daylight.hour > 23) setHour(20.5); goPlace(2626, 741, 30, { name: 'Zouk', kind: 'dancing in the evenings' }); } },
     { name: 'Follow someone', alt: 'person people pieszy przechodzień idź walk with follow', kind: 'action', go: () => followNearest('person') },
   ];
 }
@@ -221,7 +221,7 @@ async function boot() {
   hud = new Hud(renderer.domElement, nav.mode);
   bar.search.setItems(searchItems(meta));
   fetchJson<{ places: Place[] }>('data/places.json').then(({ places }) => bar.search.setItems([...searchItems(meta),
-    ...places.map(([name, kind, x, y, size, alt]) => ({ name, alt, kind, go: () => goPlace(x, y, size, { name, note: kind }) }))]));
+    ...places.map(([name, kind, x, y, size, alt]) => ({ name, alt, kind, go: () => goPlace(x, y, size, { name, kind }) }))]));
   fountains = new Fountains(scene, meta.jets ?? []);
   flood = new Flood(scene, uniforms, meta);
   flood.load().then(() => { bar.river.input.disabled = false; flood!.setGauge(RIVER['as mapped']); }).catch((e) => console.warn('flood', e));

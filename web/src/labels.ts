@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Rect } from './hud';
-import type { Label } from './types';
+import type { Facts, Label } from './types';
 import { $, el } from './util';
 import type { World } from './world';
 
@@ -18,7 +18,9 @@ interface Pin {
   edgeW: number;
   dist: string;
 }
-export interface Placed { name: string; note: string; x: number; y: number; z: number }
+export interface Placed extends Facts { x: number; y: number; z: number }
+
+const details = (f: Facts) => [f.height && `${f.height} m`, f.year, f.rebuilt && `rebuilt ${f.rebuilt}`, f.by, f.building && 'under construction'].filter(Boolean);
 
 const STEM = 20, TOP = 8;
 const overlap = (r: Rect, q: Rect) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0;
@@ -34,7 +36,7 @@ export class Labels {
 
   constructor(labels: Label[], onClick: (l: Label) => void) {
     labels.forEach((l, i) => {
-      const pin = this.add(`label${l.highlight ? ' hl' : ''}${i < 6 ? ' major' : ''}`, l.name, l.note,
+      const pin = this.add(`label${l.highlight ? ' hl' : ''}${i < 6 ? ' major' : ''}`, l,
         new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), new THREE.Vector3(l.x + 0.5, (l.g ?? 0) + 2, l.y + 0.5), (l.R ?? 30) + 6);
       pin.txt.addEventListener('click', () => onClick(l));
       if (l.highlight) {
@@ -46,8 +48,9 @@ export class Labels {
     document.fonts?.ready.then(() => { for (const p of this.pins) p.w = p.edgeW = 0; });
   }
 
-  private add(cls: string, name: string, note: string, p: THREE.Vector3, base: THREE.Vector3, R: number): Pin {
-    const e = el('div', cls, `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${name}</b>${note ? `<span>${note}</span>` : ''}</div>`, this.host);
+  private add(cls: string, f: Facts, p: THREE.Vector3, base: THREE.Vector3, R: number): Pin {
+    const facts = details(f).map((d) => `<span>${d}</span>`).join('');
+    const e = el('div', cls, `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${f.name}</b><span>${f.en ?? f.kind}</span>${facts ? `<p>${facts}</p>` : ''}</div>`, this.host);
     return { el: e, txt: $('.txt', e), edge: null, p, base, R, occluded: false, w: 0, h: 0, shift: 0, edgeW: 0, dist: '' };
   }
 
@@ -55,7 +58,7 @@ export class Labels {
   pin(p: Placed | null) {
     if (this.picked) { this.picked.el.remove(); this.pins.splice(this.pins.indexOf(this.picked), 1); this.picked = null; }
     if (!p) return;
-    this.picked = this.add('label pick', p.name, p.note, new THREE.Vector3(p.x + 0.5, p.z + 1, p.y + 0.5), new THREE.Vector3(p.x + 0.5, p.z, p.y + 0.5), 40);
+    this.picked = this.add('label pick', p, new THREE.Vector3(p.x + 0.5, p.z + 1, p.y + 0.5), new THREE.Vector3(p.x + 0.5, p.z, p.y + 0.5), 40);
     this.pins.unshift(this.picked);
   }
 
