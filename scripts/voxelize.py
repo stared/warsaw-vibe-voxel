@@ -645,9 +645,9 @@ def wall_style(f):
     h = f["maxh"] or float(np.median(top[f["rr"], f["cc"]]))
     inside_pkin = pkin["geom"].contains(f["geom"].representative_point())
     if inside_pkin:
-        # OSM tags the stone #C6AE7F, a khaki; in photos the weathered sandstone is a mid warm grey-beige (median 114,108,96 overcast)
+        # OSM tags the stone #C6AE7F, a khaki; in photos the weathered sandstone is a mid warm grey (median 118,112,104 overcast, 2026)
         if col is None or col == hex_rgb("#c6ae7f"):
-            col = hex_rgb("#857a65")  # lighter tones read pale cream in sun beside the photos (render 179,167,139 vs 104,100,87)
+            col = hex_rgb("#827b72")  # lighter tones read pale cream in sun beside the photos (render 179,167,139 vs 104,100,87)
         return pal(soften(col, 0.05), M_PKIN)
     glass = "glass" in mat_tag or (not mat_tag and h > 45 and btype in ("office", "commercial", "hotel", "yes", "retail")
                                    and "building:colour" not in t)

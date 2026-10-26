@@ -18,6 +18,7 @@ import { TileStreamer } from './stream';
 import type { Facts, Label, Meta, Place, View } from './types';
 import { dateOf, dayOfYear, hourAt, solarNoon } from './sun';
 import { $, coarsePointer, ease, el, fetchJson, lerp } from './util';
+import { pkinLight } from './sky';
 import { type Climate, Precip, typical, type Weather, WEATHERS } from './weather';
 import type { World } from './world';
 import { makeUniforms, makeVoxelMaterial, type BuildUniforms, type Engine, type ZoneUniforms } from './voxelMaterial';
@@ -304,7 +305,7 @@ renderer.setAnimationLoop((now) => {
   const viewDist = camera.position.distanceTo(controls.target);
   daylight.setFogFrom(viewDist);
   const t = (performance.now() - t0) / 1000;
-  if (uniforms) uniforms.uTime.value = t;
+  if (uniforms) { uniforms.uTime.value = t; pkinLight(daylight.day, t, uniforms.uPkinLight.value); }
   fountains?.update(t, daylight.night);
   precip.update(t, camera.position, daylight.weather, daylight.night);
   if (city?.complete) document.body.classList.remove('loading');
@@ -325,4 +326,4 @@ renderer.setAnimationLoop((now) => {
   labels?.update(camera, world, barRect, hud?.rects ?? []);
 });
 
-window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map };
+window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post };

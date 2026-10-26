@@ -27,6 +27,9 @@ export interface VoxelUniforms {
   uFolDate: U<THREE.Vector4[]>;
   uFolCol: U<THREE.Color[]>;
   uGrass: U<THREE.Color[]>;
+  uLeaf: U<THREE.Color>;
+  uAlbedo: U<number>;
+  uPkinLight: U<THREE.Color>;
 }
 export interface BuildUniforms { uStage: U<number>; uBldOn: U<THREE.Texture> }
 export interface ZoneUniforms {
@@ -56,6 +59,9 @@ export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partia
     uFolDate: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Vector4(-1, 0, 0, 0)) },
     uFolCol: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Color(0.3, 0.2, 0.05)) },
     uGrass: { value: Array.from({ length: 12 }, () => new THREE.Color(1, 1, 1)) },
+    uLeaf: { value: new THREE.Color(1, 1, 1) },
+    uAlbedo: { value: 0.7 },
+    uPkinLight: { value: new THREE.Color(0.95, 0.74, 0.4) },
   };
   if (engine === 'city') return { ...base, uStage: { value: 0 }, uBldOn: { value: tiny(THREE.RedFormat, new Uint8Array(1)) } };
   const ids = () => tiny(THREE.RedIntegerFormat, new Uint16Array(1), THREE.UnsignedShortType);
@@ -85,7 +91,7 @@ function makeLampTexture(meta: Meta) {
     ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
   };
   for (const [x, y] of meta.lamps) pool((x + 0.5) * s, (y + 0.5) * s, 20 * s,
-    [[0, 'rgba(255,196,120,0.65)'], [0.3, 'rgba(255,176,96,0.28)'], [0.65, 'rgba(255,160,90,0.08)'], [1, 'rgba(255,150,80,0)']]);
+    [[0, 'rgba(255,226,180,0.65)'], [0.3, 'rgba(255,216,170,0.28)'], [0.65, 'rgba(255,210,160,0.08)'], [1, 'rgba(255,205,150,0)']]);
   for (const [x, y, r] of meta.floods ?? []) pool(x * s, y * s, r * 1.35 * s,
     [[0, 'rgba(225,235,255,0.6)'], [0.7, 'rgba(225,235,255,0.52)'], [1, 'rgba(225,235,255,0)']]);
   const tex = new THREE.CanvasTexture(cv);
@@ -96,7 +102,7 @@ function makeLampTexture(meta: Meta) {
 
 // A leaf voxel through the year (foliage.ts): x = in leaf (0 bare .. 1), y = turned (0 green .. 1 autumn colour), z = class.
 const FOLIAGE = `
-  uniform sampler2D uFolMap; uniform vec4 uFolDate[${FOLIAGE_CLASSES}]; uniform vec3 uFolCol[${FOLIAGE_CLASSES}]; uniform float uDay; uniform float uFolOn; uniform vec3 uGrass[12];
+  uniform sampler2D uFolMap; uniform vec4 uFolDate[${FOLIAGE_CLASSES}]; uniform vec3 uFolCol[${FOLIAGE_CLASSES}]; uniform float uDay; uniform float uFolOn; uniform vec3 uGrass[12]; uniform vec3 uLeaf;
   vec3 foliageAt(vec3 cell) {
     vec2 f = texelFetch(uFolMap, ivec2(cell.xz * 0.5), 0).rg;
     int cls = int(f.r * 255.0 + 0.5);
@@ -165,7 +171,7 @@ const ZONES_PARS = `
 const FRAG_PARS = `
   uniform sampler2D uPalette; uniform sampler2D uLampMap;
   uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
-  uniform float uDrop; uniform sampler2D uFlood; uniform float uWet; uniform float uSnow;
+  uniform float uDrop; uniform sampler2D uFlood; uniform float uWet; uniform float uSnow; uniform float uAlbedo; uniform vec3 uPkinLight;
   varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
   float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
   float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -174,7 +180,7 @@ const FRAG_PARS = `
   vec3 roomLight(float r) {
     if (r < 0.55) return vec3(1.0, 0.66, 0.34);
     if (r < 0.85) return vec3(1.0, 0.82, 0.58);
-    return vec3(0.78, 0.88, 1.0);
+    return vec3(0.95, 0.96, 0.92);
   }`;
 
 const SURFACE = `
@@ -190,7 +196,7 @@ const SURFACE = `
   float h = hash13(cell);
   gEmissive = vec3(0.); gRough = 0.88; gMetal = 0.0;
   vec3 col = base * (0.97 + 0.06 * h);
-  float litFrac = mix(0.32, 0.15, uDeep);
+  float litFrac = mix(0.2, 0.09, uDeep);
   bool shopLvl = lvl > 0.5 && lvl < 3.5;
   if (m == ${MAT.WALL} || m == ${MAT.CONCRETE}) {
     if (vert) {
@@ -216,9 +222,9 @@ const SURFACE = `
       else {
         col = base * (0.8 + 0.12 * step(0.5, mod(u, 2.0)));
         gRough = 0.08; gMetal = mix(0.35, 0.6, uNight);
-        vec2 zone = vec2(floor(u / 12.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
+        vec2 zone = vec2(floor(u / 40.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
         if (shopLvl && lvl < 4.0) gEmissive = vec3(1.0, 0.86, 0.66) * 1.3 * uNight;
-        else if (hash12(zone) < litFrac * 0.9) gEmissive = mix(vec3(0.8, 0.9, 1.0), vec3(1.0, 0.88, 0.7), step(0.7, hash12(zone + 1.7))) * 0.7 * uNight;
+        else if (hash12(zone) < litFrac * 1.2) gEmissive = mix(vec3(0.86, 0.94, 0.92), vec3(1.0, 0.92, 0.8), step(0.7, hash12(zone + 1.7))) * 0.75 * uNight;
       }
     } else { gRough = 0.3; gMetal = 0.4; }
   } else if (m == ${MAT.CLASSIC}) {
@@ -228,16 +234,17 @@ const SURFACE = `
     if (vert && mod(lvl, 4.0) > 1.5) {
       col = mix(base * 0.4, vec3(0.12, 0.16, 0.2), 0.6) + 0.02 * h; gRough = 0.08; gMetal = 0.55;
       vec2 zone = vec2(floor(u / 12.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
-      if (hash12(zone) < litFrac * 0.9) gEmissive = vec3(0.8, 0.9, 1.0) * 0.7 * uNight;
+      if (hash12(zone) < litFrac * 0.9) gEmissive = vec3(0.86, 0.94, 0.92) * 0.7 * uNight;
     } else { gRough = 0.4; gMetal = 0.3; }
   } else if (m == ${MAT.PKIN}) {
-    float wash = 0.55 + 0.45 * (1.0 - fract(lvl / 34.0));
-    gEmissive = base * vec3(1.0, 0.82, 0.55) * uNight * (vert ? 0.85 * wash : 0.35);
+    float wash = 0.45 + 0.55 * (1.0 - fract(lvl / 34.0));
+    gEmissive = uPkinLight * uNight * (vert ? 0.55 * wash : 0.45);
   } else if (m == ${MAT.WINDOW}) {
     gRough = 0.15; gMetal = 0.35;
-    if (hash13(floor(cell / 2.0)) < litFrac * 1.3) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
+    col *= 0.6;
+    if (hash13(floor(cell / 2.0)) < litFrac * 0.4) gEmissive = vec3(1.0, 0.82, 0.55) * 0.9 * uNight;
   } else if (m == ${MAT.LEAF}) {
-    col = base * (0.8 + 0.35 * h); gRough = 0.95;
+    col = base * uLeaf * (0.8 + 0.35 * h); gRough = 0.95;
     if (uFolOn > 0.5) {
       vec3 fo = foliageAt(cell);
       if (hash13(cell * 1.7 + 3.1) > fo.x) {
@@ -248,7 +255,7 @@ const SURFACE = `
       }
     }
   } else if (m == ${MAT.GRASS}) {
-    col = base * grassTint() * (0.88 + 0.2 * h); gRough = 1.0;
+    col = base * mix(vec3(1.0), grassTint(), smoothstep(0.02, 0.08, base.g - max(base.r, base.b))) * (0.88 + 0.2 * h); gRough = 1.0;
   } else if (m == ${MAT.WATER}) {
     float r = sin(cell.x * 0.9 + uTime * 1.3) * sin(cell.z * 1.1 - uTime) * 0.5 + 0.5;
     col = mix(vec3(0.012, 0.085, 0.15), vec3(0.03, 0.2, 0.26), r * r) * (0.94 + 0.12 * h); gRough = 0.04; gMetal = 0.3;
@@ -326,6 +333,7 @@ const SURFACE = `
     if (m == ${MAT.WATER}) gEmissive += lm * vec3(1.0, 0.72, 0.42) * fall * uNight * 0.45;
     else gEmissive += col * lm * fall * uNight * 2.2 * up;
   }
+  if (m != ${MAT.LAMP} && m != ${MAT.JET} && m != ${MAT.SIGN}) col *= mix(1.0, uAlbedo, smoothstep(0.2, 0.6, dot(col, vec3(0.2126, 0.7152, 0.0722))));
   diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
   if (vHide > 0.5) { diffuseColor.rgb = vec3(0.42, 0.41, 0.39); gEmissive = vec3(0.0); }
   #ifdef ZONES

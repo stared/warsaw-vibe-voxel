@@ -16,6 +16,11 @@ the method, the photos, both medians). The sunlit half of the leaf pixels; the r
 all autumn colours are scaled by how much brighter those greens are than the photos' summer canopies (one factor, so
 the taxa keep their brightness relative to each other).
 
+Lawns through the year: dated Commons photos of Warsaw lawns (scripts/grass_photos.json), the median colour per month,
+smoothed with its neighbours, at the renderer's brightness in summer; per month the factor on the palette's grass green.
+Summer leaves: the photos' median summer canopy, as one factor on the renderer's greens, at the lawns' exposure (so
+crowns keep their brightness relative to the grass under them).
+
 Output: web/public/data/phenology.json (per class: dates, spread, source) and, with the trees' positions
 (web/public/data/trees.json), web/public/data/foliage.bin: per 2 m cell the class of the tree whose crown it is in
 (nearest trunk within 9 m), then a byte of that tree's index (so one tree turns as one), gzip.
@@ -43,6 +48,8 @@ YEARS = (1995, 2024)
 OUT = Path(__file__).parent.parent / "web/public/data"
 PHASES = ("leaf", "colour", "fall")
 PHOTOS = Path(__file__).parent / "foliage_photos.json"
+LAWNS = Path(__file__).parent / "grass_photos.json"
+GRASS = "#86b45a"
 # the crowns' summer greens (LEAVES in voxelize.py)
 GREENS = ["#a3c65c", "#8db552", "#76a24a", "#618f43", "#4f7c3c", "#93bb6a", "#7da95f", "#689655", "#56834c", "#456f43"]
 
@@ -183,6 +190,13 @@ def srgb(c):
     return "#" + "".join(f"{round(v * 255):02x}" for v in c)
 
 
+def leaf_tint():
+    photos = json.load(open(PHOTOS))
+    summer = np.median([linear(photos[p]["summer_lit_hex"]) for p in PHOTO_CLASS.values()], axis=0)
+    greens = np.mean([linear(h) for h in GREENS], axis=0)
+    return [round(float(v), 3) for v in summer * lawns()[1] / greens]
+
+
 def autumn_colours():
     photos = json.load(open(PHOTOS))
     lum = lambda c: float(c @ [0.2126, 0.7152, 0.0722])
@@ -190,6 +204,31 @@ def autumn_colours():
     out = {k: srgb(linear(photos[p]["autumn_lit_hex"]) * k_) for k, p in PHOTO_CLASS.items()}
     out[OTHER] = srgb(np.median([linear(c) for c in out.values()], axis=0))
     return out
+
+
+def lum(c):
+    return float(c @ [0.2126, 0.7152, 0.0722])
+
+
+def lab_to_linear(L, a, b):
+    fy = (L + 16) / 116
+    f = np.array([fy + a / 500, fy, fy - b / 200])
+    xyz = np.where(f > 6 / 29, f ** 3, 3 * (6 / 29) ** 2 * (f - 4 / 29)) * [0.95047, 1.0, 1.08883]
+    return np.array([[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]]) @ xyz
+
+
+def lawns():
+    photos = json.load(open(LAWNS))["photos"]
+    lab = np.array([np.median([p["lit_lab"] for p in photos if p["month"] == m], axis=0) for m in range(1, 13)])
+    lab = 0.25 * np.roll(lab, 1, 0) + 0.5 * lab + 0.25 * np.roll(lab, -1, 0)
+    lin = np.array([lab_to_linear(*v) for v in lab])
+    k = lum(linear(GRASS)) / np.mean([lum(lin[m]) for m in (5, 6, 7)])
+    return lin, k
+
+
+def grass_tints():
+    lin, k = lawns()
+    return [[round(float(v), 3) for v in lin[m] * k / linear(GRASS)] for m in range(12)]
 
 
 def classify(t):
@@ -222,8 +261,9 @@ def main():
     print("city medians:", city)
     json.dump(dict(city=city, sources=["DWD Climate Data Center: phenological observations, annual reporters, wild plants (historical), stations east of 12.5° E, 1995-2024",
                             "iNaturalist: Leaves annotations, Poland, Germany, Czechia, Slovakia, Lithuania",
-                            "autumn colours: Wikimedia Commons photos, scripts/foliage_photos.json"],
-                   classes=table), open(OUT / "phenology.json", "w"), indent=1, ensure_ascii=False)
+                            "autumn colours: Wikimedia Commons photos, scripts/foliage_photos.json",
+                            "lawns by month: Wikimedia Commons photos, scripts/grass_photos.json"],
+                   classes=table, grass=grass_tints(), leaf=leaf_tint()), open(OUT / "phenology.json", "w"), indent=1, ensure_ascii=False)
 
     xy = np.array([(t["x"], t["y"]) for t in trees])
     print("trees per class:", {int(k): int((cls == k).sum()) for k in np.unique(cls)})
@@ -233,7 +273,7 @@ def main():
     idx = np.minimum(idx, len(cls) - 1)
     grid = np.where(ok, cls[idx], 0).astype(np.uint8).reshape(gy.shape)
     tree = np.where(ok, (idx * 2654435761 >> 13) & 255, 0).astype(np.uint8).reshape(gy.shape)
-    (OUT / "foliage.bin").write_bytes(gzip.compress(grid.tobytes() + tree.tobytes(), 9))
+    (OUT / "foliage.bin").write_bytes(gzip.compress(grid.tobytes() + tree.tobytes(), 9, mtime=0))
     print("foliage grid", grid.shape, "cells with a class:", int((grid > 0).sum()))
 
 

@@ -5,6 +5,7 @@ import { BloomEffect, BrightnessContrastEffect, EffectComposer, EffectPass, HueS
 import { clamp } from './util';
 
 export function makePost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
+  const tone = new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL });
   const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 0 });
   composer.addPass(new RenderPass(scene, camera));
   const n8 = new N8AOPostPass(scene, camera, innerWidth, innerHeight);
@@ -16,7 +17,7 @@ export function makePost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, came
   composer.addPass(new EffectPass(camera, bloom));
   composer.addPass(tiltPass);
   composer.addPass(new EffectPass(camera,
-    new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
+    tone,
     new HueSaturationEffect({ saturation: 0.12 }),
     new BrightnessContrastEffect({ brightness: 0, contrast: 0.06 }),
     new VignetteEffect({ offset: 0.3, darkness: 0.45 }),
@@ -26,5 +27,5 @@ export function makePost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, came
     tiltPass.enabled = enabled && h > 60;
     tilt.focusArea = 0.8 + 0.2 * (1 - clamp((h - 60) / 250, 0, 1)) + 0.2 * clamp((h - 1200) / 1500, 0, 1);
   };
-  return { composer, n8, bloom, setHeight };
+  return { composer, n8, bloom, tone, setHeight };
 }

@@ -21,7 +21,7 @@ void main() {
   float toward = pow(max(dot(sh, dh), 0.), 2.0);
   vec3 col = mix(mix(uHorizon, uWarm, uGolden * (0.25 + 0.75 * toward)), uTop, pow(clamp(h, 0., 1.), 0.5));
   float tw = pow(max(dot(normalize(uTrueSun.xz + 1e-5), dh), 0.), 3.0);
-  col += uAfterglow * tw * exp(-max(h, 0.) * 9.0);
+  col += uAfterglow * tw * exp(-max(h, 0.) * 14.0);
   col += uCityGlow * exp(-max(h, 0.) * 14.0);
   col = mix(col, uGround, smoothstep(0.0, -0.25, h));
   float s = max(dot(d, uSunDir), 0.);
@@ -34,7 +34,7 @@ void main() {
     vec3 cl = mix(uCloudDark, uCloudLit, clamp(0.35 + 0.65 * under, 0., 1.)) + uAfterglow * tw * 0.6;
     cl *= 1. - uCloud * 0.22 * smoothstep(0.35, 0.75, f);
     col = mix(col, cl, cov * mix(0.85, 1.0, uCloud));
-    if (uDeep > 0.01) col += vec3(step(0.9965, hash(floor(d * 380.)))) * uDeep * 0.9 * smoothstep(0.08, 0.4, h) * (1. - cov);
+    if (uDeep > 0.01) col += vec3(step(0.9965, hash(floor(d * 380.)))) * uDeep * 0.2 * smoothstep(0.08, 0.4, h) * (1. - cov);
   }
   gl_FragColor = vec4(col, 1.);
   #include <colorspace_fragment>
@@ -76,10 +76,10 @@ export class Sky {
   // night: 0 by day .. 1 after sunset; deep: 0 at blue hour .. 1 in full night
   set({ elDeg, sunDir, trueSun, golden, night, deep, cloud }: SkyState) {
     const u = this.u;
-    const nightTop = mixC(C(0x1c3778), C(0x0a1430), deep), nightHor = mixC(C(0x4a62a8), C(0x1e2a52), deep);
+    const nightTop = mixC(C(0x0a2f6a), C(0x050508), deep), nightHor = mixC(C(0x5a6f98), C(0x2b2922), deep);
     u.uTop.value.copy(mixC(mixC(C(0x4f8fd8), C(0x6f8fd0), golden * 0.5), nightTop, night));
     u.uHorizon.value.copy(mixC(C(0xdde8f1), nightHor, night));
-    u.uWarm.value.copy(mixC(C(0xffc596), C(0x6a5a88), night));
+    u.uWarm.value.copy(mixC(C(0xffc596), mixC(C(0x7a5a50), C(0x2b2922), deep), night));
     u.uGolden.value = golden;
     u.uGround.value.copy(mixC(C(0xc9cdd0), C(0x10121c), night));
     u.uSunDir.value.copy(sunDir);
@@ -88,18 +88,18 @@ export class Sky {
     u.uNight.value = night;
     u.uDeep.value = deep;
     const afterglow = Math.max(0, 1 - Math.abs(elDeg + 3) / 11) * (elDeg < 2 ? 1 : 0);
-    u.uAfterglow.value.copy(C(0xff7a3c)).multiplyScalar(0.55 * afterglow);
-    u.uCityGlow.value.copy(C(0x8a5a6a)).multiplyScalar(0.35 * night);
-    u.uCloudLit.value.copy(mixC(C(0xffffff), mixC(C(0x6a5f86), C(0x3a3550), deep), night));
-    u.uCloudDark.value.copy(mixC(C(0xd8dfe8), mixC(C(0x223260), C(0x0e1428), deep), night));
-    const deckLit = mixC(C(0xc4c9cf), C(0x4a3c33), night), deckDark = mixC(C(0x8e959e), C(0x231d1a), night);
+    u.uAfterglow.value.copy(C(0xff9a4a)).multiplyScalar(0.55 * afterglow);
+    u.uCityGlow.value.copy(C(0x5a5244)).multiplyScalar(0.3 * night * deep);
+    u.uCloudLit.value.copy(mixC(C(0xffffff), mixC(C(0x55607a), C(0x1c1b1a), deep), night));
+    u.uCloudDark.value.copy(mixC(C(0xd8dfe8), mixC(C(0x22324f), C(0x0a0a0c), deep), night));
+    const deckLit = mixC(C(0xc4c9cf), C(0x3e3a36), night), deckDark = mixC(C(0x8e959e), C(0x24221f), night);
     u.uCloudLit.value.lerp(deckLit, cloud);
     u.uCloudDark.value.lerp(deckDark, cloud);
-    u.uHorizon.value.lerp(mixC(C(0xb8bdc2), C(0x3a2f29), night), cloud);
+    u.uHorizon.value.lerp(mixC(C(0xb8bdc2), C(0x3a3632), night), cloud);
     u.uTop.value.lerp(deckDark, cloud);
     u.uWarm.value.lerp(u.uHorizon.value, cloud);
     u.uGolden.value = golden * (1 - cloud);
-    u.uCityGlow.value.multiplyScalar(1 + cloud);
+    u.uCityGlow.value.multiplyScalar(1 - 0.6 * cloud);
     u.uAfterglow.value.multiplyScalar(1 - cloud);
     u.uDeep.value = deep * (1 - cloud);
     u.uCloud.value = cloud;
@@ -115,3 +115,14 @@ export class Sky {
     return this.env;
   }
 }
+
+const WARM = new THREE.Color(0.95, 0.74, 0.4);
+const PKIN_COLOURS = [0xa890e0, 0x30d060, 0xf070a8, 0x4a80ff, 0xffffff];
+export function pkinLight(day: number, t: number, out: THREE.Color) {
+  const r = Math.abs(Math.sin(day * 91.17 + 7.3)) * 1e4 % 1;
+  if (r < 0.6) return out.copy(WARM);
+  if (r < 0.9) return out.set(PKIN_COLOURS[Math.floor((r - 0.6) / 0.3 * PKIN_COLOURS.length)]).convertSRGBToLinear().lerp(WARM, 0.35);
+  const k = t / 6, i = Math.floor(k) % PKIN_COLOURS.length, f = k % 1;
+  return out.set(PKIN_COLOURS[i]).convertSRGBToLinear().lerp(new THREE.Color(PKIN_COLOURS[(i + 1) % PKIN_COLOURS.length]).convertSRGBToLinear(), smoothF(f)).lerp(WARM, 0.35);
+}
+const smoothF = (x: number) => x * x * (3 - 2 * x);

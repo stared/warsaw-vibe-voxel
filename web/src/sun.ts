@@ -39,3 +39,9 @@ export function hourAt(day: number, deg: number, evening: boolean) {
   }
   return (lo + hi) / 2;
 }
+
+// Clear-sky transmittance of the direct beam at 610, 550, 465 nm: Rayleigh (Bucholtz), urban haze (Ångström β 0.05,
+// α 1.3), ozone (Chappuis band); Kasten-Young air mass
+const TAU = [0.191, 0.244, 0.339];
+export const airMass = (elDeg: number) => { const h = Math.max(elDeg, -0.5); return 1 / (Math.sin(h * RAD) + 0.50572 * (h + 6.07995) ** -1.6364); };
+export const beam = (elDeg: number) => TAU.map((t) => Math.exp(-airMass(elDeg) * t)) as [number, number, number];

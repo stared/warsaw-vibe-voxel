@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { Sky } from './sky';
-import { sunAt } from './sun';
+import { beam, sunAt } from './sun';
 import { clamp, lerp, smooth } from './util';
 import type { VoxelUniforms } from './voxelMaterial';
 import { visibility, WEATHERS, type Weather } from './weather';
 
 export class Daylight {
   hour = 0;
+  exposure = 1.15;
   day = 237;
   weather: Weather = WEATHERS.clear;
   night = 0;
@@ -48,17 +49,21 @@ export class Daylight {
     const deep = smooth(-9, -17, elDeg), golden = (1 - smooth(8, 34, elDeg)) * (1 - cloud);
     const dir = elDeg > -2 ? this.skyDir(az, Math.max(el, 2.5 * Math.PI / 180)) : new THREE.Vector3(0.45, 0.75, 0.5).normalize(); // the moon, high in the SE
     const sun = this.sun, hemi = this.hemi, light = elDeg > -2 ? dir.clone().lerp(new THREE.Vector3(0, 1, 0), 0.8 * cloud).normalize() : dir;
-    sun.color.setRGB(1, lerp(0.97, 0.66, golden), lerp(0.92, 0.42, golden)).lerp(new THREE.Color(0x9fb4ff), night).lerp(new THREE.Color(0xd8dde6), cloud * day);
-    sun.intensity = lerp(lerp(4.4, 4.8, golden), 0.5, night) * (elDeg > -2 ? smooth(-2, 3, elDeg) * day + night : night) * lerp(1, 0.4 * Math.max(0, Math.sin(el)), cloud);
+    const T = beam(elDeg), lumT = T[0] * 0.2126 + T[1] * 0.7152 + T[2] * 0.0722, sinEl = Math.max(0, Math.sin(el));
+    const sky = Math.max(0.22 * sinEl * (1 - lumT), 0.025 * smooth(-7, 2, elDeg)), sunH = lumT * sinEl;
+    const adapt = clamp((0.62 / (sunH + sky)) ** 0.72, 1, 8);
+    sun.color.setRGB(T[0] / T[0], T[1] / T[0], T[2] / T[0]).lerp(new THREE.Color(0xa8b4cc), night).lerp(new THREE.Color(0xd8dde6), cloud * day);
+    sun.intensity = lerp(5.9 * lumT * adapt, 0.5, night) * (elDeg > -2 ? smooth(-2, 1, elDeg) * day + night : night) * lerp(1, 0.4 * sinEl, cloud);
     sun.shadow.radius = lerp(3, 22, cloud);
     sun.shadow.normalBias = clamp(0.3 / Math.max(light.y, 0.05), 0.5, 3);
-    hemi.color.set(0xbfd6ff).lerp(new THREE.Color(0xffc49a), golden * 0.5).lerp(new THREE.Color(0x4a64b0), night); // facades stay blue at night, never black
-    hemi.groundColor.set(0x6b5a48).lerp(new THREE.Color(0x3a2a30), night);
-    hemi.intensity = lerp(0.3, lerp(0.95, 0.6, deep), night);
+    const skyRel = sky / 0.075 * adapt;
+    hemi.color.setRGB(0.63, 0.77, 1).lerp(new THREE.Color(0x46557a).lerp(new THREE.Color(0x4a443c), deep), night);
+    hemi.groundColor.copy(sun.color).multiplyScalar(0.4).lerp(new THREE.Color(0x4a3c2c), night);
+    hemi.intensity = lerp(0.14 * skyRel, lerp(0.95, 0.5, deep), night);
     if (cloud > 0) {
-      hemi.color.lerp(new THREE.Color(0xd4d8de).lerp(new THREE.Color(0x5a5250), night), cloud);
+      hemi.color.lerp(new THREE.Color(0xd4d8de).lerp(new THREE.Color(0x5e5850), night), cloud);
       hemi.groundColor.lerp(new THREE.Color(0x6e6a66).lerp(new THREE.Color(0x2a2420), night), cloud);
-      hemi.intensity = lerp(hemi.intensity, lerp(0.15 + 0.55 * Math.max(0, Math.sin(el)), 0.75, night), cloud);
+      hemi.intensity = lerp(hemi.intensity, lerp(1.6 * smooth(-4, 6, elDeg) * (0.3 + 0.7 * sinEl) ** 0.4, 1.15, night), cloud);
     }
     this.sky.set({ elDeg, sunDir: dir, trueSun: this.skyDir(az, el), golden, night, deep, cloud });
     this.lightDir.copy(light);
@@ -81,7 +86,9 @@ export class Daylight {
       this.scene.environment = this.env.texture;
       this.envKey = key;
     }
-    this.scene.environmentIntensity = lerp(lerp(0.38, 0.45, cloud), lerp(0.55, 0.3, deep), night);
+    this.scene.environmentIntensity = lerp(lerp(0.38 * Math.min(skyRel, 2), 0.9 * smooth(-4, 6, elDeg), cloud), lerp(0.55, 0.3, deep), night);
+    const e = lerp(this.exposure, 1, night);
+    sun.intensity *= e; hemi.intensity *= e; this.scene.environmentIntensity *= e;
   }
 
   setFogFrom(dist: number) {

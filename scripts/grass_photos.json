@@ -1,0 +1,3381 @@
+{
+ "method": "Wikimedia Commons photos of lawns in Warsaw parks (Pole Mokotowskie, Łazienki, Ogród Saski, Ogród Krasińskich, Park Skaryszewski, the boulevards; a few from other Polish lowland cities), dated by EXIF, daylight, no snow on the grass. Per photo: hand-checked boxes of lawn (fractions of a 10x10 grid: x0, y0, x1, y1), the median colour in CIELAB, and of the sunlit half.",
+ "photos": [
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dolinka_Sluzewiecka.jpg",
+   "date": "2009-01-25 14:13:43",
+   "month": 1,
+   "boxes": [
+    [
+     0,
+     7.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 151536,
+   "lab": [
+    35.0,
+    -4.8,
+    19.4
+   ],
+   "hex": "#565433",
+   "lit_lab": [
+    40.0,
+    -5.7,
+    21.7
+   ],
+   "lit_hex": "#62603b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Ogr%C3%B3d_Krasi%C5%84skich_2014_BK4.JPG",
+   "date": "2014-01-02 14:35:18",
+   "month": 1,
+   "boxes": [
+    [
+     0,
+     7,
+     2.5,
+     9
+    ],
+    [
+     7.5,
+     7,
+     10,
+     8.5
+    ]
+   ],
+   "npx": 53130,
+   "lab": [
+    50.5,
+    0.2,
+    10.5
+   ],
+   "hex": "#807867",
+   "lit_lab": [
+    56.8,
+    0.6,
+    11.6
+   ],
+   "lit_hex": "#928774"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Kopiec_w_Parku_Moczyd%C5%82o.jpg",
+   "date": "2025-01-30",
+   "month": 1,
+   "boxes": [
+    [
+     0,
+     6.5,
+     10,
+     9.9
+    ]
+   ],
+   "npx": 205779,
+   "lab": [
+    41.3,
+    -1.1,
+    22.9
+   ],
+   "hex": "#6c613c",
+   "lit_lab": [
+    52.2,
+    -1.1,
+    27.5
+   ],
+   "lit_hex": "#8b7c4d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:POL_Warsaw_G%C4%99%C5%9B_tundrowa.jpg",
+   "date": "2012-02-08",
+   "month": 2,
+   "boxes": [
+    [
+     0,
+     0.5,
+     2,
+     3.5
+    ],
+    [
+     4,
+     0,
+     7,
+     1.3
+    ],
+    [
+     8.5,
+     5.5,
+     10,
+     8
+    ]
+   ],
+   "npx": 87985,
+   "lab": [
+    56.4,
+    3.1,
+    26.0
+   ],
+   "hex": "#9c845a",
+   "lit_lab": [
+    63.7,
+    2.6,
+    25.7
+   ],
+   "lit_hex": "#af976d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:StawKellerawiekszy2.jpg",
+   "date": "2016-02-09 13:54:11",
+   "month": 2,
+   "boxes": [
+    [
+     0,
+     7.5,
+     3,
+     9.8
+    ],
+    [
+     7,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 104285,
+   "lab": [
+    60.4,
+    0.5,
+    23.3
+   ],
+   "hex": "#a19069",
+   "lit_lab": [
+    68.6,
+    -0.4,
+    24.8
+   ],
+   "lit_hex": "#b7a67b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Luty_2019_%C5%81azienki,_60.jpg",
+   "date": "2019-02-28 10:24:12",
+   "month": 2,
+   "boxes": [
+    [
+     0,
+     6,
+     3.5,
+     9.5
+    ],
+    [
+     6.5,
+     6,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 163094,
+   "lab": [
+    53.6,
+    2.5,
+    23.8
+   ],
+   "hex": "#927d57",
+   "lit_lab": [
+    62.6,
+    2.6,
+    25.0
+   ],
+   "lit_hex": "#ac946b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Luty_2019_%C5%81azienki,_65.jpg",
+   "date": "2019-02-28 10:30:49",
+   "month": 2,
+   "boxes": [
+    [
+     7.5,
+     6,
+     10,
+     9.5
+    ],
+    [
+     0,
+     6,
+     2,
+     8
+    ]
+   ],
+   "npx": 81334,
+   "lab": [
+    41.3,
+    2.1,
+    23.2
+   ],
+   "hex": "#715f3b",
+   "lit_lab": [
+    52.5,
+    0.9,
+    28.0
+   ],
+   "lit_hex": "#8f7b4d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Potok_S%C5%82u%C5%BCewiecki_tunnel_S%C5%82u%C5%BCew_4.jpg",
+   "date": "2020-02-03 11:25:12",
+   "month": 2,
+   "boxes": [
+    [
+     6.5,
+     4.5,
+     9.5,
+     6
+    ]
+   ],
+   "npx": 23249,
+   "lab": [
+    32.9,
+    -5.5,
+    13.4
+   ],
+   "hex": "#4d4f38",
+   "lit_lab": [
+    44.1,
+    -3.5,
+    13.5
+   ],
+   "lit_hex": "#6b6952"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Ulica_rostafi%C5%84skich_w_warszawie.jpg",
+   "date": "2020-02-21 16:26:48",
+   "month": 2,
+   "boxes": [
+    [
+     0,
+     9.1,
+     10,
+     10
+    ]
+   ],
+   "npx": 62242,
+   "lab": [
+    54.7,
+    -6.1,
+    28.0
+   ],
+   "hex": "#898552",
+   "lit_lab": [
+    60.5,
+    -5.8,
+    28.5
+   ],
+   "lit_hex": "#9a945f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Pole_Mokotowskie,_Warszawa_(8).jpg",
+   "date": "2023-02-20 15:20:06",
+   "month": 2,
+   "boxes": [
+    [
+     6.5,
+     5.5,
+     10,
+     8.5
+    ]
+   ],
+   "npx": 46022,
+   "lab": [
+    54.4,
+    -4.6,
+    22.1
+   ],
+   "hex": "#88835c",
+   "lit_lab": [
+    61.9,
+    -4.7,
+    21.5
+   ],
+   "lit_hex": "#9c976f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2023_Warszawa_aleja_Kaczy%C5%84skiego,_1.jpg",
+   "date": "2023-02-23 15:20:43",
+   "month": 2,
+   "boxes": [
+    [
+     6,
+     5.5,
+     10,
+     7.5
+    ]
+   ],
+   "npx": 54136,
+   "lab": [
+    37.2,
+    -4.5,
+    23.2
+   ],
+   "hex": "#5d5932",
+   "lit_lab": [
+    41.7,
+    -4.8,
+    24.9
+   ],
+   "lit_hex": "#696439"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2023_Warszawa_aleja_Kaczy%C5%84skiego,_3.jpg",
+   "date": "2023-02-23 15:31:28",
+   "month": 2,
+   "boxes": [
+    [
+     6,
+     5.5,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 110037,
+   "lab": [
+    35.4,
+    -3.4,
+    21.6
+   ],
+   "hex": "#5a5430",
+   "lit_lab": [
+    41.5,
+    -2.6,
+    22.0
+   ],
+   "lit_hex": "#6a623e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Reconstruction_Park_Romana_Koz%C5%82owskiego,_Ursynow,_Warsaw,_2.jpg",
+   "date": "2024-02-24 15:03:08",
+   "month": 2,
+   "boxes": [
+    [
+     0,
+     5,
+     1.8,
+     7.5
+    ],
+    [
+     5,
+     4.3,
+     9,
+     5.2
+    ]
+   ],
+   "npx": 50231,
+   "lab": [
+    38.5,
+    -3.0,
+    7.0
+   ],
+   "hex": "#5a5c4f",
+   "lit_lab": [
+    48.2,
+    -2.6,
+    5.3
+   ],
+   "lit_hex": "#727369"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Praski1.jpg",
+   "date": "2007-03-27",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     5.5,
+     2,
+     8
+    ],
+    [
+     5,
+     5.5,
+     10,
+     9
+    ]
+   ],
+   "npx": 143151,
+   "lab": [
+    51.8,
+    -2.2,
+    15.0
+   ],
+   "hex": "#827c62",
+   "lit_lab": [
+    66.3,
+    -9.4,
+    26.2
+   ],
+   "lit_hex": "#a2a572"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:CmZolnRadz3.jpg",
+   "date": "2009-03-19",
+   "month": 3,
+   "boxes": [
+    [
+     1,
+     2,
+     3.5,
+     4.5
+    ],
+    [
+     6.5,
+     2,
+     9,
+     4
+    ]
+   ],
+   "npx": 117242,
+   "lab": [
+    63.5,
+    -3.3,
+    7.1
+   ],
+   "hex": "#999b8d",
+   "lit_lab": [
+    72.0,
+    -2.7,
+    6.1
+   ],
+   "lit_hex": "#b0b2a5"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Wil9DSC_0801.JPG",
+   "date": "2011-03-13",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     7,
+     10,
+     8.2
+    ]
+   ],
+   "npx": 72607,
+   "lab": [
+    68.3,
+    1.0,
+    12.2
+   ],
+   "hex": "#b1a591",
+   "lit_lab": [
+    77.8,
+    1.4,
+    12.4
+   ],
+   "lit_hex": "#ccbfa9"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Skwer_Grupy_AK_%22Granat%22_-_08.jpg",
+   "date": "2012-03-06",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     6.5,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 249639,
+   "lab": [
+    29.2,
+    1.1,
+    10.1
+   ],
+   "hex": "#4c4435",
+   "lit_lab": [
+    39.0,
+    0.0,
+    10.7
+   ],
+   "lit_hex": "#635b4b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Parafia_grzegorza_warszawa_jezus_krzyz.jpg",
+   "date": "2012-03-21",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     7,
+     2.5,
+     9.5
+    ],
+    [
+     8,
+     6.5,
+     10,
+     8
+    ]
+   ],
+   "npx": 56606,
+   "lab": [
+    51.4,
+    -0.1,
+    25.3
+   ],
+   "hex": "#89794f",
+   "lit_lab": [
+    61.0,
+    0.8,
+    23.0
+   ],
+   "lit_hex": "#a3916b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dworek_Grochowski_25-03-2012_(4).JPG",
+   "date": "2012-03-25 17:13:44",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     7.5,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 122895,
+   "lab": [
+    33.1,
+    -2.5,
+    18.1
+   ],
+   "hex": "#544e31",
+   "lit_lab": [
+    43.3,
+    -2.7,
+    21.5
+   ],
+   "lit_hex": "#6e6642"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Elsnera_32_S%C5%82u%C5%BCew_Warsaw.jpg",
+   "date": "2021-03-20 13:44:40",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     6.5,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 151288,
+   "lab": [
+    46.0,
+    -1.8,
+    20.6
+   ],
+   "hex": "#766d4a",
+   "lit_lab": [
+    52.4,
+    -1.7,
+    21.0
+   ],
+   "lit_hex": "#877d59"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Nowoursynowska_bridge_S%C5%82u%C5%BCew_Warsaw.jpg",
+   "date": "2021-03-20 13:45:47",
+   "month": 3,
+   "boxes": [
+    [
+     1,
+     6.5,
+     9,
+     9.5
+    ]
+   ],
+   "npx": 165689,
+   "lab": [
+    51.1,
+    -2.0,
+    20.5
+   ],
+   "hex": "#837a57",
+   "lit_lab": [
+    55.7,
+    -2.0,
+    20.4
+   ],
+   "lit_hex": "#8f8562"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Goats_at_S%C5%82u%C5%BCew_Community_Centre_in_Warsaw.jpg",
+   "date": "2023-03-26 14:13:52",
+   "month": 3,
+   "boxes": [
+    [
+     5.5,
+     5,
+     9,
+     9.5
+    ],
+    [
+     0,
+     3.5,
+     1,
+     9
+    ]
+   ],
+   "npx": 136384,
+   "lab": [
+    62.5,
+    -25.4,
+    40.4
+   ],
+   "hex": "#81a24c",
+   "lit_lab": [
+    73.1,
+    -25.8,
+    41.3
+   ],
+   "lit_hex": "#9ebf65"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2024_Warszawa_aleja_Konwickiego,_3.jpg",
+   "date": "2024-03-07 13:23:06",
+   "month": 3,
+   "boxes": [
+    [
+     0,
+     5.5,
+     3.5,
+     9.5
+    ],
+    [
+     6.5,
+     5,
+     10,
+     8
+    ]
+   ],
+   "npx": 150451,
+   "lab": [
+    59.2,
+    -5.9,
+    11.1
+   ],
+   "hex": "#8c917b",
+   "lit_lab": [
+    73.2,
+    -5.8,
+    11.1
+   ],
+   "lit_hex": "#b1b69f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2024_Warszawa_aleja_Gudzi%C5%84skiej,_2.jpg",
+   "date": "2024-03-19 12:53:12",
+   "month": 3,
+   "boxes": [
+    [
+     7.5,
+     6,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 53611,
+   "lab": [
+    50.5,
+    -4.8,
+    21.0
+   ],
+   "hex": "#7d7a54",
+   "lit_lab": [
+    56.4,
+    -5.6,
+    21.8
+   ],
+   "lit_hex": "#8c8961"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_linearny_Suwak,_2.jpg",
+   "date": "2025-03-07 15:26:50",
+   "month": 3,
+   "boxes": [
+    [
+     7.5,
+     7,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 38782,
+   "lab": [
+    40.9,
+    11.3,
+    21.1
+   ],
+   "hex": "#7d593e",
+   "lit_lab": [
+    51.5,
+    10.1,
+    21.3
+   ],
+   "lit_hex": "#977357"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Staw_Oczko.jpg",
+   "date": "2009-04-15",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     6,
+     3,
+     7
+    ],
+    [
+     0,
+     8,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 143879,
+   "lab": [
+    33.8,
+    -23.8,
+    29.7
+   ],
+   "hex": "#37581d",
+   "lit_lab": [
+    38.9,
+    -24.2,
+    31.7
+   ],
+   "lit_hex": "#436525"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_im_J%C3%B3zefa_Pi%C5%82sudskiego_g%C5%82az_front.jpg",
+   "date": "2014-04-17 11:17:36",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     8,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 178030,
+   "lab": [
+    51.2,
+    -21.7,
+    33.0
+   ],
+   "hex": "#67833f",
+   "lit_lab": [
+    61.0,
+    -21.0,
+    32.1
+   ],
+   "lit_hex": "#829c59"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dzie%C5%84_ziemi_2014.jpg",
+   "date": "2014-04-27 14:03:39",
+   "month": 4,
+   "boxes": [
+    [
+     3.5,
+     6,
+     7,
+     7.2
+    ]
+   ],
+   "npx": 17768,
+   "lab": [
+    50.5,
+    -12.4,
+    18.9
+   ],
+   "hex": "#6f7d58",
+   "lit_lab": [
+    65.0,
+    -14.6,
+    36.8
+   ],
+   "lit_hex": "#9aa45a"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Rudawka,_ul._Klaudyny.jpg",
+   "date": "2015-04-21",
+   "month": 4,
+   "boxes": [
+    [
+     0.5,
+     3,
+     3.5,
+     6.5
+    ],
+    [
+     6.5,
+     4.5,
+     10,
+     9
+    ]
+   ],
+   "npx": 346963,
+   "lab": [
+    54.6,
+    -23.9,
+    35.0
+   ],
+   "hex": "#6d8c43",
+   "lit_lab": [
+    66.9,
+    -23.7,
+    36.4
+   ],
+   "lit_hex": "#8ead5f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Syreni_%C5%9Apiew_w_Warszawie_2017c.jpg",
+   "date": "2017-04-06 11:58:35",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 154696,
+   "lab": [
+    45.9,
+    -12.1,
+    20.8
+   ],
+   "hex": "#657249",
+   "lit_lab": [
+    57.8,
+    -12.8,
+    21.3
+   ],
+   "lit_hex": "#829065"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Morskie_Oko_w_Warszawie_2017a.jpg",
+   "date": "2017-04-08 10:37:20",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     6.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 194658,
+   "lab": [
+    45.5,
+    -17.6,
+    30.0
+   ],
+   "hex": "#5f7338",
+   "lit_lab": [
+    55.1,
+    -18.6,
+    31.7
+   ],
+   "lit_hex": "#778b4b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Zachodni_w_Warszawie_2017.jpg",
+   "date": "2017-04-30 14:45:12",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 168847,
+   "lab": [
+    61.6,
+    -34.4,
+    50.7
+   ],
+   "hex": "#71a333",
+   "lit_lab": [
+    68.6,
+    -35.6,
+    53.8
+   ],
+   "lit_hex": "#83b63e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Przy_Bazantarni_playground_Warsaw_2021.jpg",
+   "date": "2021-04-27 17:48:22",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     8.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 75271,
+   "lab": [
+    46.3,
+    -10.4,
+    27.2
+   ],
+   "hex": "#6c723f",
+   "lit_lab": [
+    57.5,
+    -11.3,
+    31.3
+   ],
+   "lit_hex": "#8a8e52"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Marsza%C5%82ka_Edwarda_Rydza-%C5%9Amig%C5%82ego_w_Warszawie_2022c.jpg",
+   "date": "2022-04-14 11:37:15",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     6,
+     3,
+     9.5
+    ],
+    [
+     7,
+     6,
+     10,
+     7.5
+    ]
+   ],
+   "npx": 74351,
+   "lab": [
+    42.6,
+    -12.7,
+    21.1
+   ],
+   "hex": "#5c6a41",
+   "lit_lab": [
+    56.0,
+    -13.9,
+    23.8
+   ],
+   "lit_hex": "#7d8c5c"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Skwer_rodziny_wolskich.jpg",
+   "date": "2022-04-25 13:30:21",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     6,
+     4.5,
+     9.5
+    ],
+    [
+     6.5,
+     6,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 185905,
+   "lab": [
+    35.0,
+    -26.8,
+    30.1
+   ],
+   "hex": "#345c1f",
+   "lit_lab": [
+    41.4,
+    -25.7,
+    29.6
+   ],
+   "lit_hex": "#456c2e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Ogrody_Kosmosu,_Warszawa_(17).jpg",
+   "date": "2023-04-23 17:38:44",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     7,
+     4,
+     9.5
+    ]
+   ],
+   "npx": 42680,
+   "lab": [
+    66.7,
+    -13.5,
+    34.2
+   ],
+   "hex": "#a0a864",
+   "lit_lab": [
+    78.5,
+    -11.0,
+    38.4
+   ],
+   "lit_hex": "#c7c67a"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_K%C4%99pa_Potocka,_Warszawa_(19).jpg",
+   "date": "2023-04-30 15:19:57",
+   "month": 4,
+   "boxes": [
+    [
+     0,
+     7.5,
+     3,
+     10
+    ],
+    [
+     5,
+     4.2,
+     10,
+     4.9
+    ]
+   ],
+   "npx": 37026,
+   "lab": [
+    54.5,
+    -10.1,
+    48.1
+   ],
+   "hex": "#8a8629",
+   "lit_lab": [
+    66.2,
+    -11.7,
+    53.9
+   ],
+   "lit_hex": "#a9a53a"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_K%C4%99pa_Potocka,_Warszawa_(81).jpg",
+   "date": "2023-04-30 17:05:57",
+   "month": 4,
+   "boxes": [
+    [
+     7,
+     6,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 21035,
+   "lab": [
+    25.5,
+    -18.2,
+    24.5
+   ],
+   "hex": "#2b4315",
+   "lit_lab": [
+    38.4,
+    -19.4,
+    32.7
+   ],
+   "lit_hex": "#4b6222"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Krasi%C5%84ski_Garden-05-2014.JPG",
+   "date": "2014-05-17 14:39:44",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     8.2,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 95885,
+   "lab": [
+    29.9,
+    -15.8,
+    23.9
+   ],
+   "hex": "#3a4c20",
+   "lit_lab": [
+    38.7,
+    -15.8,
+    24.1
+   ],
+   "lit_hex": "#4f6133"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:POL_Kamionkowskie_B%C5%82onia_Elekcyjne_03.jpg",
+   "date": "2016-05-28 15:07:45",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     6,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 205844,
+   "lab": [
+    37.4,
+    -16.6,
+    37.4
+   ],
+   "hex": "#4f5e15",
+   "lit_lab": [
+    41.3,
+    -16.5,
+    39.9
+   ],
+   "lit_hex": "#5a681a"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:POL_Kamionkowskie_B%C5%82onia_Elekcyjne_04.jpg",
+   "date": "2016-05-28 15:07:52",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     6,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 243416,
+   "lab": [
+    38.6,
+    -16.7,
+    38.3
+   ],
+   "hex": "#526116",
+   "lit_lab": [
+    42.6,
+    -16.5,
+    39.9
+   ],
+   "lit_hex": "#5d6b1d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Wilanowski_w_Warszawie_2017.jpg",
+   "date": "2017-05-03 14:28:43",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     7.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 139649,
+   "lab": [
+    59.3,
+    -29.1,
+    51.2
+   ],
+   "hex": "#769b2c",
+   "lit_lab": [
+    65.8,
+    -31.4,
+    54.2
+   ],
+   "lit_hex": "#85ad36"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Olszyna_w_Warszawie_2018b.jpg",
+   "date": "2017-05-07 14:52:18",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     6.5,
+     2.5,
+     9.8
+    ],
+    [
+     6,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 111759,
+   "lab": [
+    47.7,
+    -24.8,
+    29.4
+   ],
+   "hex": "#567b3e",
+   "lit_lab": [
+    56.1,
+    -31.6,
+    38.2
+   ],
+   "lit_hex": "#639341"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Ogr%C3%B3d_BUW_w_Warszawie_2019d.jpg",
+   "date": "2019-05-19 15:33:31",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     7.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 127186,
+   "lab": [
+    45.4,
+    -16.1,
+    31.2
+   ],
+   "hex": "#627236",
+   "lit_lab": [
+    57.6,
+    -17.9,
+    34.3
+   ],
+   "lit_hex": "#80924d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:SGGW,_building_2,_6.jpg",
+   "date": "2020-05-17 12:18:53",
+   "month": 5,
+   "boxes": [
+    [
+     1.5,
+     7,
+     7,
+     8.3
+    ]
+   ],
+   "npx": 29263,
+   "lab": [
+    48.5,
+    -14.0,
+    30.9
+   ],
+   "hex": "#6d793d",
+   "lit_lab": [
+    62.6,
+    -15.7,
+    36.5
+   ],
+   "lit_hex": "#929e55"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dom_pod_Skarabeuszami,_Pu%C5%82awska_101,_Warszawa_1a.jpg",
+   "date": "2020-05-17 15:51:09",
+   "month": 5,
+   "boxes": [
+    [
+     0,
+     7.9,
+     10,
+     8.6
+    ]
+   ],
+   "npx": 38671,
+   "lab": [
+    33.7,
+    -16.4,
+    28.8
+   ],
+   "hex": "#44551f",
+   "lit_lab": [
+    39.9,
+    -16.0,
+    29.1
+   ],
+   "lit_hex": "#54642d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_im._Cichociemnych_Spadochroniarzy_AK_(4).jpg",
+   "date": "2026-05-24 11:10:45",
+   "month": 5,
+   "boxes": [
+    [
+     4,
+     7.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 88899,
+   "lab": [
+    40.3,
+    -17.0,
+    26.0
+   ],
+   "hex": "#516533",
+   "lit_lab": [
+    48.6,
+    -14.0,
+    25.8
+   ],
+   "lit_hex": "#6b7947"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Sowi%C5%84skiego07.jpg",
+   "date": "2007-06-24",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     6.5,
+     3.5,
+     9.8
+    ],
+    [
+     5,
+     4.5,
+     10,
+     5.5
+    ]
+   ],
+   "npx": 98673,
+   "lab": [
+    61.8,
+    -16.7,
+    31.2
+   ],
+   "hex": "#8b9c5d",
+   "lit_lab": [
+    68.9,
+    -15.2,
+    33.1
+   ],
+   "lit_hex": "#a2ae6b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Dolinka_S%C5%82u%C5%BCewiecka,2009,_Warszawa_(1).jpg",
+   "date": "2009-06-02",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     5.5,
+     3.5,
+     9.8
+    ],
+    [
+     6.5,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 206204,
+   "lab": [
+    43.3,
+    -24.5,
+    37.8
+   ],
+   "hex": "#507023",
+   "lit_lab": [
+    47.8,
+    -23.7,
+    39.0
+   ],
+   "lit_hex": "#5e7b2b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Pole20DSC_0209.JPG",
+   "date": "2010-06-08",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     6,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 222110,
+   "lab": [
+    37.6,
+    -12.0,
+    24.5
+   ],
+   "hex": "#535d30",
+   "lit_lab": [
+    67.2,
+    -9.4,
+    30.2
+   ],
+   "lit_hex": "#a7a76d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Mloc30_DSC0221.JPG",
+   "date": "2011-06-10",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     5,
+     1.9,
+     9.8
+    ],
+    [
+     2.6,
+     8.2,
+     7.1,
+     9.8
+    ],
+    [
+     7.8,
+     5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 160262,
+   "lab": [
+    57.5,
+    -29.2,
+    35.7
+   ],
+   "hex": "#6a9649",
+   "lit_lab": [
+    63.7,
+    -28.9,
+    35.8
+   ],
+   "lit_hex": "#7ba758"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Tadeusz_Mazowiecki_(Ogr%C3%B3d_Sprawiedliwych_w_Warszawie)_01.jpg",
+   "date": "2014-06-08",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     3,
+     10,
+     5
+    ],
+    [
+     0,
+     5,
+     4,
+     9.8
+    ],
+    [
+     7.5,
+     5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 570140,
+   "lab": [
+    39.1,
+    -6.5,
+    11.8
+   ],
+   "hex": "#595f49",
+   "lit_lab": [
+    47.2,
+    -6.3,
+    11.6
+   ],
+   "lit_hex": "#6d725c"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_przy_mauzoleum_%C5%BCo%C5%82nierzy_radzieckiech_warszawa_1.jpg",
+   "date": "2021-06-29 13:46:52",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     5.8,
+     3,
+     7
+    ],
+    [
+     0,
+     8.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 99436,
+   "lab": [
+    62.3,
+    -13.1,
+    17.7
+   ],
+   "hex": "#8b9c77",
+   "lit_lab": [
+    78.4,
+    -0.5,
+    5.0
+   ],
+   "lit_hex": "#c5c2b9"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_G%C3%B3rczewska,_Warszawa_(13).jpg",
+   "date": "2022-06-12 16:26:28",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     6.5,
+     3.5,
+     9.8
+    ]
+   ],
+   "npx": 74980,
+   "lab": [
+    56.5,
+    -7.7,
+    39.4
+   ],
+   "hex": "#908a41",
+   "lit_lab": [
+    68.4,
+    -6.5,
+    39.4
+   ],
+   "lit_hex": "#b3a85e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:%C5%9Ar%C3%B3dmie%C5%9Bcie,_Wodozbi%C3%B3r_%C5%9Awi%C4%85tynia_Vesty.jpg",
+   "date": "2022-06-19",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 708955,
+   "lab": [
+    34.2,
+    -15.5,
+    23.7
+   ],
+   "hex": "#445629",
+   "lit_lab": [
+    46.4,
+    -17.4,
+    27.9
+   ],
+   "lit_hex": "#61753e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa,_Pa%C5%82ac_Krasi%C5%84skich_1.jpg",
+   "date": "2025-06-24 17:56:13",
+   "month": 6,
+   "boxes": [
+    [
+     0,
+     7,
+     3,
+     8.3
+    ]
+   ],
+   "npx": 39870,
+   "lab": [
+    50.5,
+    -12.1,
+    18.9
+   ],
+   "hex": "#707d58",
+   "lit_lab": [
+    62.4,
+    -11.1,
+    18.7
+   ],
+   "lit_hex": "#909c75"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Jana_Szypowskiego_Lesnika_Park_in_Warsaw_2008_(6).JPG",
+   "date": "2008-07-27",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     6,
+     3.5,
+     8.4
+    ],
+    [
+     5.5,
+     6,
+     10,
+     7
+    ],
+    [
+     5,
+     8.7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 89096,
+   "lab": [
+    29.3,
+    -19.0,
+    18.3
+   ],
+   "hex": "#2f4c28",
+   "lit_lab": [
+    55.5,
+    2.0,
+    13.1
+   ],
+   "lit_hex": "#91836e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dolina_Szwajcarska-Warszawa.JPG",
+   "date": "2012-07-05",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     5.2,
+     9.5,
+     6.6
+    ]
+   ],
+   "npx": 90816,
+   "lab": [
+    67.4,
+    -16.7,
+    43.6
+   ],
+   "hex": "#a0ab53",
+   "lit_lab": [
+    74.0,
+    -17.6,
+    46.8
+   ],
+   "lit_hex": "#b2bd5d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Olszyna,_Warsaw_2.jpg",
+   "date": "2014-07-27 17:08:38",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     1,
+     1.8,
+     6
+    ],
+    [
+     8.5,
+     1,
+     10,
+     9.5
+    ]
+   ],
+   "npx": 137014,
+   "lab": [
+    50.8,
+    -15.9,
+    30.4
+   ],
+   "hex": "#707f44",
+   "lit_lab": [
+    65.0,
+    -15.8,
+    32.8
+   ],
+   "lit_hex": "#96a462"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:07_-_Landscapes_and_nature_of_Park_Skaryszewski_-_04.jpg",
+   "date": "2014-07-31 16:55:19",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     7.8,
+     4,
+     9.8
+    ],
+    [
+     7,
+     7.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 84968,
+   "lab": [
+    68.5,
+    -15.3,
+    25.1
+   ],
+   "hex": "#9cae79",
+   "lit_lab": [
+    85.1,
+    -17.2,
+    29.6
+   ],
+   "lit_hex": "#c9dc9c"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa-bridge_in_Przy_Ba%C5%BCantarni_Park.jpg",
+   "date": "2017-07-09 13:37:48",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     7,
+     3,
+     9.8
+    ]
+   ],
+   "npx": 51323,
+   "lab": [
+    41.5,
+    2.3,
+    17.4
+   ],
+   "hex": "#706046",
+   "lit_lab": [
+    56.1,
+    4.2,
+    22.8
+   ],
+   "lit_hex": "#9c835f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:MW,_03.07.2018,_Plac_Miejski,_Kie%C5%9Blowskiego,_3.jpg",
+   "date": "2018-07-03 09:04:35",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     6.5,
+     3,
+     9.8
+    ],
+    [
+     6,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 106713,
+   "lab": [
+    50.3,
+    -0.1,
+    15.4
+   ],
+   "hex": "#81775e",
+   "lit_lab": [
+    63.4,
+    4.4,
+    14.7
+   ],
+   "lit_hex": "#ac9680"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Moczyd%C5%82o_07.jpg",
+   "date": "2019-07-20 09:53:39",
+   "month": 7,
+   "boxes": [
+    [
+     3,
+     6.5,
+     7.5,
+     9.8
+    ]
+   ],
+   "npx": 94505,
+   "lab": [
+    39.0,
+    -8.1,
+    18.1
+   ],
+   "hex": "#5a5f3e",
+   "lit_lab": [
+    49.4,
+    -8.7,
+    23.6
+   ],
+   "lit_hex": "#75794d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Harcerskiej_Poczty_Polowej_Powstania_Warszawskiego_-_04.jpg",
+   "date": "2020-07-01 12:44:56",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     6.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 193741,
+   "lab": [
+    26.1,
+    -15.9,
+    20.5
+   ],
+   "hex": "#2f441d",
+   "lit_lab": [
+    40.6,
+    -17.3,
+    29.1
+   ],
+   "lit_hex": "#53662e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Harcerskiej_Poczty_Polowej_Powstania_Warszawskiego_-_07.jpg",
+   "date": "2020-07-01 12:46:18",
+   "month": 7,
+   "boxes": [
+    [
+     0,
+     6.5,
+     2.5,
+     9.8
+    ]
+   ],
+   "npx": 35303,
+   "lab": [
+    57.2,
+    -16.9,
+    29.6
+   ],
+   "hex": "#7e9054",
+   "lit_lab": [
+    77.6,
+    -21.4,
+    41.2
+   ],
+   "lit_hex": "#b3c971"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2022_Warszawa_aleja_R%C3%B3%C5%BCewicza,_1.jpg",
+   "date": "2022-07-13 12:37:12",
+   "month": 7,
+   "boxes": [
+    [
+     7.5,
+     5.5,
+     10,
+     9.8
+    ],
+    [
+     1.8,
+     5.5,
+     4.8,
+     8
+    ]
+   ],
+   "npx": 104089,
+   "lab": [
+    66.5,
+    -22.5,
+    26.8
+   ],
+   "hex": "#8aac70",
+   "lit_lab": [
+    77.4,
+    -19.5,
+    22.9
+   ],
+   "lit_hex": "#abc894"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_gen._J%C3%B3zefa_Sowi%C5%84skiego_-_06.JPG",
+   "date": "2012-08-01",
+   "month": 8,
+   "boxes": [
+    [
+     0,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 254294,
+   "lab": [
+    30.3,
+    -9.5,
+    14.9
+   ],
+   "hex": "#414b30",
+   "lit_lab": [
+    38.5,
+    -10.5,
+    17.2
+   ],
+   "lit_hex": "#545f3e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_linowy_Bielany_02.JPG",
+   "date": "2012-08-05 15:59:12",
+   "month": 8,
+   "boxes": [
+    [
+     1.5,
+     6,
+     5.3,
+     9.8
+    ],
+    [
+     6.2,
+     6,
+     7.3,
+     9.8
+    ],
+    [
+     7.8,
+     6,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 185802,
+   "lab": [
+    66.6,
+    -3.3,
+    32.7
+   ],
+   "hex": "#b1a267",
+   "lit_lab": [
+    70.9,
+    -0.8,
+    31.4
+   ],
+   "lit_hex": "#c0ac74"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Skwer_im._Olgi_i_Andrzeja_Ma%C5%82kowskich_w_Warszawie_-_11.JPG",
+   "date": "2012-08-07",
+   "month": 8,
+   "boxes": [
+    [
+     0,
+     7.3,
+     2.5,
+     9.8
+    ],
+    [
+     5,
+     7.3,
+     7,
+     8.3
+    ]
+   ],
+   "npx": 42554,
+   "lab": [
+    48.3,
+    -20.0,
+    29.4
+   ],
+   "hex": "#617b3f",
+   "lit_lab": [
+    61.4,
+    -25.5,
+    35.8
+   ],
+   "lit_hex": "#7c9f53"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Brukselska_26_od_strony_skweru.jpg",
+   "date": "2021-08-03 11:45:16",
+   "month": 8,
+   "boxes": [
+    [
+     2.5,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 185691,
+   "lab": [
+    43.8,
+    -23.3,
+    33.9
+   ],
+   "hex": "#52712c",
+   "lit_lab": [
+    51.3,
+    -23.2,
+    34.1
+   ],
+   "lit_hex": "#65843d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Fort_Legion%C3%B3w,_Warszawa_(8).jpg",
+   "date": "2021-08-15 16:50:57",
+   "month": 8,
+   "boxes": [
+    [
+     4.5,
+     4.2,
+     8,
+     5.3
+    ]
+   ],
+   "npx": 25518,
+   "lab": [
+    53.0,
+    27.9,
+    16.1
+   ],
+   "hex": "#b36b64",
+   "lit_lab": [
+    59.0,
+    28.6,
+    15.3
+   ],
+   "lit_hex": "#c57a75"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Fosa_i_Stoki_Cytadeli,_Warszawa_(5).jpg",
+   "date": "2021-08-15 17:54:09",
+   "month": 8,
+   "boxes": [
+    [
+     0,
+     5.8,
+     4.5,
+     8
+    ],
+    [
+     6,
+     5.3,
+     10,
+     6.5
+    ]
+   ],
+   "npx": 92070,
+   "lab": [
+    46.0,
+    -30.5,
+    36.6
+   ],
+   "hex": "#4a792b",
+   "lit_lab": [
+    61.4,
+    -30.4,
+    37.5
+   ],
+   "lit_hex": "#73a14f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Romana_Koz%C5%82owskiego,_Warszawa_(12).jpg",
+   "date": "2021-08-29 17:28:47",
+   "month": 8,
+   "boxes": [
+    [
+     0,
+     5.2,
+     5,
+     8.5
+    ],
+    [
+     8,
+     5.5,
+     10,
+     8
+    ]
+   ],
+   "npx": 121286,
+   "lab": [
+    37.9,
+    -20.7,
+    31.2
+   ],
+   "hex": "#476124",
+   "lit_lab": [
+    50.3,
+    -17.2,
+    34.1
+   ],
+   "lit_hex": "#6e7e3b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Ogr%C3%B3d_saski_z_blokami.jpg",
+   "date": "2026-08-31 13:15:49",
+   "month": 8,
+   "boxes": [
+    [
+     4.5,
+     5.6,
+     9.5,
+     6.6
+    ]
+   ],
+   "npx": 14933,
+   "lab": [
+    29.7,
+    -15.6,
+    14.2
+   ],
+   "hex": "#354c2f",
+   "lit_lab": [
+    43.7,
+    -18.1,
+    18.7
+   ],
+   "lit_hex": "#546f48"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Widok_na_Skwer_Kapitana_Stanis%C5%82awa_Skibniewskiego,_2004r.,_Warszawa.jpg",
+   "date": "2004-09-12 13:37:54",
+   "month": 9,
+   "boxes": [
+    [
+     0.5,
+     6,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 110438,
+   "lab": [
+    68.6,
+    -3.2,
+    27.5
+   ],
+   "hex": "#b4a875",
+   "lit_lab": [
+    71.9,
+    -2.3,
+    27.1
+   ],
+   "lit_hex": "#beb07f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:KSAP_Wawelska.jpg",
+   "date": "2010-09-02",
+   "month": 9,
+   "boxes": [
+    [
+     0,
+     7.9,
+     7,
+     8.5
+    ]
+   ],
+   "npx": 17420,
+   "lab": [
+    48.4,
+    -3.9,
+    11.6
+   ],
+   "hex": "#74745f",
+   "lit_lab": [
+    60.1,
+    -3.7,
+    13.8
+   ],
+   "lit_hex": "#949279"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Klo48DSC_1070.jpg",
+   "date": "2011-09-19",
+   "month": 9,
+   "boxes": [
+    [
+     3,
+     8,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 76906,
+   "lab": [
+    46.3,
+    -11.7,
+    18.5
+   ],
+   "hex": "#66724e",
+   "lit_lab": [
+    52.4,
+    -16.5,
+    23.0
+   ],
+   "lit_hex": "#6f8455"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:PowsinParkWarsawDSC_2305.JPG",
+   "date": "2012-09-27 16:02:22",
+   "month": 9,
+   "boxes": [
+    [
+     0,
+     6.3,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 200376,
+   "lab": [
+    71.6,
+    -15.5,
+    53.9
+   ],
+   "hex": "#b2b547",
+   "lit_lab": [
+    79.3,
+    -12.3,
+    53.4
+   ],
+   "lit_hex": "#cec95d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Soviet_Military_Cemetery,_Warsaw_2017-09-22_11.jpg",
+   "date": "2017-09-22 11:00:15",
+   "month": 9,
+   "boxes": [
+    [
+     3,
+     5.6,
+     10,
+     6.5
+    ]
+   ],
+   "npx": 42946,
+   "lab": [
+    53.9,
+    -12.8,
+    25.1
+   ],
+   "hex": "#7a8655",
+   "lit_lab": [
+    58.4,
+    -9.8,
+    23.2
+   ],
+   "lit_hex": "#8a9063"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Soviet_Military_Cemetery,_Warsaw_2017-09-22_17.jpg",
+   "date": "2017-09-22 11:03:08",
+   "month": 9,
+   "boxes": [
+    [
+     0,
+     0.3,
+     2.5,
+     4
+    ],
+    [
+     7.5,
+     1,
+     10,
+     5
+    ]
+   ],
+   "npx": 130534,
+   "lab": [
+    66.8,
+    -27.6,
+    45.0
+   ],
+   "hex": "#8bae4e",
+   "lit_lab": [
+    77.0,
+    -28.0,
+    45.0
+   ],
+   "lit_hex": "#a6ca68"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Kanal_Sielecki_widok_z_mostku_2020.jpg",
+   "date": "2020-09-05 11:41:52",
+   "month": 9,
+   "boxes": [
+    [
+     6,
+     4.6,
+     9.5,
+     6
+    ]
+   ],
+   "npx": 31213,
+   "lab": [
+    71.5,
+    -8.6,
+    21.6
+   ],
+   "hex": "#afb287",
+   "lit_lab": [
+    82.3,
+    -11.9,
+    29.1
+   ],
+   "lit_hex": "#cbd296"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Kamionkowskie_B%C5%82onia_Elekcyjne,_protest.jpg",
+   "date": "2020-09-19",
+   "month": 9,
+   "boxes": [
+    [
+     0,
+     9,
+     10,
+     10
+    ]
+   ],
+   "npx": 43432,
+   "lab": [
+    38.8,
+    -6.2,
+    25.4
+   ],
+   "hex": "#5f5d31",
+   "lit_lab": [
+    44.9,
+    -6.9,
+    26.2
+   ],
+   "lit_hex": "#6e6c3e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa_Wola_skwer_im._Jana_%E2%80%9EJura%E2%80%9D_Gorzechowskiego_05.jpg",
+   "date": "2026-09-25 10:34:11",
+   "month": 9,
+   "boxes": [
+    [
+     0,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 294039,
+   "lab": [
+    53.4,
+    -18.7,
+    31.5
+   ],
+   "hex": "#728748",
+   "lit_lab": [
+    62.7,
+    -22.2,
+    35.2
+   ],
+   "lit_hex": "#86a157"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa_Wola_skwer_im._Jana_%E2%80%9EJura%E2%80%9D_Gorzechowskiego_08.jpg",
+   "date": "2026-09-25 10:35:33",
+   "month": 9,
+   "boxes": [
+    [
+     0,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 248559,
+   "lab": [
+    34.7,
+    -10.4,
+    21.0
+   ],
+   "hex": "#4d552f",
+   "lit_lab": [
+    44.5,
+    -11.6,
+    22.9
+   ],
+   "lit_hex": "#646e42"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:111012_Romuald_Traugutt_Park_in_Warsaw_-_08.jpg",
+   "date": "2012-10-11",
+   "month": 10,
+   "boxes": [
+    [
+     0,
+     7.5,
+     3.3,
+     9.8
+    ]
+   ],
+   "npx": 50256,
+   "lab": [
+    67.7,
+    -24.6,
+    35.4
+   ],
+   "hex": "#8eb063",
+   "lit_lab": [
+    71.9,
+    -24.4,
+    34.9
+   ],
+   "lit_hex": "#9abb6f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:111012_Romuald_Traugutt_Park_in_Warsaw_-_06.jpg",
+   "date": "2012-10-11",
+   "month": 10,
+   "boxes": [
+    [
+     2.5,
+     7,
+     6.2,
+     9.8
+    ]
+   ],
+   "npx": 21639,
+   "lab": [
+    72.3,
+    -25.9,
+    36.0
+   ],
+   "hex": "#98bd6e",
+   "lit_lab": [
+    76.9,
+    -24.6,
+    35.3
+   ],
+   "lit_hex": "#a7c97b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2018_Warszawa_Pole_Mokotowskie,_publiczna_toaleta.jpg",
+   "date": "2018-10-09 13:11:32",
+   "month": 10,
+   "boxes": [
+    [
+     0,
+     5.5,
+     1.8,
+     8.5
+    ]
+   ],
+   "npx": 33432,
+   "lab": [
+    46.4,
+    -14.2,
+    31.4
+   ],
+   "hex": "#687338",
+   "lit_lab": [
+    52.4,
+    -14.8,
+    32.1
+   ],
+   "lit_hex": "#768344"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dzie%C5%82o_flankuj%C4%85ce_po%C5%9Brednie_Burak%C3%B3w_1.jpg",
+   "date": "2019-10-11 12:33:01",
+   "month": 10,
+   "boxes": [
+    [
+     0,
+     6,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 449207,
+   "lab": [
+    35.9,
+    -16.7,
+    18.8
+   ],
+   "hex": "#435b36",
+   "lit_lab": [
+    45.6,
+    -15.2,
+    18.0
+   ],
+   "lit_hex": "#5d724d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2019_Warszawa_Pole_Mokotowskie,_7.jpg",
+   "date": "2019-10-15 13:46:52",
+   "month": 10,
+   "boxes": [
+    [
+     0,
+     7.5,
+     4,
+     9.8
+    ],
+    [
+     6.5,
+     7.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 114020,
+   "lab": [
+    48.7,
+    -4.4,
+    22.6
+   ],
+   "hex": "#7a754d",
+   "lit_lab": [
+    69.3,
+    -4.1,
+    30.3
+   ],
+   "lit_hex": "#b6aa72"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Fort_Wladimir_(Fort_Legionow)_16.jpg",
+   "date": "2019-10-25 15:50:11",
+   "month": 10,
+   "boxes": [
+    [
+     7.5,
+     8.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 21957,
+   "lab": [
+    33.0,
+    -15.0,
+    11.5
+   ],
+   "hex": "#3b543b",
+   "lit_lab": [
+    37.5,
+    -14.7,
+    11.2
+   ],
+   "lit_hex": "#465e46"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Fort_Wladimir_(Fort_Legionow)_24.jpg",
+   "date": "2019-10-25 15:51:53",
+   "month": 10,
+   "boxes": [
+    [
+     0,
+     4.5,
+     3,
+     6.5
+    ]
+   ],
+   "npx": 40398,
+   "lab": [
+    46.8,
+    -0.2,
+    4.5
+   ],
+   "hex": "#726f68",
+   "lit_lab": [
+    54.1,
+    0.2,
+    4.6
+   ],
+   "lit_hex": "#858179"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Traugutt-Park_DSC_2400.JPG",
+   "date": "2012-11-10 13:51:35",
+   "month": 11,
+   "boxes": [
+    [
+     5,
+     5.5,
+     10,
+     6.3
+    ]
+   ],
+   "npx": 23081,
+   "lab": [
+    54.7,
+    -1.7,
+    15.3
+   ],
+   "hex": "#8a8368",
+   "lit_lab": [
+    69.1,
+    -2.1,
+    17.7
+   ],
+   "lit_hex": "#b2a989"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Picea_omorika_%C5%81azienki_02.jpg",
+   "date": "2012-11-11 14:30:44",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     9.2,
+     10,
+     9.9
+    ]
+   ],
+   "npx": 106398,
+   "lab": [
+    50.2,
+    -17.3,
+    37.4
+   ],
+   "hex": "#6f7e35",
+   "lit_lab": [
+    58.8,
+    -18.0,
+    41.0
+   ],
+   "lit_hex": "#869542"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Belweder_z_Lazienek_Krolewskich.jpg",
+   "date": "2014-11-30 11:13:14",
+   "month": 11,
+   "boxes": [
+    [
+     1,
+     4.4,
+     4,
+     5.2
+    ]
+   ],
+   "npx": 8210,
+   "lab": [
+    29.4,
+    -0.4,
+    14.2
+   ],
+   "hex": "#4d452f",
+   "lit_lab": [
+    39.4,
+    0.1,
+    18.1
+   ],
+   "lit_hex": "#675c3f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa_Pole_Mokotowskie_03.jpg",
+   "date": "2018-11-25 11:05:57",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 188390,
+   "lab": [
+    42.9,
+    -13.1,
+    27.8
+   ],
+   "hex": "#5f6a36",
+   "lit_lab": [
+    47.9,
+    -13.6,
+    28.0
+   ],
+   "lit_hex": "#6b7741"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa_skwer_S._Orgelbranda_(04).jpg",
+   "date": "2018-11-26 09:41:24",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     5.5,
+     4,
+     9.8
+    ]
+   ],
+   "npx": 115692,
+   "lab": [
+    37.7,
+    -11.7,
+    32.0
+   ],
+   "hex": "#565d22",
+   "lit_lab": [
+    42.4,
+    -14.3,
+    33.9
+   ],
+   "lit_hex": "#5e6929"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Warszawa_skwer_Matysiak%C3%B3w_02.jpg",
+   "date": "2018-11-26 10:04:04",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     5,
+     2,
+     7.5
+    ],
+    [
+     3.5,
+     4.6,
+     7,
+     5.3
+    ]
+   ],
+   "npx": 48207,
+   "lab": [
+    37.5,
+    0.9,
+    9.0
+   ],
+   "hex": "#5f574a",
+   "lit_lab": [
+    48.5,
+    1.3,
+    17.4
+   ],
+   "lit_hex": "#807256"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Praski_w_Warszawie_2019b.jpg",
+   "date": "2019-11-08 14:40:21",
+   "month": 11,
+   "boxes": [
+    [
+     5,
+     6.6,
+     8,
+     7.5
+    ]
+   ],
+   "npx": 13516,
+   "lab": [
+    37.0,
+    -14.2,
+    3.8
+   ],
+   "hex": "#3f5d51",
+   "lit_lab": [
+    57.1,
+    -14.0,
+    7.9
+   ],
+   "lit_hex": "#74907b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Dolinka_S%C5%82u%C5%BCewiecka_(3).jpg",
+   "date": "2019-11-10 13:47:35",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     5.3,
+     3,
+     7
+    ],
+    [
+     7.5,
+     5.3,
+     10,
+     9
+    ]
+   ],
+   "npx": 58833,
+   "lab": [
+    27.3,
+    -1.5,
+    15.0
+   ],
+   "hex": "#464029",
+   "lit_lab": [
+    33.1,
+    -7.6,
+    20.5
+   ],
+   "lit_hex": "#4d502d"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Szermierz_i_szermierka_-_trening.jpg",
+   "date": "2019-11-17 10:41:52",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     3,
+     4.5,
+     4.3
+    ]
+   ],
+   "npx": 44602,
+   "lab": [
+    40.4,
+    -10.0,
+    9.9
+   ],
+   "hex": "#55644f",
+   "lit_lab": [
+    52.0,
+    -7.7,
+    12.0
+   ],
+   "lit_hex": "#777f67"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Anieli_Krzywo%C5%84,_Warszawa_(7b).jpg",
+   "date": "2020-11-22 16:22:30",
+   "month": 11,
+   "boxes": [
+    [
+     2,
+     8,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 95823,
+   "lab": [
+    35.7,
+    -8.9,
+    13.5
+   ],
+   "hex": "#4e573e",
+   "lit_lab": [
+    42.5,
+    -8.8,
+    12.5
+   ],
+   "lit_hex": "#5e684f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2024_Warszawa_aleja_Ossendowskiego,_1.jpg",
+   "date": "2024-11-25 11:11:37",
+   "month": 11,
+   "boxes": [
+    [
+     1,
+     5.6,
+     3.5,
+     7.8
+    ],
+    [
+     5,
+     5.2,
+     10,
+     5.9
+    ]
+   ],
+   "npx": 60622,
+   "lab": [
+    48.0,
+    -13.3,
+    18.4
+   ],
+   "hex": "#677852",
+   "lit_lab": [
+    55.4,
+    -9.0,
+    19.8
+   ],
+   "lit_hex": "#828862"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:2024_Warszawa_aleja_Ossendowskiego,_5.jpg",
+   "date": "2024-11-25 11:13:37",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     5.5,
+     3,
+     8
+    ],
+    [
+     6.5,
+     5.5,
+     10,
+     7.5
+    ]
+   ],
+   "npx": 94948,
+   "lab": [
+    44.5,
+    -11.7,
+    19.1
+   ],
+   "hex": "#616e49",
+   "lit_lab": [
+    52.1,
+    -6.1,
+    21.4
+   ],
+   "lit_hex": "#7f7e57"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Ulica_nowickiego.jpg",
+   "date": "2024-11-26 12:54:54",
+   "month": 11,
+   "boxes": [
+    [
+     0,
+     6,
+     2.5,
+     9.8
+    ],
+    [
+     7.5,
+     5.5,
+     10,
+     8
+    ]
+   ],
+   "npx": 98889,
+   "lab": [
+    44.6,
+    -9.2,
+    13.0
+   ],
+   "hex": "#626d54",
+   "lit_lab": [
+    59.0,
+    -2.2,
+    8.2
+   ],
+   "lit_hex": "#908f80"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dolinka_S%C5%82u%C5%BCewiecka_Park_-_14.jpg",
+   "date": "2009-12-30",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     0,
+     10,
+     1.8
+    ],
+    [
+     0,
+     8,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 207112,
+   "lab": [
+    50.6,
+    -5.8,
+    18.4
+   ],
+   "hex": "#7b7b59",
+   "lit_lab": [
+    66.8,
+    -4.4,
+    18.0
+   ],
+   "lit_hex": "#a7a482"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Koelichen_Palace_in_Warsaw_IMG_0741.JPG",
+   "date": "2012-12-02 14:33:25",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     7,
+     5,
+     8.8
+    ]
+   ],
+   "npx": 46206,
+   "lab": [
+    32.6,
+    -2.6,
+    3.7
+   ],
+   "hex": "#4b4e47",
+   "lit_lab": [
+    45.1,
+    -0.0,
+    -0.0
+   ],
+   "lit_hex": "#6b6b6b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Gruszecki_Kazucha_Klamczucha.jpg",
+   "date": "2016-12-20 14:25:49",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     5,
+     2.5,
+     9.8
+    ],
+    [
+     7.5,
+     5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 263436,
+   "lab": [
+    55.3,
+    7.2,
+    8.1
+   ],
+   "hex": "#978077",
+   "lit_lab": [
+    66.8,
+    3.7,
+    10.9
+   ],
+   "lit_hex": "#b1a08f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Maria_Trzci%C5%84ska_g%C5%82az_2016.jpg",
+   "date": "2016-12-22 14:22:19",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     6,
+     2.5,
+     9.8
+    ]
+   ],
+   "npx": 107496,
+   "lab": [
+    54.0,
+    0.9,
+    5.3
+   ],
+   "hex": "#878078",
+   "lit_lab": [
+    67.2,
+    0.7,
+    6.5
+   ],
+   "lit_hex": "#aaa398"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_przy_cmentarzu_%C5%BCo%C5%82nierzy_radzieckich_warszawa_zima.jpg",
+   "date": "2019-12-15 10:24:59",
+   "month": 12,
+   "boxes": [
+    [
+     1.8,
+     7.3,
+     5,
+     9.8
+    ]
+   ],
+   "npx": 41487,
+   "lab": [
+    26.2,
+    -1.8,
+    4.8
+   ],
+   "hex": "#3e3e37",
+   "lit_lab": [
+    30.4,
+    -2.1,
+    6.0
+   ],
+   "lit_hex": "#48483e"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Skraj_parku_szcz%C4%99%C5%9Bliwickiego_mi%C4%99dzy_usypiskow%C4%85_a_bielsk%C4%85.jpg",
+   "date": "2019-12-25 12:33:23",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 136457,
+   "lab": [
+    26.9,
+    -5.2,
+    11.2
+   ],
+   "hex": "#3e422e",
+   "lit_lab": [
+    31.3,
+    -9.1,
+    14.9
+   ],
+   "lit_hex": "#444d32"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Sadek_Natoli%C5%84ski,_Warszawa_1.jpg",
+   "date": "2020-12-29 14:34:26",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 122765,
+   "lab": [
+    21.7,
+    0.4,
+    11.8
+   ],
+   "hex": "#3b3323",
+   "lit_lab": [
+    26.7,
+    -0.2,
+    12.3
+   ],
+   "lit_hex": "#463f2c"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Sadek_Natoli%C5%84ski,_Warszawa_2.jpg",
+   "date": "2020-12-29 14:34:49",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 90628,
+   "lab": [
+    19.0,
+    -1.6,
+    14.7
+   ],
+   "hex": "#332e18",
+   "lit_lab": [
+    21.7,
+    -1.5,
+    14.5
+   ],
+   "lit_hex": "#39341f"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dolina_S%C5%82u%C5%BCewiecka_Street_-_sidewalk.jpg",
+   "date": "2022-12-01 10:27:05",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     5,
+     3.5,
+     9.8
+    ],
+    [
+     6.5,
+     5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 226977,
+   "lab": [
+    37.4,
+    -17.0,
+    26.6
+   ],
+   "hex": "#4b5e2b",
+   "lit_lab": [
+    40.3,
+    -15.7,
+    26.0
+   ],
+   "lit_hex": "#546533"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Targ%C3%B3wek,_park_%22Wiecha%22_grudzie%C5%84_2023.jpg",
+   "date": "2023-12-17 14:43:27",
+   "month": 12,
+   "boxes": [
+    [
+     7,
+     6.5,
+     10,
+     8.2
+    ]
+   ],
+   "npx": 30465,
+   "lab": [
+    30.5,
+    -6.9,
+    11.8
+   ],
+   "hex": "#444a35",
+   "lit_lab": [
+    35.5,
+    -6.6,
+    11.6
+   ],
+   "lit_hex": "#505641"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Tyrolka_park_szcz%C4%99%C5%9Bliwicki.jpg",
+   "date": "2023-12-20 13:37:32",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     6.8,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 148672,
+   "lab": [
+    35.7,
+    1.9,
+    14.8
+   ],
+   "hex": "#5f523c",
+   "lit_lab": [
+    47.7,
+    7.0,
+    13.2
+   ],
+   "lit_hex": "#856c5b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Dolina_Szwajcarska,_WAW(2).jpg",
+   "date": "2024-12-24 13:38:16",
+   "month": 12,
+   "boxes": [
+    [
+     1.5,
+     5,
+     7.5,
+     6.2
+    ]
+   ],
+   "npx": 36902,
+   "lab": [
+    36.8,
+    -9.3,
+    22.9
+   ],
+   "hex": "#545a31",
+   "lit_lab": [
+    45.3,
+    -10.9,
+    28.5
+   ],
+   "lit_hex": "#6a6f3b"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Skwer_Ormmia%C5%84ski,_Warsaw_Sadyba.jpg",
+   "date": "2025-12-04 11:08:55",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     3.8,
+     10,
+     5.3
+    ]
+   ],
+   "npx": 92352,
+   "lab": [
+    37.8,
+    3.4,
+    5.8
+   ],
+   "hex": "#625750",
+   "lit_lab": [
+    49.6,
+    2.5,
+    8.5
+   ],
+   "lit_hex": "#807468"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Polskich_Wynalazc%C3%B3w,_Warsaw_(7).jpg",
+   "date": "2025-12-07 13:36:10",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     7,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 174832,
+   "lab": [
+    40.5,
+    -0.1,
+    13.1
+   ],
+   "hex": "#685f4a",
+   "lit_lab": [
+    50.8,
+    -0.5,
+    13.2
+   ],
+   "lit_hex": "#817863"
+  },
+  {
+   "url": "https://commons.wikimedia.org/wiki/File:Park_Polskich_Wynalazc%C3%B3w,_Warsaw_(2).jpg",
+   "date": "2025-12-07 13:37:33",
+   "month": 12,
+   "boxes": [
+    [
+     0,
+     5.5,
+     4.8,
+     9.8
+    ],
+    [
+     6,
+     5.5,
+     10,
+     9.8
+    ]
+   ],
+   "npx": 430845,
+   "lab": [
+    44.2,
+    -14.2,
+    25.6
+   ],
+   "hex": "#606e3d",
+   "lit_lab": [
+    56.4,
+    -13.3,
+    25.4
+   ],
+   "lit_hex": "#808d5a"
+  }
+ ]
+}

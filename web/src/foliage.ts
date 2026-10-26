@@ -5,7 +5,7 @@ import type { VoxelUniforms } from './voxelMaterial';
 
 interface Phase { day: number; sd: number; n: number }
 interface Class { species: string; leaf: Phase | null; colour: Phase | null; fall: Phase | null; autumn?: string }
-interface Phenology { classes: Record<string, Class>; city: { leaf: number; colour: number; fall: number } }
+interface Phenology { classes: Record<string, Class>; city: { leaf: number; colour: number; fall: number }; grass: [number, number, number][]; leaf: [number, number, number] }
 
 export const FOLIAGE_CLASSES = 16;
 
@@ -22,6 +22,8 @@ export async function loadFoliage(meta: Meta, U: VoxelUniforms) {
     else U.uFolDate.value[i].set(-1, 0, 0, 0);
     if (c.autumn) U.uFolCol.value[i].set(c.autumn).convertSRGBToLinear();
   }
+  ph.grass.forEach((t, m) => U.uGrass.value[m].setRGB(...t));
+  U.uLeaf.value.setRGB(...ph.leaf);
   U.uFolOn.value = 1;
   return ph.city;
 }
