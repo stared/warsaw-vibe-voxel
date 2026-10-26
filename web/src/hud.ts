@@ -19,11 +19,6 @@ const MOUSE: Record<Mode, [string, string, string][]> = {
   walk: [['l', mouse('l', true), 'look'], ['', mouse('l'), 'walk'], ['', PERSON, 'follow'], ['Escape', ESC, 'fly up']],
   ride: [['l', mouse('l', true), 'look'], ['Escape', ESC, 'fly up']],
 };
-const TOUCH: Record<Mode, string> = {
-  orbit: 'Drag to move, two fingers to zoom and turn, tap a person to follow.',
-  walk: 'Drag to look, tap to walk, tap a person to follow.',
-  ride: 'Drag to look, tap the street to walk.',
-};
 const WHO: Record<string, string> = { you: 'You are this pedestrian', person: 'Following a pedestrian', car: 'Following a car', bus: 'Following a bus', tram: 'Following a tram' };
 
 // the key legend, bottom left: keys and mouse gestures as outlines, lit while in use
@@ -35,8 +30,8 @@ export class Hud {
   constructor(dom: HTMLElement, mode: Mode) {
     const box = this.box;
     box.id = 'hud';
-    box.innerHTML = `<div class="who"></div><div class="row">${this.touch ? '<div class="touch"></div>'
-      : `<div class="keys">${KEYS.map(([c, k, g]) => `<span class="cap" data-k="${c}">${k}<i>${g}</i></span>`).join('')}</div><div class="mouse"></div>`}</div>`;
+    box.innerHTML = `<div class="who"></div>${this.touch ? ''
+      : `<div class="row"><div class="keys">${KEYS.map(([c, k, g]) => `<span class="cap" data-k="${c}">${k}<i>${g}</i></span>`).join('')}</div><div class="mouse"></div></div>`}`;
     const lit = (k: string, on: boolean) => box.querySelectorAll(`[data-k="${k}"]`).forEach((n) => n.classList.toggle('on', on));
     addEventListener('keydown', (e) => { if (!(e.target as Element).closest?.('input')) lit(ALIAS[e.code] ?? e.code, true); });
     addEventListener('keyup', (e) => lit(ALIAS[e.code] ?? e.code, false));
@@ -53,7 +48,7 @@ export class Hud {
 
   set(mode: Mode, ride: Ride | null) {
     $('.who', this.box).textContent = mode === 'ride' && ride ? WHO[ride.label] ?? (/^tram \w/.test(ride.label) ? `Following ${ride.label}` : WHO[ride.kind]) : '';
-    if (this.touch) { $('.touch', this.box).textContent = TOUCH[mode]; return; }
+    if (this.touch) return;
     $('.mouse', this.box).innerHTML = MOUSE[mode].map(([k, icon, word]) => `<figure data-k="${k}">${icon}<figcaption>${word}</figcaption></figure>`).join('');
   }
 }

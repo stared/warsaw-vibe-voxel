@@ -3,14 +3,17 @@ import { N8AOPostPass } from 'n8ao';
 import { BloomEffect, BrightnessContrastEffect, EffectComposer, EffectPass, HueSaturationEffect, RenderPass, SMAAEffect,
   TiltShiftEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect } from 'postprocessing';
 import { clamp } from './util';
+import { FogEffect } from './weather';
 
-// ambient occlusion, bloom for lit windows, a miniature-diorama blur from above, then the grade
+// ambient occlusion, ground fog, bloom for lit windows, a miniature-diorama blur from above, then the grade
 export function makePost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 0 });
   composer.addPass(new RenderPass(scene, camera));
   const n8 = new N8AOPostPass(scene, camera, innerWidth, innerHeight);
   Object.assign(n8.configuration, { aoRadius: 6, distanceFalloff: 1.5, intensity: 2.2, halfRes: true, depthAwareUpsampling: true });
   composer.addPass(n8);
+  const fog = new FogEffect(camera);
+  composer.addPass(new EffectPass(camera, fog));
   const bloom = new BloomEffect({ intensity: 0.2, luminanceThreshold: 0.92, luminanceSmoothing: 0.15, mipmapBlur: true, radius: 0.55 });
   const tilt = new TiltShiftEffect({ offset: 0.0, rotation: 0, focusArea: 0.8, feather: 0.22, kernelSize: 2 });
   const tiltPass = new EffectPass(camera, tilt);
@@ -27,5 +30,5 @@ export function makePost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, came
     tiltPass.enabled = enabled && h > 60;
     tilt.focusArea = 0.8 + 0.2 * (1 - clamp((h - 60) / 250, 0, 1)) + 0.2 * clamp((h - 1200) / 1500, 0, 1);
   };
-  return { composer, n8, bloom, setHeight };
+  return { composer, n8, bloom, fog, setHeight };
 }

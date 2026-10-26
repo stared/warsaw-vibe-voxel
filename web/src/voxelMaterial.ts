@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Meta } from './types';
+import { FOLIAGE_CLASSES } from './foliage';
 import { dataTexture } from './util';
 
 // material ids, as in scripts/voxelize.py
@@ -18,6 +19,13 @@ export interface VoxelUniforms {
   uHorizon: U<THREE.Color>;
   uDrop: U<number>;
   uFlood: U<THREE.Texture>;
+  uWet: U<number>;
+  uSnow: U<number>;
+  uDay: U<number>;
+  uFolOn: U<number>;
+  uFolMap: U<THREE.Texture>;
+  uFolDate: U<THREE.Vector4[]>;
+  uFolCol: U<THREE.Color[]>;
 }
 export interface BuildUniforms { uStage: U<number>; uBldOn: U<THREE.Texture> }
 export interface ZoneUniforms {
@@ -39,6 +47,13 @@ export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partia
     uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
     uDrop: { value: 0 },
     uFlood: { value: tiny(THREE.RGFormat, new Uint8Array(2)) },
+    uWet: { value: 0 },
+    uSnow: { value: 0 },
+    uDay: { value: 200 },
+    uFolOn: { value: 0 },
+    uFolMap: { value: tiny(THREE.RGFormat, new Uint8Array(2)) },
+    uFolDate: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Vector4(-1, 0, 0, 0)) },
+    uFolCol: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Color(0.3, 0.2, 0.05)) },
   };
   if (engine === 'city') return { ...base, uStage: { value: 0 }, uBldOn: { value: tiny(THREE.RedFormat, new Uint8Array(1)) } };
   const ids = () => tiny(THREE.RedIntegerFormat, new Uint16Array(1), THREE.UnsignedShortType);
@@ -76,6 +91,25 @@ function makeLampTexture(meta: Meta) {
   tex.flipY = false;
   return tex;
 }
+
+// A leaf voxel through the year (foliage.ts): x = in leaf (0 bare .. 1), y = turned (0 green .. 1 autumn colour), z = class.
+// Each tree draws its own offset from its kind's spread, so a street of lindens does not turn as one.
+const FOLIAGE = `
+  uniform sampler2D uFolMap; uniform vec4 uFolDate[${FOLIAGE_CLASSES}]; uniform vec3 uFolCol[${FOLIAGE_CLASSES}]; uniform float uDay; uniform float uFolOn;
+  vec3 foliageAt(vec3 cell) {
+    vec2 f = texelFetch(uFolMap, ivec2(cell.xz * 0.5), 0).rg;
+    int cls = int(f.r * 255.0 + 0.5);
+    if (cls == 0) cls = 13;
+    vec4 d = uFolDate[cls];
+    if (d.x < 0.0) return vec3(1.0, 0.0, float(cls));
+    float k = f.g * 255.0;
+    float off = (fract(k * 0.618034) + fract(k * 0.414214 + 0.3) - 1.0) * 2.45 * d.w;
+    float t = uDay - off;
+    float leaf = t < 200.0 ? smoothstep(d.x, d.x + 14.0, t) : 1.0 - smoothstep(d.z - 8.0, d.z + 8.0, t);
+    return vec3(leaf, smoothstep(d.y - 10.0, d.y + 10.0, t), float(cls));
+  }
+  // bare branches keep a sparse lattice of twigs; the rest of the crown is gone
+  bool leafGone(vec3 cell, vec3 fo) { return hash13(cell * 1.7 + 3.1) > fo.x && hash13(cell * 2.3 + 7.7) > 0.3; }`;
 
 const NORMAL_FROM_IDX = `
   vec3 normalFromIdx(float i) {
@@ -119,11 +153,12 @@ const ZONES_PARS = `
 const FRAG_PARS = `
   uniform sampler2D uPalette; uniform sampler2D uLampMap;
   uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
-  uniform float uDrop; uniform sampler2D uFlood;
+  uniform float uDrop; uniform sampler2D uFlood; uniform float uWet; uniform float uSnow;
   varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
   float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
   float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
   vec3 gEmissive; float gRough; float gMetal;
+  ${FOLIAGE}
   vec3 roomLight(float r) {
     if (r < 0.55) return vec3(1.0, 0.66, 0.34);
     if (r < 0.85) return vec3(1.0, 0.82, 0.58);
@@ -191,6 +226,15 @@ const SURFACE = `
     if (hash13(floor(cell / 2.0)) < litFrac * 1.3) gEmissive = vec3(1.0, 0.78, 0.48) * 0.9 * uNight;
   } else if (m == ${MAT.LEAF}) {
     col = base * (0.8 + 0.35 * h); gRough = 0.95;
+    if (uFolOn > 0.5) {
+      vec3 fo = foliageAt(cell);
+      if (hash13(cell * 1.7 + 3.1) > fo.x) {
+        if (leafGone(cell, fo)) discard;
+        col = vec3(0.2, 0.17, 0.14) * (0.8 + 0.4 * h);
+      } else {
+        col = mix(col, uFolCol[int(fo.z)] * (0.75 + 0.45 * h), smoothstep(0.0, 0.3, fo.y - 0.85 * hash13(cell * 0.9 + 1.3)));
+      }
+    }
   } else if (m == ${MAT.GRASS}) {
     col = base * (0.88 + 0.2 * h); gRough = 1.0;
   } else if (m == ${MAT.WATER}) {
@@ -242,6 +286,21 @@ const SURFACE = `
   } else if (m == ${MAT.MARK}) {
     col = base * (0.95 + 0.05 * h);
   }
+  if (uSnow > 0.0 && vN.y > 0.5 && m != ${MAT.WATER} && m != ${MAT.LAMP} && m != ${MAT.JET} && m != ${MAT.SIGN}) {
+    // snow lies on what faces up; streets and pavements are ploughed and salted into grey slush
+    float lum = dot(base, vec3(0.3, 0.59, 0.11));
+    float street = lvl < 0.5 && m != ${MAT.GRASS} && m != ${MAT.SOIL} && m != ${MAT.LEAF} ? 1.0 : 0.0;
+    float cover = smoothstep(0.0, 0.6, uSnow - 0.35 * hash13(cell + 0.5)) * mix(1.0, 0.35 + 0.4 * step(0.5, hash12(floor(cell.xz / 3.0))), street);
+    vec3 snowCol = mix(vec3(0.86, 0.88, 0.92), vec3(0.42, 0.42, 0.43), street * smoothstep(0.25, 0.05, lum)) * (0.96 + 0.06 * h);
+    col = mix(col, snowCol, cover);
+    gRough = mix(gRough, 0.8, cover); gMetal *= 1.0 - cover; gEmissive *= 1.0 - cover;
+  } else if (uWet > 0.0 && m != ${MAT.WATER} && m != ${MAT.LEAF} && m != ${MAT.GLASS}) {
+    // wet: porous surfaces darken, flat ones turn glossy, with puddles where the noise pools
+    float flat_ = vN.y > 0.5 ? 1.0 : 0.0;
+    float pud = flat_ * smoothstep(0.6, 0.7, hash12(floor(cell.xz / 2.0)) * 0.5 + hash12(floor(cell.xz / 7.0)) * 0.5);
+    col *= mix(1.0, mix(0.82, mix(0.5, 0.3, pud), flat_), uWet);
+    gRough = mix(gRough, mix(0.5, 0.03, pud), uWet * mix(0.5, 1.0, flat_));
+  }
   if (uNight > 0.0) { // street lamps light what is near the ground; water reflects them instead
     vec3 lm = texture2D(uLampMap, vVox.xz / uSize).rgb;
     float fall = clamp(1.0 - (vVox.y - gz) / 16.0, 0.0, 1.0);
@@ -262,13 +321,27 @@ const SURFACE = `
   if (uClay != 0) { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }
   #endif`;
 
-export function makeBuildDepthMaterial(uniforms: BuildUniforms) {
+// shadows: buildings as they load, and crowns only as much as they are in leaf
+export function makeBuildDepthMaterial(uniforms: VoxelUniforms & BuildUniforms) {
   const m = new THREE.MeshDepthMaterial();
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\nattribute vec4 vattr; ${BUILD_PARS}`)
-      .replace('#include <begin_vertex>', `#include <begin_vertex>${BUILD_VERTEX}`);
+      .replace('#include <common>', `#include <common>\nattribute vec4 vattr; attribute float vpal; ${BUILD_PARS}
+        varying vec3 vVox; varying vec3 vN; flat varying int vPal; ${NORMAL_FROM_IDX}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>${BUILD_VERTEX}
+        vVox = position; vN = normalFromIdx(mod(vattr.x, 8.0)); vPal = int(vpal + 0.5);`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform sampler2D uPalette; varying vec3 vVox; varying vec3 vN; flat varying int vPal;
+        float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+        ${FOLIAGE}`)
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        if (uFolOn > 0.5 && int(texelFetch(uPalette, ivec2(vPal % 64, vPal / 64), 0).a * 255.0 + 0.5) == ${MAT.LEAF}) {
+          vec3 cell = floor(vVox - vN * 0.5 + 1e-3);
+          vec3 fo = foliageAt(cell);
+          if (hash13(cell * 1.7 + 3.1) > fo.x && leafGone(cell, fo)) discard;
+        }`);
   };
   m.customProgramCacheKey = () => 'voxel-build-depth';
   return m;

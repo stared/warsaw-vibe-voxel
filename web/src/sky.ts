@@ -7,7 +7,7 @@ void main() { vDir = normalize(position); gl_Position = projectionMatrix * model
 const FRAG = `
 uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uWarm; uniform float uGolden; uniform vec3 uGround;
 uniform vec3 uSunDir; uniform vec3 uTrueSun; uniform vec3 uSunCol; uniform float uNight; uniform float uDeep;
-uniform vec3 uAfterglow; uniform vec3 uCityGlow; uniform vec3 uCloudLit; uniform vec3 uCloudDark;
+uniform vec3 uAfterglow; uniform vec3 uCityGlow; uniform vec3 uCloudLit; uniform vec3 uCloudDark; uniform float uCloud;
 varying vec3 vDir;
 float hash(vec3 p) { p = fract(p * 0.3183099 + .1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -25,13 +25,15 @@ void main() {
   col += uCityGlow * exp(-max(h, 0.) * 14.0);
   col = mix(col, uGround, smoothstep(0.0, -0.25, h));
   float s = max(dot(d, uSunDir), 0.);
-  col += uSunCol * (pow(s, 600.) * 6. + pow(s, 12.) * 0.35 + pow(s, 3.) * 0.12) * (1. - uNight);
+  col += uSunCol * (pow(s, 600.) * 6. * (1. - uCloud) + pow(s, 12.) * 0.35 + pow(s, 3.) * 0.12) * (1. - uNight) * (1. - 0.8 * uCloud);
   if (h > 0.02) {
     vec2 uv = d.xz / (h + 0.12) * 1.4;
-    float cov = smoothstep(0.52, 0.78, fbm(uv * 1.3 + vec2(3.7, 1.2))) * smoothstep(0.02, 0.25, h);
+    float f = fbm(uv * 1.3 + vec2(3.7, 1.2));
+    float cov = mix(smoothstep(0.52, 0.78, f) * smoothstep(0.02, 0.25, h), 1.0, uCloud);
     float under = 1. - smoothstep(0.02, 0.5, h);
     vec3 cl = mix(uCloudDark, uCloudLit, clamp(0.35 + 0.65 * under, 0., 1.)) + uAfterglow * tw * 0.6;
-    col = mix(col, cl, cov * 0.85);
+    cl *= 1. - uCloud * 0.22 * smoothstep(0.35, 0.75, f);
+    col = mix(col, cl, cov * mix(0.85, 1.0, uCloud));
     if (uDeep > 0.01) col += vec3(step(0.9965, hash(floor(d * 380.)))) * uDeep * 0.9 * smoothstep(0.08, 0.4, h) * (1. - cov);
   }
   gl_FragColor = vec4(col, 1.);
@@ -48,6 +50,7 @@ export interface SkyState {
   golden: number;
   night: number;
   deep: number;
+  cloud: number;
 }
 
 export class Sky {
@@ -59,7 +62,7 @@ export class Sky {
     uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uTrueSun: { value: new THREE.Vector3(0, 1, 0) },
     uWarm: { value: C(0xffc89a) }, uGolden: { value: 0 }, uSunCol: { value: C(0xfff2d8) }, uNight: { value: 0 },
     uDeep: { value: 0 }, uAfterglow: { value: C(0x000000) }, uCityGlow: { value: C(0x000000) },
-    uCloudLit: { value: C(0xffffff) }, uCloudDark: { value: C(0xdde3ea) },
+    uCloudLit: { value: C(0xffffff) }, uCloudDark: { value: C(0xdde3ea) }, uCloud: { value: 0 },
   };
   private env: THREE.Scene | null = null;
 
@@ -71,7 +74,7 @@ export class Sky {
   }
 
   // night: 0 by day .. 1 after sunset; deep: 0 at blue hour .. 1 in full night
-  set({ elDeg, sunDir, trueSun, golden, night, deep }: SkyState) {
+  set({ elDeg, sunDir, trueSun, golden, night, deep, cloud }: SkyState) {
     const u = this.u;
     const nightTop = mixC(C(0x1c3778), C(0x0a1430), deep), nightHor = mixC(C(0x4a62a8), C(0x1e2a52), deep);
     u.uTop.value.copy(mixC(mixC(C(0x4f8fd8), C(0x6f8fd0), golden * 0.5), nightTop, night));
@@ -89,7 +92,19 @@ export class Sky {
     u.uCityGlow.value.copy(C(0x8a5a6a)).multiplyScalar(0.35 * night);
     u.uCloudLit.value.copy(mixC(C(0xffffff), mixC(C(0x6a5f86), C(0x3a3550), deep), night));
     u.uCloudDark.value.copy(mixC(C(0xd8dfe8), mixC(C(0x223260), C(0x0e1428), deep), night));
-    this.horizon.copy(u.uHorizon.value).lerp(u.uWarm.value, golden * 0.4);
+    // overcast: one grey deck, lighter towards the horizon; at night lit dull orange-grey from below by the city's lights
+    const deckLit = mixC(C(0xc4c9cf), C(0x4a3c33), night), deckDark = mixC(C(0x8e959e), C(0x231d1a), night);
+    u.uCloudLit.value.lerp(deckLit, cloud);
+    u.uCloudDark.value.lerp(deckDark, cloud);
+    u.uHorizon.value.lerp(mixC(C(0xb8bdc2), C(0x3a2f29), night), cloud);
+    u.uTop.value.lerp(deckDark, cloud);
+    u.uWarm.value.lerp(u.uHorizon.value, cloud);
+    u.uGolden.value = golden * (1 - cloud);
+    u.uCityGlow.value.multiplyScalar(1 + cloud);
+    u.uAfterglow.value.multiplyScalar(1 - cloud);
+    u.uDeep.value = deep * (1 - cloud);
+    u.uCloud.value = cloud;
+    this.horizon.copy(u.uHorizon.value).lerp(u.uWarm.value, golden * 0.4 * (1 - cloud));
   }
 
   // a small copy of the sky to bake reflections from

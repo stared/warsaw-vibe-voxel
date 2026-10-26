@@ -20,11 +20,11 @@
   <!-- the loading caption, styled before any script or stylesheet arrives (same look as style.css #loading) -->
   <style>
     body { margin: 0; }
-    #loading { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
-    #loading-text { box-sizing: border-box; margin-top: 14px; width: 300px; padding: 7px 12px 13px; text-align: left !important; background: rgba(0,0,0,.78); color: #fff; text-align: center; font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+    #loading { position: fixed; inset: 0; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
+    #loading-text { position: fixed; left: 14px; top: 14px; color: #fff; font: 11px Inter, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }
   </style>
 </head>
-<body>
+<body class="loading">
   <div id="app"></div>
   <div id="labels"></div>
   <div id="loading"><div id="loading-text">Loading the map data…</div></div>

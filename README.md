@@ -122,6 +122,11 @@ Data the model is built from:
   - **Warsaw's green-areas database.** The city's *Baza Obiektów Zieleni*, as shown in the [mapa.um.warszawa.pl](https://mapa.um.warszawa.pl/) "Zieleń" map and served by its MapViewer data server. It gives each tree's inventory number, Polish and Latin species, trunk circumference, managing unit and data date, for 35 k trees in the area. It also includes the *Mapa Koron Drzew*, a remote-sensing map of tree crowns.
   - **The city's open-data tree inventory**, from [api.um.warszawa.pl](https://api.um.warszawa.pl/), surveyed 2010–13. It adds height, crown diameter and condition.
   - **OpenStreetMap** `natural=tree` nodes. They are used where the city database has no tree within 2 m.
+- **Seasons and weather** (`scripts/phenology.py`, `scripts/climate.py`):
+  - **[Deutscher Wetterdienst](https://opendata.dwd.de/climate_environment/CDC/)** phenological observations (source: Deutscher Wetterdienst, [Datenlizenz Deutschland – Namensnennung 2.0](https://www.govdata.de/dl-de/by-2-0)): when each species leafs out, colours and drops its leaves.
+  - **[iNaturalist](https://www.inaturalist.org/)** "Leaves" annotations, weekly counts, for the species the DWD does not record.
+  - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each species' canopy in autumn and summer, for the autumn colours; the photos are listed in `scripts/foliage_photos.json`.
+  - **[Open-Meteo](https://open-meteo.com/)** ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)): the historical archive (ERA5) for when snow can fall, and the current weather for "now".
 
 References used to check and curate details (these are not redistributed):
 - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each landmark. They are compared side by side with renders: facades, colours, bridge structure.
@@ -129,7 +134,7 @@ References used to check and curate details (these are not redistributed):
 - Architecture and construction press, and city announcements, for changes since the 2025 flight. Sources include [eurobuildcee.com](https://eurobuildcee.com/), [inzynierbudownictwa.pl](https://www.inzynierbudownictwa.pl/), [muratorplus.pl](https://architektura.muratorplus.pl/) and [um.warszawa.pl](https://um.warszawa.pl/). Each fact is cited with its link in [research.md](research.md) and [visual_ref.md](visual_ref.md).
 
 Software:
-- **Viewer:** [three.js](https://threejs.org/), [postprocessing](https://github.com/pmndrs/postprocessing), [N8AO](https://github.com/N8python/n8ao), [lil-gui](https://lil-gui.georgealways.com/) and [Vite](https://vite.dev/).
+- **Viewer:** [three.js](https://threejs.org/), [postprocessing](https://github.com/pmndrs/postprocessing), [N8AO](https://github.com/N8python/n8ao) and [Vite](https://vite.dev/).
 - **Data pipeline:** [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [Shapely](https://shapely.readthedocs.io/), [rasterio](https://rasterio.readthedocs.io/), [pyproj](https://pyproj4.github.io/pyproj/) and [Pillow](https://python-pillow.org/).
 - The look follows the MagicaVoxel renders by [ephtracy](https://ephtracy.github.io/).
 

@@ -1,0 +1,871 @@
+{
+ "_method": "Wikimedia Commons photos (640px thumbs) from '<taxon> in autumn/October/November' and '<taxon> in summer/July/August' categories (+ country/solitary/by-month subcats for sparse taxa), date-filtered by EXIF/metadata month (autumn: Oct-Nov; summer: Jun-Aug), Central European sources preferred, every photo visually checked (canopy of that taxon, no close-ups/bark/fruit/cultivars like copper beech, 'Frisia', 'Tristis'). Per image (top 75% of frame): drop sky (HSV hue 170-300 or V>0.85&S<0.35), V<0.15, S<0.2; 'green' = CIELAB hue angle 103-220 deg (HSV 70-160 was tested and misclassifies dark olive canopy, which sits at HSV 50-75). Per-image median in CIELAB, then per-taxon median across images. autumn_hex = median of non-green leaf pixels (all leaf pixels for Fraxinus and Alnus, which drop leaves green); summer_hex = median of green pixels. *_lit_hex = same but only the brighter half (by L*) of the masked pixels in each photo, i.e. sunlit leaves rather than crown self-shadow. green_fraction_autumn = green/(all leaf) pixels in the top half of frame, median over images; biased low because photos were chosen to show autumn colour, and includes some background vegetation.",
+ "_class_8b_note": "Fagus sylvatica measured separately as class '8b' (alongside Carpinus = 8).",
+ "1": {
+  "taxon": "Acer platanoides",
+  "autumn_hex": "#856223",
+  "autumn_lit_hex": "#ba8e3d",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#856223",
+  "autumn_allleaf_hex": "#826024",
+  "autumn_lab": [
+   44.1,
+   7.5,
+   39.9
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   72.4,
+   83.6
+  ],
+  "autumn_L_iqr": [
+   37.2,
+   47.1
+  ],
+  "summer_hex": "#3d4525",
+  "summer_lit_hex": "#565f36",
+  "summer_lab": [
+   27.9,
+   -9.8,
+   18.1
+  ],
+  "summer_lch_hue_iqr_deg": [
+   115.3,
+   127.9
+  ],
+  "green_fraction_autumn": 0.05,
+  "n_photos_autumn": 16,
+  "n_photos_summer": 10,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:20251015_klon_zwyczajny_Acer_platanoides_Panewniki_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Aleja_Klon%C3%B3w_w_Z%C5%82otym_Potoku,_20231029_1000_2603.jpg",
+   "https://commons.wikimedia.org/wiki/File:DSC_0001_Der_Spitzahorn_(Acer_platanoides).jpg",
+   "https://commons.wikimedia.org/wiki/File:Acer_in_Autumn.JPG",
+   "https://commons.wikimedia.org/wiki/File:Pomnik_przyrody_Klon_zwyczajny_przy_wej%C5%9Bciu_do_Ogrodu_Botanicznego_w_Warszawie_2020.jpg",
+   "https://commons.wikimedia.org/wiki/File:Aleja_Klonowa_w_Z%C5%82otym_Potoku_2022-10-17_(3).jpg",
+   "https://commons.wikimedia.org/wiki/File:2012-10-28_Am_Obersee_Berlin_10.jpg",
+   "https://commons.wikimedia.org/wiki/File:Ahorn_im_Herbst.jpg",
+   "https://commons.wikimedia.org/wiki/File:Spitzahorn_mit_Herbstlaub.jpg",
+   "https://commons.wikimedia.org/wiki/File:P%C3%B6rtschach_Wahli%C3%9Fstra%C3%9Fe_Herbstb%C3%A4ume_11102013_0546.jpg",
+   "https://commons.wikimedia.org/wiki/File:Aleja_Klon%C3%B3w_w_Z%C5%82otym_Potoku,_20231029_1003_2617.jpg",
+   "https://commons.wikimedia.org/wiki/File:Sch%C3%B6nb%C3%BChel-Aggsbach_Ruine_Aggstein-3495.jpg",
+   "https://commons.wikimedia.org/wiki/File:Ahorn_bei_Lich_01.JPG",
+   "https://commons.wikimedia.org/wiki/File:Aleja_Klon%C3%B3w_w_Z%C5%82otym_Potoku,_20231029_1002_2615.jpg",
+   "https://commons.wikimedia.org/wiki/File:Aleja_Klon%C3%B3w_w_Z%C5%82otym_Potoku,_20231029_1001_2609.jpg",
+   "https://commons.wikimedia.org/wiki/File:Drzewo_przy_drodze_pod_Ruszkowcem_w_wojew%C3%B3dztwie_%C5%9Bwi%C4%99tokrzyskim,_20251013_1638_4954.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Mlec_v_Hornich_Borech-I-07-2019-horni_bory.jpg",
+   "https://commons.wikimedia.org/wiki/File:Mlec_v_Hornich_Borech-IV-07-2019-horni_bory.jpg",
+   "https://commons.wikimedia.org/wiki/File:Mlec_v_Hornich_Borech-V-07-2019-horni_bory.jpg",
+   "https://commons.wikimedia.org/wiki/File:2022_Warszawa_park_Ujazdowski,_pomnikowy_klon,_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Mlec_v_Hornich_Borech-II-07-2019-horni_bory.jpg",
+   "https://commons.wikimedia.org/wiki/File:Pelh%C5%99imov,_javor_ml%C3%A9%C4%8D_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Javory_v_Adolfovic%C3%ADch_1,_od_jihu.jpg",
+   "https://commons.wikimedia.org/wiki/File:2023_Warszawa_Mehoffera_2,_klon_pospolity,_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20230711_Norway_maple_Silesian_Zoological_Garden_Chorz%C3%B3w_Klon_zwyczajny.jpg",
+   "https://commons.wikimedia.org/wiki/File:Javory_v_Adolfovic%C3%ADch_2,_od_severu.jpg"
+  ]
+ },
+ "2": {
+  "taxon": "Tilia cordata / platyphyllos / x europaea",
+  "autumn_hex": "#7a5c2f",
+  "autumn_lit_hex": "#a5853f",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#7a5c2f",
+  "autumn_allleaf_hex": "#785c2f",
+  "autumn_lab": [
+   41.3,
+   6.4,
+   30.3
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   79.2,
+   80.3
+  ],
+  "autumn_L_iqr": [
+   40.5,
+   42.8
+  ],
+  "summer_hex": "#4a542b",
+  "summer_lit_hex": "#656f3d",
+  "summer_lab": [
+   33.8,
+   -11.4,
+   22.3
+  ],
+  "summer_lch_hue_iqr_deg": [
+   114.1,
+   119.6
+  ],
+  "green_fraction_autumn": 0.014,
+  "n_photos_autumn": 9,
+  "n_photos_summer": 14,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Tilia_platyphyllos_-_La_Hulpe_(1a).JPG",
+   "https://commons.wikimedia.org/wiki/File:Dorflinde_viesen_2020-11-22_11.jpg",
+   "https://commons.wikimedia.org/wiki/File:Lipa_u_skoly-10-2018-mseno.jpg",
+   "https://commons.wikimedia.org/wiki/File:Deutsch-Griffen_Spitzwiesen_Filialkirche_Kastanienbaum_Linde_und_Wirtschaftsgebaeude_25102012_566.jpg",
+   "https://commons.wikimedia.org/wiki/File:%C5%BBwirki_i_wigury_w_warszawie_jesie%C5%84_aleja_lipowa.jpg",
+   "https://commons.wikimedia.org/wiki/File:2015-10-26_Goldener_Oktober_in_der_Herrenh%C3%A4user_Allee_im_Georgengarten_in_Hannover.jpg",
+   "https://commons.wikimedia.org/wiki/File:Mitterbach_Erlaufsee_Linde_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Msenska_lipa-1-II-10-2018-mseno.jpg",
+   "https://commons.wikimedia.org/wiki/File:Mitterbach_Hansbauer_Linde_01.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Lindenreihe_werben_glienick_2019-08-03_(2).jpg",
+   "https://commons.wikimedia.org/wiki/File:Hoesbach_LB01242_S.jpg",
+   "https://commons.wikimedia.org/wiki/File:Reichersberg_-_Kaiserlinde_-_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Linde_Buckow_DahmeMark_Dorfplatz_2019-08-04_(1).jpg",
+   "https://commons.wikimedia.org/wiki/File:Lipy_u_sochy_sv_Prokopa_v_Libosovicich-08-2018-Libosovice.jpg",
+   "https://commons.wikimedia.org/wiki/File:Winterlinde_Puchenau_NDM_-450cm.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_linde_glienick_2019-08-03_(11).jpg",
+   "https://commons.wikimedia.org/wiki/File:Hoesbach_ND05323_TiliaeCordatae.jpg",
+   "https://commons.wikimedia.org/wiki/File:Aspach_Stiblerlinde.JPG",
+   "https://commons.wikimedia.org/wiki/File:Lipa_v_Rymarove-07-2018-Rymarov.jpg",
+   "https://commons.wikimedia.org/wiki/File:Burg_Gleichen_Hof.JPG",
+   "https://commons.wikimedia.org/wiki/File:Lipa_u_krize_pod_Annenskou_studankou-07-2018-andelska_hora_ve_slezsku.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Linde_Buckow_DahmeMark_Dorfplatz_2019-08-04_(2).jpg",
+   "https://commons.wikimedia.org/wiki/File:Sommerlinde_rutzkau_dorfanger_20_2019-07-19_(5).jpg"
+  ]
+ },
+ "3": {
+  "taxon": "Fraxinus excelsior",
+  "autumn_hex": "#5f6031",
+  "autumn_lit_hex": "#929154",
+  "autumn_measure": "all leaf pixels",
+  "autumn_nongreen_hex": "#706438",
+  "autumn_allleaf_hex": "#5f6031",
+  "autumn_lab": [
+   39.6,
+   -8.2,
+   26.8
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   98.8,
+   110.1
+  ],
+  "autumn_L_iqr": [
+   33.3,
+   45.7
+  ],
+  "summer_hex": "#44522b",
+  "summer_lit_hex": "#5e6d3d",
+  "summer_lab": [
+   32.8,
+   -13.2,
+   20.9
+  ],
+  "summer_lch_hue_iqr_deg": [
+   122.9,
+   131.8
+  ],
+  "green_fraction_autumn": 0.439,
+  "n_photos_autumn": 15,
+  "n_photos_summer": 12,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:ND_0600-1_Gemeine_Esche_(Vetschau).jpg",
+   "https://commons.wikimedia.org/wiki/File:DSC0293_(22).jpgpodzim.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121002Friedhof_St_Johann3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fraxinus_excelsior,_Birmingham_-_2022-10-04_-_Andy_Mabbett_-_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121002Friedhof_St_Johann2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121019Hartbach05.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121028Hockenheimer_Rheinbogen05.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131009Fraxinus_excelsior.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131001Esche_Saarbruecken.jpg",
+   "https://commons.wikimedia.org/wiki/File:%D0%AF%D1%81%D0%B5%D0%BD%D1%8C_%D0%97%D0%BE%D0%BB%D0%BE%D1%82%D0%B0%D1%8F_%D0%BE%D1%81%D0%B5%D0%BD%D1%8C_%D0%A1%D0%B0%D1%80%D0%B0%D1%82%D0%BE%D0%B2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Arbre_jaune_au_parc_du_moulin_de_Chelles_3.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121019Hartbach14.jpg",
+   "https://commons.wikimedia.org/wiki/File:Arbre_jaune_au_parc_du_moulin_de_Chelles_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fall-_Europian_Ash.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121002Friedhof_St_Johann1.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Gemeine_Esche_Schlosspark_L%C3%BCbbenau20250727_3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fraxinus_excelsior_001.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Esche_an_der_Kirche_Gro%C3%9F_Ziescht_2019-08-04_(1).jpg",
+   "https://commons.wikimedia.org/wiki/File:Jesion_ze_znakiem_drogi_jakuba_i%C5%82awa.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Esche_Boltenhagen_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Esche_an_der_Kirche_Gro%C3%9F_Ziescht_2019-08-04_(14).jpg",
+   "https://commons.wikimedia.org/wiki/File:Fraxinus_excelsior_Jesion_wynios%C5%82y_2023-08-02_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Esche_an_der_Kirche_Gro%C3%9F_Ziescht_2019-08-04_(15).jpg",
+   "https://commons.wikimedia.org/wiki/File:Esche2august09.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130731Speyrer_Wald06.jpg",
+   "https://commons.wikimedia.org/wiki/File:ND_81110000506_Baumgruppe_vor_Schlo%C3%9F_Solitude_14.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Gemeine_Esche_Schlosspark_L%C3%BCbbenau20250727_2.jpg"
+  ]
+ },
+ "4": {
+  "taxon": "Robinia pseudoacacia",
+  "autumn_hex": "#71633c",
+  "autumn_lit_hex": "#9e8d59",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#71633c",
+  "autumn_allleaf_hex": "#6d633d",
+  "autumn_lab": [
+   42.5,
+   -0.4,
+   24.3
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   83.9,
+   91.7
+  ],
+  "autumn_L_iqr": [
+   35.0,
+   44.4
+  ],
+  "summer_hex": "#4a5b30",
+  "summer_lit_hex": "#6e8249",
+  "summer_lab": [
+   36.3,
+   -15.2,
+   22.8
+  ],
+  "summer_lch_hue_iqr_deg": [
+   123.2,
+   128.4
+  ],
+  "green_fraction_autumn": 0.237,
+  "n_photos_autumn": 9,
+  "n_photos_summer": 10,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:20121019Robinie_Friedhof_Hockenheim.jpg",
+   "https://commons.wikimedia.org/wiki/File:2024-11-09_16_08_47_Black_Locusts_changing_color_in_autumn_along_the_edge_of_the_forest_within_Ann_M._Banchoff_Park_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg",
+   "https://commons.wikimedia.org/wiki/File:2024-10-25_12_26_52_Black_Locusts_in_autumn_along_the_edge_of_the_forest_within_Ann_M._Banchoff_Park_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fabales_-_Robinia_pseudoacacia_in_autumn_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131109Robinie_Hockenheim.jpg",
+   "https://commons.wikimedia.org/wiki/File:2024-11-02_13_35_17_Black_Locusts_changing_color_in_autumn_along_the_edge_of_the_forest_within_Ann_M._Banchoff_Park_in_the_Mountainview_section_of_Ewing_Township,_Mercer_County,_New_Jersey.jpg",
+   "https://commons.wikimedia.org/wiki/File:2020-10-22_12_03_49_A_Black_Locust_turning_yellow_in_autumn_along_a_walking_path_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fabales_-_Robinia_pseudoacacia_in_autumn_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:2020-10-22_12_04_00_The_foliage_of_a_Black_Locust_turning_yellow_in_autumn_along_a_walking_path_in_the_Franklin_Farm_section_of_Oak_Hill,_Fairfax_County,_Virginia.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:2012-08-29_ND_Robinie_in_Mutzschen,_Sachsen_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Robinie_in_Witzling_am_31.8.2025_(2).jpg",
+   "https://commons.wikimedia.org/wiki/File:20120812Friedhof_Hockenheim3.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120817Robinie_Hockenheim11.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120812Friedhof_Hockenheim2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120817Robinie_Hockenheim09.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130817Robinia_pseudoacacia2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120817Robinie_Hockenheim3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Atat%C3%BCrk_Arboretumu_05,_2025-06-13.jpg",
+   "https://commons.wikimedia.org/wiki/File:Robinie_jannowitz_2020-07-04_2.jpg"
+  ]
+ },
+ "5": {
+  "taxon": "Quercus robur",
+  "autumn_hex": "#664c2f",
+  "autumn_lit_hex": "#8d6f49",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#664c2f",
+  "autumn_allleaf_hex": "#6c5231",
+  "autumn_lab": [
+   34.3,
+   7.0,
+   21.6
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   67.6,
+   79.4
+  ],
+  "autumn_L_iqr": [
+   26.5,
+   44.5
+  ],
+  "summer_hex": "#354124",
+  "summer_lit_hex": "#485730",
+  "summer_lab": [
+   25.9,
+   -11.0,
+   16.6
+  ],
+  "summer_lch_hue_iqr_deg": [
+   118.8,
+   134.0
+  ],
+  "green_fraction_autumn": 0.017,
+  "n_photos_autumn": 10,
+  "n_photos_summer": 10,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Quercus_robur_St._Marein_20151026.JPG",
+   "https://commons.wikimedia.org/wiki/File:Quercus_robur_TK_2021-10-28_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Nat_museum_Poznan.jpg",
+   "https://commons.wikimedia.org/wiki/File:Dub_u_Vokat%C3%BDch_(Lu%C4%8Dkovice).JPG",
+   "https://commons.wikimedia.org/wiki/File:Dub_v_Dobrn%C3%A9m.JPG",
+   "https://commons.wikimedia.org/wiki/File:ND_30_Stieleiche_(Landshut)_6.11.2023.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Stieleiche_Mark_Schoenstaedt-03.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_Stieleiche_wusterwitz_2020-11-22_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:2015-10-31_Eiche_Daffingerstra%C3%9Fe_1_V3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Pyramideneiche_im_Berggarten_Hannover_01.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Stieleiche_hosena_2023-08-26_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Szypu%C5%82kowy_i_czerwony_d%C4%99by_w_parku_angielsko-chi%C5%84skim_wilan%C3%B3w.jpg",
+   "https://commons.wikimedia.org/wiki/File:Waldaschaff_LB01261_treetop.jpg",
+   "https://commons.wikimedia.org/wiki/File:Dwa_pomnikowe_d%C4%99by_w_parku_angielsko-chi%C5%84skim_wilan%C3%B3w.jpg",
+   "https://commons.wikimedia.org/wiki/File:Wunsiedel,_Einheitsb%C3%A4ume,_Eiche_2023,_Sommer,_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Senftenberg_Stieleiche_Gro%C3%9Fkoschen_Naturdenkmal_lub_2023-08-24.jpg",
+   "https://commons.wikimedia.org/wiki/File:Sautin_-_Quercus_robur_-_Ch%C3%AAne_de_la_Jeunesse.jpg",
+   "https://commons.wikimedia.org/wiki/File:Waldaschaff_LB01261.jpg",
+   "https://commons.wikimedia.org/wiki/File:Senftenberg_Dorfkirche_Gro%C3%9Fkoschen_lub_2023-08-24_img01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Stieleiche_hosena_2023-08-26_1.jpg"
+  ]
+ },
+ "6": {
+  "taxon": "Populus nigra / x canadensis",
+  "autumn_hex": "#776532",
+  "autumn_lit_hex": "#9e8a48",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#776532",
+  "autumn_allleaf_hex": "#736434",
+  "autumn_lab": [
+   43.5,
+   0.4,
+   31.0
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   82.7,
+   92.9
+  ],
+  "autumn_L_iqr": [
+   36.9,
+   47.7
+  ],
+  "summer_hex": "#4d5a35",
+  "summer_lit_hex": "#6f7e52",
+  "summer_lab": [
+   36.3,
+   -12.4,
+   20.0
+  ],
+  "summer_lch_hue_iqr_deg": [
+   117.9,
+   124.6
+  ],
+  "green_fraction_autumn": 0.117,
+  "n_photos_autumn": 12,
+  "n_photos_summer": 10,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Z%C3%BCrichhorn_2011-10-14_16-03-50.JPG",
+   "https://commons.wikimedia.org/wiki/File:Z%C3%BCrichhorn_2010-10-08_16-59-02.JPG",
+   "https://commons.wikimedia.org/wiki/File:Hrbkuv_topol-IV-10-2020-velka_lecice.jpg",
+   "https://commons.wikimedia.org/wiki/File:1-DSCN8170_T%C5%AF%C5%88_u_Hrobic.jpg",
+   "https://commons.wikimedia.org/wiki/File:Retamoso.jpg",
+   "https://commons.wikimedia.org/wiki/File:PopulusNigra3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Pappelkronen_im_Herbst.JPG",
+   "https://commons.wikimedia.org/wiki/File:Madrid,_Cu%C3%B1a_Verde_2022_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Poplars_Lisbon_November_2025-2.jpg",
+   "https://commons.wikimedia.org/wiki/File:2025-11-18_10_29_54_Lombardy_Poplar_changing_color_in_autumn_along_Glen_Mawr_Drive_in_Ewing_Township,_Mercer_County,_New_Jersey.jpg",
+   "https://commons.wikimedia.org/wiki/File:%D0%A7%D0%B5%D1%80%D0%BD%D0%B0_%D1%82%D0%BE%D0%BF%D0%BE%D0%BB%D0%B0_4.jpg",
+   "https://commons.wikimedia.org/wiki/File:Vitoria_-_Camino_de_Arkaia_al_Alto_de_las_Neveras_02.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_kz01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_in_Velk%C3%A1_Byst%C5%99ice_1b.jpg",
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_kz1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_kz04.jpg",
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_in_Velk%C3%A1_Byst%C5%99ice_2b.jpg",
+   "https://commons.wikimedia.org/wiki/File:Wojs%C5%82awice,_arboretum,_Topol_%C4%8Dern%C3%BD.jpg",
+   "https://commons.wikimedia.org/wiki/File:Pyramiden-Pappel_Passau.JPG",
+   "https://commons.wikimedia.org/wiki/File:Must_pappel_Kivik%C3%BClas.jpg",
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_in_Velk%C3%A1_Byst%C5%99ice_1a.jpg",
+   "https://commons.wikimedia.org/wiki/File:Populus_nigra_in_Velk%C3%A1_Byst%C5%99ice_2a.jpg"
+  ]
+ },
+ "7": {
+  "taxon": "Aesculus hippocastanum",
+  "autumn_hex": "#785930",
+  "autumn_lit_hex": "#957243",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#785930",
+  "autumn_allleaf_hex": "#775932",
+  "autumn_lab": [
+   40.1,
+   8.0,
+   28.1
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   68.8,
+   77.3
+  ],
+  "autumn_L_iqr": [
+   34.3,
+   45.3
+  ],
+  "summer_hex": "#4b512f",
+  "summer_lit_hex": "#6c7246",
+  "summer_lab": [
+   33.0,
+   -8.6,
+   19.3
+  ],
+  "summer_lch_hue_iqr_deg": [
+   114.5,
+   115.8
+  ],
+  "green_fraction_autumn": 0.021,
+  "n_photos_autumn": 12,
+  "n_photos_summer": 9,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Autumn_trees_in_Dresden.jpg",
+   "https://commons.wikimedia.org/wiki/File:MKBler_-_100_-_Gemeine_Rosskastanie_Eigenheimstra%C3%9Fe.jpg",
+   "https://commons.wikimedia.org/wiki/File:Gammel_Holtegaard_tree.jpg",
+   "https://commons.wikimedia.org/wiki/File:MKBler_-_99_-_Gemeine_Rosskastanie_Eigenheimstra%C3%9Fe.jpg",
+   "https://commons.wikimedia.org/wiki/File:2011-11-06_14-07-05_Switzerland_Kanton_Schaffhausen_D%C3%B6rflingen,_Laag.jpg",
+   "https://commons.wikimedia.org/wiki/File:MKBler_-_97_-_Gemeine_Rosskastanie_Eigenheimstra%C3%9Fe.jpg",
+   "https://commons.wikimedia.org/wiki/File:MKBler_-_98_-_Gemeine_Rosskastanie_Eigenheimstra%C3%9Fe.jpg",
+   "https://commons.wikimedia.org/wiki/File:Dresden_(2989685997).jpg",
+   "https://commons.wikimedia.org/wiki/File:Kastanie_neben_der_Christopherus-Kirche_in_Bornum,_Stadt_K%C3%B6nigslutter.jpg",
+   "https://commons.wikimedia.org/wiki/File:Chestnut_tree_in_Paris_(1).jpg",
+   "https://commons.wikimedia.org/wiki/File:Viale_degli_Ippocastani,_Villa_Ada.jpg",
+   "https://commons.wikimedia.org/wiki/File:Butteryhorsechestnut.JPG"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Kastanienallee_oderin_2021-08-13_3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_rosskastanie_dorfstra%C3%9Fe_wahlsdorf_2019-08-04_(2).jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_rosskastanie_baruth_ortsausgang_2019-08-04_(1).jpg",
+   "https://commons.wikimedia.org/wiki/File:Rosskastanien_Aesculus_hippocastanum_7499.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_rosskastanie_dorfstra%C3%9Fe_wahlsdorf_2019-08-04_(3).jpg",
+   "https://commons.wikimedia.org/wiki/File:Kastanienallee_oderin_2021-08-13_12.jpg",
+   "https://commons.wikimedia.org/wiki/File:Kastanienallee_oderin_2021-08-13_14.jpg",
+   "https://commons.wikimedia.org/wiki/File:Kastanienallee_oderin_2021-08-13_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Naturdenkmal_rosskastanie_dorfstra%C3%9Fe_wahlsdorf_2019-08-04_(1).jpg"
+  ]
+ },
+ "8": {
+  "taxon": "Carpinus betulus",
+  "autumn_hex": "#7e6836",
+  "autumn_lit_hex": "#a38845",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#7e6836",
+  "autumn_allleaf_hex": "#7d6835",
+  "autumn_lab": [
+   45.1,
+   1.9,
+   30.9
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   76.5,
+   90.3
+  ],
+  "autumn_L_iqr": [
+   43.2,
+   47.4
+  ],
+  "summer_hex": "#486232",
+  "summer_lit_hex": "#75914b",
+  "summer_lab": [
+   38.5,
+   -19.3,
+   24.2
+  ],
+  "summer_lch_hue_iqr_deg": [
+   122.5,
+   127.8
+  ],
+  "green_fraction_autumn": 0.025,
+  "n_photos_autumn": 15,
+  "n_photos_summer": 10,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Z%C3%BCrichhorn_2010-11-04_15-11-38.JPG",
+   "https://commons.wikimedia.org/wiki/File:Botanischer_Garten_Berlin-Dahlem_10-2014_photo24_Carpinus_betulus.jpg",
+   "https://commons.wikimedia.org/wiki/File:Z%C3%BCrich_-_Seefeld_IMG_0061.JPG",
+   "https://commons.wikimedia.org/wiki/File:Nordborchen_-_Hainbuche_am_Mallinckrodthof_im_Oktober.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131109Hainbuche_Hockenheim3.jpg",
+   "https://commons.wikimedia.org/wiki/File:20141107Carpinus_betulus.jpg",
+   "https://commons.wikimedia.org/wiki/File:20141031Carpinus_betulus3.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131115Carpinus_betulus3.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131115Carpinus_betulus2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131109Hainbuche_Hockenheim1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20141031Carpinus_betulus1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131115Carpinus_betulus1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131111Hainbuche_Ebertpark2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20141031Carpinus_betulus2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Carpinus_betulus_%27Fastigiata%27_Dublin_P1310089.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:R%C3%BCckers_(Kreis_Fulda)_Naturdenkmal_im_Hermannswinkel_(an_der_Grenze_zu_Hutten).JPG",
+   "https://commons.wikimedia.org/wiki/File:Carpinus_betulus_Prague_2013_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Carpinus_betulus_Prague_2013_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130802Carpinus_betulus1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130708Hainbuche_Marlach1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Carpinus_betulus_01_by_Line1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Nordborchen_-_Hainbuche_am_Mallinckrodthof.jpg",
+   "https://commons.wikimedia.org/wiki/File:Carpinus_betulus_(G%C3%BCrgen).JPG",
+   "https://commons.wikimedia.org/wiki/File:20160719_1614_284_szlichtyngowa-park-carpinus-pah-3-mk-a.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130816Hainbuche.jpg"
+  ]
+ },
+ "8b": {
+  "taxon": "Fagus sylvatica",
+  "autumn_hex": "#775a23",
+  "autumn_lit_hex": "#a6823a",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#775a23",
+  "autumn_allleaf_hex": "#765b26",
+  "autumn_lab": [
+   40.0,
+   5.7,
+   35.1
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   65.6,
+   87.1
+  ],
+  "autumn_L_iqr": [
+   35.3,
+   45.8
+  ],
+  "summer_hex": "#48662c",
+  "summer_lit_hex": "#6c8c3c",
+  "summer_lab": [
+   39.7,
+   -21.8,
+   29.2
+  ],
+  "summer_lch_hue_iqr_deg": [
+   122.5,
+   131.2
+  ],
+  "green_fraction_autumn": 0.119,
+  "n_photos_autumn": 13,
+  "n_photos_summer": 6,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Rau%C3%B0beyki_-_Fagus_sylvatica_-_haust_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fagus_sylvatica_Herbstlaub_01.JPG",
+   "https://commons.wikimedia.org/wiki/File:0_Marche-en-Famenne_-_Jardin_de_la_maison_Jadot.jpg",
+   "https://commons.wikimedia.org/wiki/File:0_La_Hulpe_-_%C3%89tang_de_la_Longue_Queue_(1).JPG",
+   "https://commons.wikimedia.org/wiki/File:Transene_ombion_hesse.JPG",
+   "https://commons.wikimedia.org/wiki/File:P%C3%B6rtschach_Halbinsel_Landschaftspark_Herbecks_Ruhe_19112023_0169.jpg",
+   "https://commons.wikimedia.org/wiki/File:Buchen_bei_Altenbrak_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Rau%C3%B0beyki_-_Fagus_sylvatica_-_haust_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:P%C3%B6rtschach_Hans-Pruscha-Weg_Buchen_04112012_418.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fagus_sylvatica_Herbstlaub_02.JPG",
+   "https://commons.wikimedia.org/wiki/File:Fagus_sylvatica_Herbstlaub_05.jpg",
+   "https://commons.wikimedia.org/wiki/File:Beech_forest_in_Krajna_(4).jpg",
+   "https://commons.wikimedia.org/wiki/File:Puszcza_Bukowa_kz01.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Fagus_sylvatica_JPG1a.jpg",
+   "https://commons.wikimedia.org/wiki/File:Fagus_sylvatica_Buk_zwyczajny_2018-07-02_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Vilm_014.jpg",
+   "https://commons.wikimedia.org/wiki/File:Vilm_022.jpg",
+   "https://commons.wikimedia.org/wiki/File:Sch%C3%B6nwalde-Glien,_Einheitsb%C3%A4ume,_Buche_2024,_Sommer,_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Vilm_029.jpg"
+  ]
+ },
+ "9": {
+  "taxon": "Betula pendula",
+  "autumn_hex": "#866b41",
+  "autumn_lit_hex": "#aa8e59",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#866b41",
+  "autumn_allleaf_hex": "#846b44",
+  "autumn_lab": [
+   47.0,
+   4.8,
+   27.6
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   77.8,
+   85.9
+  ],
+  "autumn_L_iqr": [
+   42.1,
+   49.6
+  ],
+  "summer_hex": "#586036",
+  "summer_lit_hex": "#77804c",
+  "summer_lab": [
+   39.0,
+   -10.5,
+   22.9
+  ],
+  "summer_lch_hue_iqr_deg": [
+   112.7,
+   122.7
+  ],
+  "green_fraction_autumn": 0.035,
+  "n_photos_autumn": 14,
+  "n_photos_summer": 9,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Betula_in_Autumn.jpg",
+   "https://commons.wikimedia.org/wiki/File:Berlin_20261004_Friedhof_Reinickendorf_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Herbstliche_Birken.JPG",
+   "https://commons.wikimedia.org/wiki/File:Millst%C3%A4tter_Berg_Birke_Lammersdorf.JPG",
+   "https://commons.wikimedia.org/wiki/File:Schmannewitz_Birke_im_Herbstlaub.jpg",
+   "https://commons.wikimedia.org/wiki/File:Birke_bei_Ebersburg_im_Herbst.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121113Birke_Hockenheim.jpg",
+   "https://commons.wikimedia.org/wiki/File:H%C3%A4nge-Birken_B%C3%A4rnzell.JPG",
+   "https://commons.wikimedia.org/wiki/File:Silver_birch_Betula_pendula_in_Autumn_Bounds_Green_Road_Wood_Green_London_England.jpg",
+   "https://commons.wikimedia.org/wiki/File:Gold_and_blue.jpg",
+   "https://commons.wikimedia.org/wiki/File:Betula_pendula_(fall_colors)_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121024Katzengraben05.jpg",
+   "https://commons.wikimedia.org/wiki/File:Weeping_Birch,_Highcomb_Bottom_-_geograph.org.uk_-_1562430.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131111Birke_Hockenheim.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:2012-07-04_Wildpark_G%C3%BCstrow_09.jpg",
+   "https://commons.wikimedia.org/wiki/File:Tatar_Reservoir_-_sports_and_recreation_area_Rawa_Mazowiecka_(12).jpg",
+   "https://commons.wikimedia.org/wiki/File:Waldfriedhof_Birke_8669.jpg",
+   "https://commons.wikimedia.org/wiki/File:Poland_Horowe_Bagno_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Groemitz_St_Nicolai_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Betula_pendula_(2144984506).jpg",
+   "https://commons.wikimedia.org/wiki/File:Radrennbahn_mit_Birken_03.jpg",
+   "https://commons.wikimedia.org/wiki/File:Rosengarten_Forst,_Birke_am_Rand_des_Heidegartens_(vom_Lindenweg),_Sommer,_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Tatar_Reservoir_-_sports_and_recreation_area_Rawa_Mazowiecka_(13).jpg"
+  ]
+ },
+ "10": {
+  "taxon": "Sorbus aucuparia",
+  "autumn_hex": "#7d482d",
+  "autumn_lit_hex": "#9a6b42",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#7d482d",
+  "autumn_allleaf_hex": "#774c2b",
+  "autumn_lab": [
+   36.5,
+   19.7,
+   25.6
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   52.4,
+   56.0
+  ],
+  "autumn_L_iqr": [
+   32.8,
+   41.8
+  ],
+  "summer_hex": "#4d6032",
+  "summer_lit_hex": "#778b51",
+  "summer_lab": [
+   38.1,
+   -16.0,
+   24.0
+  ],
+  "summer_lch_hue_iqr_deg": [
+   118.5,
+   130.5
+  ],
+  "green_fraction_autumn": 0.025,
+  "n_photos_autumn": 9,
+  "n_photos_summer": 9,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Punetav_pihlapuu.jpg",
+   "https://commons.wikimedia.org/wiki/File:Ben%C3%AD%C5%A1ky,_2022_(13).jpg",
+   "https://commons.wikimedia.org/wiki/File:Selfors_sykehjem_20221013_102959.jpg",
+   "https://commons.wikimedia.org/wiki/File:Rowan_tree_20081002b.jpg",
+   "https://commons.wikimedia.org/wiki/File:Sorbus_aucuparia_(10510397606).jpg",
+   "https://commons.wikimedia.org/wiki/File:Selfors_sykehjem_20221013_102945.jpg",
+   "https://commons.wikimedia.org/wiki/File:%D0%A0%D1%8F%D0%B1%D0%B8%D0%BD%D0%B0_%D0%BE%D1%81%D0%B5%D0%BD%D1%8C%D1%8E.JPG",
+   "https://commons.wikimedia.org/wiki/File:At_Manchester_2006_116.jpg",
+   "https://commons.wikimedia.org/wiki/File:Korpikyl%C3%A4-Me%C3%A4nmaa.JPG"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Aksi_pihlakas.JPG",
+   "https://commons.wikimedia.org/wiki/File:Stezka_lesem_v_%C3%BAdol%C3%AD_Dobrovodsk%C3%A9ho_potoka_(01).jpg",
+   "https://commons.wikimedia.org/wiki/File:Lothar_Path_-_Black_Forest_National_Park_-_Sorbus_aucuparia.jpg",
+   "https://commons.wikimedia.org/wiki/File:Eberesche,_G%C3%BCldensee_(JL)_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Jarz%C4%99bina_(Sorbus_aucuparia).jpg",
+   "https://commons.wikimedia.org/wiki/File:Sorbus_aucuparia_kpjas_19082005_3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Sorbus_aucuparia_sl1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Sorbus_aucuparia_kpjas_19082005_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Vogelbeerbaum.jpg"
+  ]
+ },
+ "11": {
+  "taxon": "Larix decidua",
+  "autumn_hex": "#8d7047",
+  "autumn_lit_hex": "#b39058",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#8d7047",
+  "autumn_allleaf_hex": "#836944",
+  "autumn_lab": [
+   49.2,
+   5.7,
+   27.0
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   73.1,
+   84.3
+  ],
+  "autumn_L_iqr": [
+   40.5,
+   54.9
+  ],
+  "summer_hex": "#535e36",
+  "summer_lit_hex": "#6b7645",
+  "summer_lab": [
+   38.0,
+   -11.4,
+   21.6
+  ],
+  "summer_lch_hue_iqr_deg": [
+   113.8,
+   124.2
+  ],
+  "green_fraction_autumn": 0.053,
+  "n_photos_autumn": 13,
+  "n_photos_summer": 12,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Archeological_Park_Cambodunum_in_Kempten_04.jpg",
+   "https://commons.wikimedia.org/wiki/File:Albeck_Sirnitz-Sonnseite_herbstlicher_Fichten-L%C3%A4rchen-Zirben-Wald_22112017_2035.jpg",
+   "https://commons.wikimedia.org/wiki/File:Scuol-Motta_Naluns,_11-10-2024._(actm.)_24.jpg",
+   "https://commons.wikimedia.org/wiki/File:Modrzew_Poznan.jpg",
+   "https://commons.wikimedia.org/wiki/File:Zur_sch%C3%B6nen_Aussicht_Gasthaus_Tromm_2011.JPG",
+   "https://commons.wikimedia.org/wiki/File:Albeck_Seebachern_Neuwirtalm_25102013_338.jpg",
+   "https://commons.wikimedia.org/wiki/File:Larix_decidua_Seckau_20151024_03.JPG",
+   "https://commons.wikimedia.org/wiki/File:Albeck_Seebachern_bizarre_Laerche_25102013_872.jpg",
+   "https://commons.wikimedia.org/wiki/File:Larix_decidua_in_autumn_(22434151784).jpg",
+   "https://commons.wikimedia.org/wiki/File:CH.VS.Zermatt_Sunnegga_Grindjisee_Matterhorn_9034_16x9-R_16K.jpg",
+   "https://commons.wikimedia.org/wiki/File:Albeck_Seebachern_Laerchenwald_25102013_878.jpg",
+   "https://commons.wikimedia.org/wiki/File:Larix_decidua_in_autumn_(23071142780).jpg",
+   "https://commons.wikimedia.org/wiki/File:Larix_decidua_G%C3%B6riacher_Alm_20221027.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Nenzing-Nenzinger_Himmel-Larix_decidua_(European_larch)-12ASD.jpg",
+   "https://commons.wikimedia.org/wiki/File:2011-08-01_12-21-22_Switzerland_Maloja.jpg",
+   "https://commons.wikimedia.org/wiki/File:Larix_decidua_001.JPG",
+   "https://commons.wikimedia.org/wiki/File:L%C3%A4rche_bei_Schloss_Rosenau_01_2014-07_NDM_ZT-162.jpg",
+   "https://commons.wikimedia.org/wiki/File:2022-08-12_Ramsau_Brandriedel_Austriah%C3%BCtte5.jpg",
+   "https://commons.wikimedia.org/wiki/File:20230721_Bad_Leonfelden_7816.jpg",
+   "https://commons.wikimedia.org/wiki/File:Eggeralm_Bad_Gastein_03.jpg",
+   "https://commons.wikimedia.org/wiki/File:Blick_ins_Hintere_Gschl%C3%B6%C3%9Ftal_e.jpg",
+   "https://commons.wikimedia.org/wiki/File:GrLachtalLaerche2013-08-12.JPG",
+   "https://commons.wikimedia.org/wiki/File:Silsersee_from_above_Sils-Segl_Maria.jpg",
+   "https://commons.wikimedia.org/wiki/File:Blick_ins_Hintere_Gschl%C3%B6%C3%9Ftal_b.jpg",
+   "https://commons.wikimedia.org/wiki/File:Rauchen%C3%B6dt_-_Filialkirche_hl_Michael_und_Naturdenkmal_L%C3%A4rche.jpg"
+  ]
+ },
+ "12": {
+  "taxon": "Salix alba",
+  "autumn_hex": "#655b39",
+  "autumn_lit_hex": "#82774e",
+  "autumn_measure": "non-green leaf pixels",
+  "autumn_nongreen_hex": "#655b39",
+  "autumn_allleaf_hex": "#5d5937",
+  "autumn_lab": [
+   39.0,
+   -1.5,
+   21.5
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   91.1,
+   95.8
+  ],
+  "autumn_L_iqr": [
+   37.5,
+   41.1
+  ],
+  "summer_hex": "#485434",
+  "summer_lit_hex": "#6b7951",
+  "summer_lab": [
+   33.8,
+   -11.1,
+   17.3
+  ],
+  "summer_lch_hue_iqr_deg": [
+   110.8,
+   125.7
+  ],
+  "green_fraction_autumn": 0.298,
+  "n_photos_autumn": 13,
+  "n_photos_summer": 21,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Bregenz-Wocherhafen-autumn-Salix_alba-10ASD.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121005Silberweide_Hockenheim1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121024Katzengraben06.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121023Hockenheimer_Rheinbogen2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121024Katzengraben16.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121024Katzengraben03.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121023Hockenheimer_Rheinbogen4.jpg",
+   "https://commons.wikimedia.org/wiki/File:20131109Silberweide1.jpg",
+   "https://commons.wikimedia.org/wiki/File:20141102Salix_alba2.jpg",
+   "https://commons.wikimedia.org/wiki/File:20141101Salix_alba.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121023Hockenheimer_Rheinbogen3.jpg",
+   "https://commons.wikimedia.org/wiki/File:20121024Katzengraben09.jpg",
+   "https://commons.wikimedia.org/wiki/File:Baysilberweidewind102023.jpg"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Wolfurt,_Silber-Weide_im_Ried.jpg",
+   "https://commons.wikimedia.org/wiki/File:Wyspa_m%C5%82y%C5%84ska_i%C5%82awa_wierzba_m%C5%82ynarka.jpg",
+   "https://commons.wikimedia.org/wiki/File:Salix_alba_-_Lake_Constance.jpg",
+   "https://commons.wikimedia.org/wiki/File:Weide_Euerbach,_2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Saules_avec_racines_a%C3%A9riennes.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130817Salix_alba3.jpg",
+   "https://commons.wikimedia.org/wiki/File:Detmold_-_2016-07-10_-_FM_ND_Weide_(004).jpg",
+   "https://commons.wikimedia.org/wiki/File:Silberweide_(Salix_alba).JPG",
+   "https://commons.wikimedia.org/wiki/File:Ruhland,_Badeanstalt_(Stra%C3%9Fe),_Trauerweide.jpg",
+   "https://commons.wikimedia.org/wiki/File:WTB_20220724_Ulrichsberg_M%C3%BCndung_Zaglauer_Bach_9946.jpg",
+   "https://commons.wikimedia.org/wiki/File:Emmering,_von_S%C3%BCdwesten_(3).jpg",
+   "https://commons.wikimedia.org/wiki/File:1999_Silber-Weide_3380.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120815Bach_Leopoldswiesen_Hockenheim15.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130817Silberweide_Hockenheim.jpg",
+   "https://commons.wikimedia.org/wiki/File:Archeda_River_05.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130802Salix_alba.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120815Bach_Leopoldswiesen_Hockenheim12.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120815Bach_Leopoldswiesen_Hockenheim07.jpg",
+   "https://commons.wikimedia.org/wiki/File:20120815Bach_Leopoldswiesen_Hockenheim11.jpg",
+   "https://commons.wikimedia.org/wiki/File:20130817Salix_alba1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Vph-silberweide-1.jpg"
+  ]
+ },
+ "13": {
+  "taxon": "Alnus glutinosa",
+  "autumn_hex": "#4b5738",
+  "autumn_lit_hex": "#68744d",
+  "autumn_measure": "all leaf pixels",
+  "autumn_nongreen_hex": "#544f3d",
+  "autumn_allleaf_hex": "#4b5738",
+  "autumn_lab": [
+   35.1,
+   -10.5,
+   16.4
+  ],
+  "autumn_lch_hue_iqr_deg": [
+   117.1,
+   127.8
+  ],
+  "autumn_L_iqr": [
+   31.2,
+   37.6
+  ],
+  "summer_hex": "#58693a",
+  "summer_lit_hex": "#7e9154",
+  "summer_lab": [
+   42.1,
+   -15.1,
+   24.1
+  ],
+  "summer_lch_hue_iqr_deg": [
+   116.9,
+   122.3
+  ],
+  "green_fraction_autumn": 0.97,
+  "n_photos_autumn": 12,
+  "n_photos_summer": 7,
+  "commons_autumn": [
+   "https://commons.wikimedia.org/wiki/File:Alnus_glutinosa_007.jpg",
+   "https://commons.wikimedia.org/wiki/File:Stawy_kellera_pomnikowa_olsza_ni%C5%BCsza.jpg",
+   "https://commons.wikimedia.org/wiki/File:Stawy_kellera_pomnikowa_olsza_ni%C5%BCsza_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Stawy_kellera_pomnikowa_olsza_ni%C5%BCsza_12.jpg",
+   "https://commons.wikimedia.org/wiki/File:Stawy_kellera_pomnikowa_olsza_wy%C5%BCsza_1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Stawy_kellera_pomnikowa_olsza_wy%C5%BCsza.jpg",
+   "https://commons.wikimedia.org/wiki/File:ID256527_Schwarzerle_294A5262.jpg",
+   "https://commons.wikimedia.org/wiki/File:Bresni%C4%8Dka_reka_6.JPG",
+   "https://commons.wikimedia.org/wiki/File:Crna_jova_5.JPG",
+   "https://commons.wikimedia.org/wiki/File:Alnetum_Bistarska_reka_2.JPG",
+   "https://commons.wikimedia.org/wiki/File:Alnus-glutinosa-20071110-2.jpg",
+   "https://commons.wikimedia.org/wiki/File:Bresni%C4%8Dka_reka_12.JPG"
+  ],
+  "commons_summer": [
+   "https://commons.wikimedia.org/wiki/File:Alnus_glutinosa_Olsza_czarna_2020-07-31_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Alnus_glutinosa_Olsza_czarna_2020-07-31_02.jpg",
+   "https://commons.wikimedia.org/wiki/File:Alnus_Olsza_2020-07-31_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Alnus_glutinosa_Jezioro_Bukowo_%C5%81azy_2016-07-03_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Oriolus_oriolus_Wilga_zwyczajna_2026-07-09_Wroc%C5%82aw_01.jpg",
+   "https://commons.wikimedia.org/wiki/File:Wojs%C5%82awice,_arboretum,_Ol%C5%A1e_lepkav%C3%A1.jpg",
+   "https://commons.wikimedia.org/wiki/File:Ostrow_Grabowski_kz01.jpg"
+  ]
+ }
+}

@@ -3,41 +3,47 @@
 html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* pinches zoom the map, never the page */ background: #1b1d22; font-family: Inter, system-ui, sans-serif; color: var(--ink); }
 #app canvas { display: block; }
 
-/* The bar: search, time, Vistula. One quiet card, top left; dark glass, white text, no folders, no headers. */
-#bar { --t2: rgba(255,255,255,.62); position: fixed; left: 14px; top: 14px; z-index: 5; width: 280px; padding: 6px 12px 10px; border-radius: 10px;
-  background: rgba(16,17,20,.62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #fff;
-  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; font-variant-numeric: tabular-nums; }
-#bar .search { position: relative; margin: 0 -6px 4px; }
-#bar .search input { width: 100%; height: 32px; border: 0; outline: 0; padding: 0 30px 0 28px; border-radius: 6px; background: transparent; color: #fff; font: inherit; font-size: 13px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='white' stroke-opacity='.6' stroke-width='1.6'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cpath d='M9.5 9.5L13 13'/%3E%3C/svg%3E") 8px 50% no-repeat; }
-#bar .search input:focus { background-color: rgba(255,255,255,.08); }
+/* The bar: search, date, time, weather, Vistula. Top left, like the key legend bottom left: no panel, white text with a dark halo, one line per row. */
+#bar { --t2: rgba(255,255,255,.62); position: fixed; left: 14px; top: 14px; z-index: 5; width: 340px; color: #fff;
+  font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }
+#bar .search { position: relative; margin: 0 0 4px; }
+#bar .search input { width: 100%; height: 24px; border: 0; border-bottom: 1px solid rgba(255,255,255,.55); outline: 0; padding: 0 30px 0 20px; background: transparent; color: #fff; font: inherit; font-size: 11.5px; text-shadow: inherit;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='white' stroke-opacity='.8' stroke-width='1.6'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cpath d='M9.5 9.5L13 13'/%3E%3C/svg%3E") 0 50% no-repeat; }
+#bar .search input:focus { border-bottom-color: #fff; }
 #bar .search input::placeholder { color: var(--t2); }
 #bar .search .x { position: absolute; right: 2px; top: 4px; width: 24px; height: 24px; border: 0; background: none; color: var(--t2); cursor: pointer; font-size: 11px; }
 #bar .search input:placeholder-shown + .x { display: none; }
 #bar .search ol { list-style: none; margin: 0; padding: 0; }
+#bar .search ol:not(:empty) { margin-top: 4px; padding: 3px; border-radius: 6px; background: rgba(16,17,20,.62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); text-shadow: none; }
 #bar .search li { display: flex; gap: 8px; padding: 5px 8px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
 #bar .search li span { overflow: hidden; text-overflow: ellipsis; }
 #bar .search li em { margin-left: auto; font-style: normal; color: var(--t2); }
 #bar .search li.sel, #bar .search li:hover { background: rgba(255,255,255,.1); }
 #bar .search li.none { color: var(--t2); cursor: default; white-space: normal; }
-#bar .row { display: block; padding-top: 6px; }
-#bar .val { display: block; color: var(--t2); margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#bar .track { position: relative; display: block; height: 16px; }
-#bar .track i { position: absolute; top: 3px; width: 9px; height: 10px; margin-left: -4.5px; cursor: pointer; z-index: 1; opacity: 0; transition: opacity .15s; }
-#bar .row:hover .track i { opacity: 1; } /* presets show only while you are at the slider */
-#bar .val .mark { color: rgba(255,255,255,.42); margin-left: 4px; }
-#bar .track i::after { content: ''; position: absolute; left: 4px; top: 2px; width: 1px; height: 6px; background: rgba(255,255,255,.45); }
-#bar .track i:hover::after { background: #fff; }
+/* every row alike: the value in white and a note in grey, then its control on the same line */
+#bar .row { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
+#bar .val { flex: 0 0 165px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bar .track, #bar .sky .choices { position: relative; flex: 1; display: flex; align-items: center; height: 16px; }
+#bar .val .mark { color: var(--t2); margin-left: 4px; }
 #bar input[type=range] { position: absolute; inset: 0; width: 100%; margin: 0; background: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
-#bar input[type=range]::-webkit-slider-runnable-track { height: 2px; background: rgba(255,255,255,.3); border-radius: 1px; }
-#bar input[type=range]::-moz-range-track { height: 2px; background: rgba(255,255,255,.3); }
-#bar input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,.25); position: relative; z-index: 2; }
-#bar input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; }
+#bar input[type=range]::-webkit-slider-runnable-track { height: 2px; background: rgba(255,255,255,.55); border-radius: 1px; box-shadow: 0 0 2px rgba(0,0,0,.6); }
+#bar input[type=range]::-moz-range-track { height: 2px; background: rgba(255,255,255,.55); box-shadow: 0 0 2px rgba(0,0,0,.6); }
+#bar input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 3px; height: 14px; margin-top: -6px; border-radius: 1px; background: #fff; box-shadow: 0 0 2px rgba(0,0,0,.8); position: relative; z-index: 2; }
+#bar input[type=range]::-moz-range-thumb { width: 3px; height: 14px; border: 0; border-radius: 1px; background: #fff; }
 #bar input[type=range]:disabled { opacity: .35; cursor: default; }
+#bar .sky .choices { column-gap: 8px; }
+#bar .sky button { padding: 0; border: 0; background: none; color: var(--t2); font: inherit; cursor: pointer; }
+#bar .sky button:hover, #bar .sky button.on { color: #fff; }
+#bar .sky button:disabled { display: none; }
 @media (max-width: 600px) { #bar { left: 8px; right: 8px; top: 8px; width: auto; } }
+@media (max-width: 600px), (max-height: 500px) {
+  #bar .val { flex-basis: 45%; }
+  #bar:has(.search li) .row { display: none; }
+}
+@media (max-height: 500px) { #bar { left: 8px; top: 8px; width: 330px; } }
 /* credits, bottom right: a small pill (attribution is required, not decoration) */
 #credits { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; position: fixed; right: 12px; bottom: 12px; z-index: 4; padding: 3px 9px; border-radius: 10px; background: rgba(16,17,20,.5); color: rgba(255,255,255,.7);
-  font: 10.5px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  font: 10.5px Inter, system-ui, sans-serif; }
 #credits a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.35); }
 .noui #bar, .noui #credits { display: none; }
 
@@ -58,6 +64,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .label span { display: block; font-weight: 500; font-size: 10.5px; line-height: 1.3; color: #e8e8e8; }
 .label p { display: flex; gap: 7px; margin: 0; }
 .label.left p { justify-content: flex-end; }
+.label p { display: flex; gap: 7px; margin: 0; }
+.label.left p { justify-content: flex-end; }
 .label p span { color: #b8b8b8; }
 .label.major b { font-size: 14.5px; }
 .label.hl b { color: var(--hl); }
@@ -67,25 +75,24 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .edge small { font: 500 10.5px Inter, system-ui, sans-serif; color: #fff; }
 .edge i { font-style: normal; display: inline-block; width: 14px; text-align: center; }
 
-#loading { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
-/* PROTOTYPE: the first moments look like the loading caption that follows (caption.js), not a separate page */
-#loading-text { box-sizing: border-box; margin-top: 14px; width: 300px; padding: 7px 12px 13px; text-align: left !important; background: rgba(0,0,0,.78); color: #fff; text-align: center;
-  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
-@media (max-width: 600px) { #loading-text { margin-top: 8px; min-width: 0; width: calc(100vw - 32px); } }
+#loading { position: fixed; inset: 0; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
+/* the first moments look like the loading caption that follows (caption.ts), and both like the controls that replace them: top left, white text with a halo, no box */
+#loading-text { position: fixed; left: 14px; top: 14px; color: #fff; font: 11px Inter, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }
+@media (max-width: 600px) { #loading-text { left: 8px; top: 8px; } }
 #loading.hidden { display: none; } /* at once: the caption takes over in the same place */
 .noui #labels { display: none !important; }
 
 
 /* HUD: a legend, not a control panel -- outlines only, semi-transparent, never in the way of the pointer */
 #hud { --o: rgba(255,255,255,.55); position: fixed; left: 14px; bottom: 14px; z-index: 4; pointer-events: none;
-  font: 11px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+  font: 11px Inter, system-ui, sans-serif; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
 #hud .who { font-weight: 600; color: #fff; margin-bottom: 6px; }
 #hud .who:empty { display: none; }
 #hud .row { display: flex; align-items: flex-end; gap: 16px; }
 #hud .keys { display: grid; grid-template-columns: repeat(3, 30px); gap: 4px; }
 #hud .cap { position: relative; display: block; height: 30px; min-width: 30px; border: 1px solid var(--o); border-radius: 5px; box-sizing: border-box;
   box-shadow: 0 0 2px rgba(0,0,0,.45), inset 0 0 2px rgba(0,0,0,.3); font: 600 12px ui-monospace, Menlo, monospace; padding: 3px 0 0 5px; transition: background .08s, border-color .08s; }
-#hud .cap i { position: absolute; right: 4px; bottom: 1px; font: 12px -apple-system, sans-serif; font-style: normal; opacity: .75; }
+#hud .cap i { position: absolute; right: 4px; bottom: 1px; font: 12px Inter, system-ui, sans-serif; font-style: normal; opacity: .75; }
 #hud .on.cap, #hud .on .cap { background: rgba(255,255,255,.28); border-color: #fff; }
 #hud .mouse { display: flex; gap: 10px; }
 #hud figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -94,15 +101,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 #hud svg .btn { fill: var(--o); stroke: none; }
 #hud .on svg { stroke: #fff; } #hud .on svg .btn { fill: #fff; }
 #hud figcaption { font-size: 10.5px; }
-#hud .touch { max-width: 70vw; }
 @media (max-width: 600px) { #hud { left: 8px; bottom: 8px; } }
 .noui #hud { display: none; }
-/* PROTOTYPE: what the city is building while it fills in (caption.js) */
-.caption { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;
-  width: 300px; font-variant-numeric: tabular-nums; max-width: calc(100vw - 32px); padding: 7px 12px 6px; background: rgba(0,0,0,.78); color: #fff;
-  font: 12px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; text-align: center; transition: opacity .6s; }
+/* what the city is building while it fills in (caption.ts), where the controls will appear */
+.caption { position: fixed; left: 14px; top: 14px; z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;
+  width: 340px; max-width: calc(100vw - 16px); color: #fff; font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); transition: opacity .6s; }
 .caption.off { opacity: 0; }
 .caption .txt { display: flex; justify-content: space-between; white-space: nowrap; }
-.caption .bar { position: relative; height: 2px; background: #333; }
-.caption .bar i { display: block; height: 100%; width: 0; background: #2fa1d6; transition: width .3s; }
-@media (max-width: 600px) { .caption { top: 8px; min-width: 0; width: calc(100vw - 32px); } }
+.caption .bar { position: relative; height: 2px; border-radius: 1px; background: rgba(255,255,255,.3); box-shadow: 0 0 2px rgba(0,0,0,.6); }
+.caption .bar i { display: block; height: 100%; width: 0; border-radius: 1px; background: #fff; transition: width .3s; }
+@media (max-width: 600px) { .caption { left: 8px; right: 8px; top: 8px; width: auto; max-width: none; } }
+#bar, #labels, #hud { transition: opacity .6s; }
+.loading #bar, .loading #labels, .loading #hud { opacity: 0; pointer-events: none; }

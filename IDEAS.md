@@ -15,100 +15,41 @@ Goal: the same city under different weather and seasons, chosen from the menu (a
   - The sky runs from orange at the horizon to blue overhead. The fog top is lit warm on the sunward side and grey-beige below.
   - This is the test scene for fog: the same camera, at sunrise in October.
 
-### How
-One `weather` state, made only of shader uniforms and light settings, so switching never rebuilds geometry:
-- `date`: the season
-- `cloud`, `fog` (depth, density), `rain`, `snow`, `wet`, `wind`
+### Built (Oct 2026)
+- **Date and time** (`web/src/sun.ts`): the sun over Warsaw for any day (NOAA declination and equation of time, Polish clock time with CEST). The named hours (morning, midday, golden hour, blue hour, night) move with the sun.
+- **Weather** (`web/src/weather.ts`), one state of uniforms and lights, no geometry rebuilt: clear, overcast, fog, rain, snow, and **now** (Open-Meteo, no key: cloud, rain, snowfall, snow depth, visibility, fog codes).
+  - Fog: a post-process ground fog from the depth buffer, dense below ~60 m over the river, thinning above, swells on its top, lit warm towards a low sun.
+  - Overcast: a grey deck in the sky shader, the sun dimmed to almost nothing, light from the whole sky.
+  - Rain: wet surfaces (darker, glossy, puddles), streaks round the camera. Snow: white on what faces up, ploughed grey slush on streets, flakes.
+- **Foliage** (`scripts/phenology.py`, `web/src/foliage.ts`): every crown follows its tree's species through the year. See the calendar below.
 
-Presets in the menu:
-- Clear
-- Overcast
-- Morning fog
-- Rain
-- Snow
-- **Now**: one click sets today's date, the current Warsaw time and the live weather, from Open-Meteo (no key needed).
-  - The live weather covers cloud, fog/visibility, rain and snow.
-  - It is a nice easter egg: the city as it is right now.
-
-1. **Height fog first.** Today we have only distance fog (`THREE.Fog`, horizon colour, 2.5–7 km).
-   - Real ground fog depends on height. Density falls off as `exp(-(y - top) / scale)` above a top of ~50 m.
-   - The fog is integrated along the view ray in the shared fog chunk (`onBeforeCompile`), so towers poke out.
-   - The top surface gets slow scrolling noise, so it reads as a "sea", not a flat cut.
-   - It is coloured by the sun: warm from above at a low sun, grey beneath.
-2. **Date / season slider.**
-   - The sun's declination in `sunAt()`, so sunrise, sunset and noon height follow the date.
-   - Tree foliage: green → yellow/orange (Oct) → bare (Dec–Mar). Grass colour too.
-   - People: count, clothing colours, umbrellas.
-   - A default Vistula level per season.
-   - Winter extras: Christmas lights (Krakowskie Przedmieście), the rink.
-3. **Overcast.**
-   - Clouds in the sky shader.
-   - Sun dimmed and shadows softened; more ambient light.
-   - The haze comes closer.
-4. **Rain.**
-   - Wet streets: darker, lower roughness, with reflections, plus noise-masked puddles.
-   - Streak particles only around the camera.
-   - Fewer pedestrians, and umbrellas.
-5. **Snow.**
-   - White on up-facing voxel faces (a normal.y mask plus noise), on roofs and lawns but not on walls.
-   - Flakes near the camera.
-   - Ice along the Vistula banks in a hard frost.
+### Still open
+- Check each preset against dated photos from the same viewpoint (the fog one: the PGE Narodowy photo above).
+- Rain: fewer pedestrians, umbrellas; reflections of lamps in wet streets at night.
+- Snow: ice along the Vistula banks in a hard frost; lawns in winter without snow.
+- A default Vistula level per season; winter extras (Christmas lights on Krakowskie Przedmieście, the rink).
+- Grass colour through the year, from data.
 
 Check each preset against real photos, like the landmarks: same viewpoint, side by side.
 
 ### Foliage calendar: from data, never random
-Every colour and date must come from a source: phenology records, satellite or aerial imagery, dated photos.
-The table below is only my **unverified draft from general knowledge**. It says what to look for; nothing is built from it until each row has a source.
+Built: every crown follows its tree's species (`scripts/phenology.py`, `web/src/foliage.ts`). Species come from the city inventory, the Mapa Koron Drzew crown map and OSM (`scripts/trees.py`); each 2 m cell takes the class of the nearest trunk within 9 m.
 
-We already have the species of each tree, from the city inventory, the Mapa Koron Drzew crown map and OSM (`scripts/trees.py`), so each tree can follow its own species.
+**Dates, per class** (day of year; `web/public/data/phenology.json` has the spread and the source of each):
+- DWD phenological network (open data, stations east of 12.5° E, 1995–2024): leaf unfolding, autumn colouring (half coloured), leaf fall (half fallen). It has birch, oak, horse chestnut, beech, larch, and part of ash, rowan and alder.
+- It has nothing for Norway maple, lindens, poplars, and no autumn phases for ash and robinia. Those come from iNaturalist's "Leaves" annotations (Poland and neighbours, weekly), shifted by their median offset from the DWD on the species both have (colouring +10 d, leaf-out −5 d). Leaf fall = colouring + 17 d, the DWD's median gap.
+- Each tree draws its own offset from its class's measured spread, so a street does not turn as one.
+- City-wide medians, on the date slider: leaves out ~25 Apr, trees in colour ~16 Oct, leaves down ~2 Nov.
 
-| species (PL) | leaves out | autumn colour | colour from → bare by | notes |
-|---|---|---|---|---|
-| lipa (Tilia) – most common street tree | late Apr | yellow → brown | early Oct → late Oct | street lindens often brown/scorched by Aug (salt, drought) |
-| klon pospolity (Acer platanoides) | mid Apr | bright yellow, some orange | mid Oct → early Nov | the main colour of Warsaw autumn |
-| kasztanowiec (Aesculus) | mid Apr; white flower "candles" early May | rusty brown | leaves brown from **July–Aug** (leaf-miner moth) → Oct | |
-| brzoza (Betula) | early Apr (first) | golden yellow | mid Sep → late Oct | |
-| dąb szypułkowy (Quercus robur) | early–mid May (late) | yellow-brown | late Oct → Nov | young oaks keep dry brown leaves in winter |
-| dąb czerwony (Q. rubra) | early May | red → russet | Oct → Nov | |
-| buk (Fagus) | late Apr | copper-orange | late Oct → Nov | hedges and young beeches keep them all winter |
-| grab (Carpinus) | late Apr | yellow → brown | late Oct → Nov | hornbeam hedges keep their leaves in winter |
-| jesion (Fraxinus) | mid May (late) | falls almost green / dull yellow | early Oct → mid Oct | |
-| robinia | mid–late May (last); flowers late May | dull yellow | Oct → early Nov | |
-| topola, wierzba – Vistula banks | Mar (willows first) → Apr | yellow-green | late Oct → late Nov (willows last) | |
-| platan | late Apr | brown-ochre | late Oct → Nov | |
-| miłorząb (Ginkgo) | late Apr | brilliant yellow | late Oct → drops almost all in a few days, early Nov | |
-| modrzew (larch) | Apr | gold | late Oct → Nov | a conifer that goes bare |
-| sosna, świerk, cis | evergreen | — | — | |
-| dzikie wino (Parthenocissus) on walls | May | **scarlet** | late Sep → Oct | facades turn red; worth adding as a wall layer |
+**Assumed, not measured** (to replace with data):
+- Leaves take 14 days from first unfolding to a full crown; colouring and fall each ramp over ~3 weeks around their half-way dates.
+- Bare crowns keep ~30% of their voxels as grey-brown twigs; which voxels go first is a hash, not the real pattern (outer and upper first? to check in photos).
+- The DWD stations are in eastern Germany; Warsaw is a little more continental, and the city centre's heat island keeps leaves days to weeks longer.
 
-- **Peak colour in Warsaw is ~10–25 Oct.** Most trees are bare by mid-Nov.
-  - In the city centre (heat island) and under street lamps, leaves stay a few days to weeks longer.
-- **Spring order:** willows and birches (early Apr) → bird cherry, chestnut, maple (mid Apr) → linden, beech (late Apr) → oak, ash (early May) → robinia (mid May).
-- **Blossom moments:**
-  - Magnolias and cherries: mid–late Apr (Pole Mokotowskie, Ogród Saski).
-  - Chestnut candles: early May (exams time).
-  - Lilac: May.
-  - Linden in flower: late Jun–Jul.
-**Data to build it from:**
-- **Dates (when) from phenology records.**
-  - [PEP725](https://www.pep725.eu/) is the pan-European database: BBCH stages (leaf unfolding, autumn colouring, leaf fall) per species and year. It is free for research after registering.
-  - Check which Polish stations and species it has, and use IMGW-PIB's phenological observations for Warsaw if available.
-  - These give per-species mean dates and their real spread. The spread replaces the "±7 days" I had made up.
-- **Per tree, from space.** We have crown polygons (Mapa Koron Drzew).
-  - A Sentinel-2 time series (10 m, every few days, free) over each crown gives green-up and senescence dates, and the actual autumn colour, per tree or per group of trees.
-  - Urban crowns are small and shaded, so this needs care ([Granero-Belinchon et al. 2020](https://hal.archives-ouvertes.fr/hal-03035307) did it for street trees).
-  - PlanetScope (3 m) [works per crown](https://par.nsf.gov/servlets/purl/10410589). There, species explained 4× more of the variation in timing than location did, so species is the main key.
-- **Colours from dated photos.**
-  - Sample the canopy colour per species and per week from:
-    - geotagged, dated street-level photos (Mapillary, Wikimedia Commons, Street View history), matched to inventory trees at that spot;
-    - any aerial orthophoto that was flown in autumn or early spring. GUGiK flies cities every 2 years ([2025 Warsaw at 5 cm](https://www.geoportal.gov.pl/aktualnosci/nowe-dane-fotogrametryczne-w-pzgik-66/)); check the flight dates in the metadata.
-  - Today the crowns use a fixed palette of greens (`LEAVES` in `scripts/voxelize.py`), not data. The GUGiK 2025 orthophoto we already use could give each crown its real summer colour; its flight date tells the season.
-- **Validate** like the landmarks: our render on a given date, next to a dated photo from the same spot, e.g. Krakowskie Przedmieście lindens, Ogród Saski chestnuts, the Vistula willows.
-
-**How to render it:**
-- Each species gets measured numbers: leaf-out, colour start, peak and bare dates (with their measured spread), plus the colour sampled for each phase. Where a tree has satellite data, its own dates override the species dates.
-- Leaf loss removes crown voxels and shows the branches. Which voxels go first should follow the real pattern (outer and upper first? to check in photos), not a random hash.
-- Fallen leaves tint the ground under the crown, if photos show it lasting.
+**Still open:**
+- Validate like the landmarks: renders on given dates next to dated photos from the same spot (Krakowskie Przedmieście lindens, Ogród Saski chestnuts, the Vistula willows).
+- PEP725 (free after registering) or IMGW-PIB records for Polish stations; per-crown Sentinel-2 or PlanetScope time series ([Granero-Belinchon et al. 2020](https://hal.archives-ouvertes.fr/hal-03035307), [per crown](https://par.nsf.gov/servlets/purl/10410589)).
+- Summer crown colour from the GUGiK orthophoto per crown (today a fixed palette of greens, `LEAVES` in `scripts/voxelize.py`); young spring leaves; chestnuts browned by the leaf-miner from July; blossom (magnolias and cherries in April, chestnut candles in May, lindens in July); scarlet Virginia creeper on walls; fallen leaves on the ground.
 
 ## Night that looks like Warsaw at night
 

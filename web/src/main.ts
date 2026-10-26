@@ -5,6 +5,7 @@ import { Caption } from './caption';
 import { installCity } from './city';
 import { Daylight } from './daylight';
 import { Flood } from './flood';
+import { loadFoliage } from './foliage';
 import { Fountains } from './fountains';
 import { Hud } from './hud';
 import { Labels } from './labels';
@@ -15,7 +16,10 @@ import { StreetLife } from './sim/life';
 import type { Kind, TrafficData } from './sim/types';
 import { TileStreamer } from './stream';
 import type { Facts, Label, Meta, Place, View } from './types';
-import { $, coarsePointer, ease, el, fetchJson, lerp } from './util';
+import { dateOf, dayOfYear, hourAt, solarNoon } from './sun';
+import { $, coarsePointer, ease, el, fetchJson } from './util';
+import { liveWeather } from './live';
+import { describe, Precip, WEATHERS } from './weather';
 import type { World } from './world';
 import { makeUniforms, makeVoxelMaterial, type BuildUniforms, type Engine, type ZoneUniforms } from './voxelMaterial';
 import './style.css';
@@ -24,10 +28,12 @@ declare global {
   interface Window { __ready?: boolean; __three?: object; __life?: StreetLife; __streamer?: TileStreamer }
 }
 
-const TIMES = { morning: 7.5, midday: 13.0, 'golden hour': 17.7, 'blue hour': 20.95, night: 23.0 };
 // the Warszawa-Bulwary gauge in cm (the scale since 1 Nov 2025)
-const RIVER = { 'record low, Sep 2025': 104, 'as mapped': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
+const RIVER = { 'record low, Sep 2025': 104, '2025 survey': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
   'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the embankments': 1120 };
+
+const TODAY = dayOfYear(new Date());
+const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
 
 const qs = new URLSearchParams(location.search);
 const engine = pickEngine();
@@ -38,18 +44,21 @@ const controls = makeControls();
 const post = makePost(renderer, scene, camera);
 const daylight = new Daylight(renderer, scene);
 const nav = new Nav(camera, controls, renderer.domElement, scene, (v) => flyTo(v), onMode);
-const bar = new Bar({ times: TIMES, river: RIVER, onHour: (h, jump) => (jump ? animateTo(h) : setHour(h)), onRiver: (cm) => flood?.setGauge(cm) });
+const bar = new Bar({ days: DAYS, weathers: [...Object.keys(WEATHERS), 'now'], river: RIVER, onDay: (d) => { setDay(d); share(); },
+  onHour: (h) => { setHour(h); share(); }, onWeather: (w) => (w === 'now' ? setNow().catch((e) => console.warn('weather now', e)) : (setWeather(w), share())), onRiver: (cm) => flood?.setGauge(cm) });
+const precip = new Precip(scene);
 const map = new THREE.Box3();
 const tiltShift = qs.get('tilt') !== '0' && innerWidth >= 600 && (engine === 'city' || qs.get('tilt') === '1');
 let world: World | null = null, labels: Labels | null = null, hud: Hud | null = null;
 let life: StreetLife | null = null, flood: Flood | null = null, fountains: Fountains | null = null;
 let city: Awaited<ReturnType<typeof installCity>> | null = null;
 let uniforms: ReturnType<typeof makeUniforms> | null = null, streamer: TileStreamer | null = null, views: Record<string, View> = {};
-let anim: ((now: number) => void) | null = null, fly: ((now: number) => void) | null = null;
+let fly: ((now: number) => void) | null = null;
 let barRect: DOMRect | null = null;
+let snowChance: number[] = [];
 
 nav.cancelFly = () => { fly = null; };
-bar.setRiver(RIVER['as mapped']);
+bar.setRiver(RIVER['2025 survey']);
 new ResizeObserver(() => { barRect = null; }).observe(bar.el);
 el('div', '', `<div>by <a href="https://p.migdal.pl/" target="_blank" rel="noopener">Piotr Migdał</a> & <a href="https://quesma.com/blog/invisible-cities-one-shot/" target="_blank" rel="noopener">Opus 5.5</a>, <a href="https://github.com/stared/warsaw-vibe-voxel" target="_blank" rel="noopener">source code</a></div>
   <div>based on GUGiK 2025 and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div>`).id = 'credits';
@@ -114,19 +123,60 @@ function onMode(m: Mode, ride: Ride | null) {
 const focus = () => (nav.mode === 'orbit' ? controls.target : camera.position);
 
 function setHour(h: number) {
-  anim = null;
   daylight.apply(h);
   bar.setHour(h);
 }
 
-function animateTo(h: number) {
-  const from = daylight.hour, t0 = performance.now();
-  anim = (now) => {
-    const t = Math.min(1, (now - t0) / 1400);
-    daylight.apply(lerp(from, h, ease(t)));
-    bar.setHour(daylight.hour);
-    if (t >= 1) anim = null;
-  };
+// the named hours move with the sun through the year
+const timesOf = (d: number) => ({ morning: Math.max(7.5, hourAt(d, 6, false)), midday: solarNoon(d), 'golden hour': hourAt(d, 9, true),
+  'blue hour': hourAt(d, -7, true), night: Math.min(23.5, Math.max(23, hourAt(d, -14, true))) });
+
+function setDay(d: number) {
+  const times = timesOf(daylight.day), was = Object.entries(times).find(([, h]) => Math.abs(h - daylight.hour) < 1 / 3)?.[0] as keyof typeof times | undefined;
+  daylight.day = d;
+  const now = timesOf(d);
+  bar.setDay(d, now);
+  offerWeathers(d);
+  setHour(was ? now[was] : daylight.hour);
+}
+
+// only what Warsaw's weather can do on that day (scripts/climate.py): no snow from late April to late October
+function offerWeathers(d: number) {
+  const snow = snowChance[d - 1] >= 0.01;
+  bar.offer('snow', snow);
+  if (!snow && weatherName === 'snow') setWeather('overcast');
+}
+
+let weatherName = 'clear';
+function setWeather(name: string, w = WEATHERS[name]) {
+  weatherName = name;
+  daylight.weather = w;
+  // a preset is already named by its button; the label says what live weather turned out to be
+  bar.setWeather(name, name === 'now' ? describe(w) : 'Weather', name === 'now' ? 'now in Warsaw' : '');
+  daylight.apply(daylight.hour);
+}
+
+// what you set goes into the address, so a link shows the same day, hour and weather
+let shareT = 0;
+function share() {
+  clearTimeout(shareT);
+  shareT = setTimeout(() => {
+    const d = dateOf(daylight.day);
+    qs.set('date', `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    qs.set('hour', daylight.hour.toFixed(2));
+    if (weatherName in WEATHERS && weatherName !== 'clear') qs.set('weather', weatherName); else qs.delete('weather');
+    history.replaceState(null, '', `?${qs}`);
+  }, 400);
+}
+
+// today, this hour, and the weather outside right now
+async function setNow() {
+  const d = new Date(), w = await liveWeather();
+  daylight.day = dayOfYear(d);
+  bar.setDay(daylight.day, timesOf(daylight.day));
+  offerWeathers(daylight.day);
+  setWeather('now', w);
+  setHour(Math.min(23.5, Math.max(4, d.getHours() + d.getMinutes() / 60)));
 }
 
 function flyTo(v: Pick<View, 'pos' | 'target' | 'ms'>) {
@@ -197,9 +247,12 @@ function keepInside() {
 }
 
 async function boot() {
-  const meta = await fetchJson<Meta>('data/meta.json');
+  const [meta, climate] = await Promise.all([fetchJson<Meta>('data/meta.json'), fetchJson<{ snow: number[] }>('data/climate.json')]);
+  snowChance = climate.snow;
   views = meta.views;
   uniforms = makeUniforms(meta, engine);
+  loadFoliage(meta, uniforms).then((city) => bar.setDays({ 'leaves out': city.leaf, 'trees in colour': city.colour, 'leaves down': city.fall, ...DAYS }))
+    .catch((e) => console.warn('foliage', e));
   streamer = new TileStreamer(meta, makeVoxelMaterial(uniforms), scene);
   world = nav.world = streamer.world;
   nav.streamer = streamer;
@@ -209,10 +262,15 @@ async function boot() {
   controls.target.set(...(cam ? [cam[3], cam[4], cam[5]] as const : v0.target));
   daylight.uniforms = uniforms;
   daylight.bloom = post.bloom;
+  daylight.fog = post.fog;
   daylight.theta = (meta.theta_deg || 0) * Math.PI / 180;
-  setHour(qs.get('hour') ? +qs.get('hour')! : TIMES['golden hour']);
+  const md = qs.get('date')?.split('-').map(Number);
+  setWeather((qs.get('weather') ?? '') in WEATHERS ? qs.get('weather')! : 'clear');
+  setDay(md ? dayOfYear(new Date(new Date().getFullYear(), md[0] - 1, md[1])) : TODAY);
+  setHour(qs.get('hour') ? +qs.get('hour')! : timesOf(daylight.day)['golden hour']);
   if (engine === 'zones') {
     await (await import('./zones')).installZones({ streamer, uniforms: uniforms as typeof uniforms & ZoneUniforms, meta, focus, qs, composer: post.composer, n8: post.n8, camera });
+    document.body.classList.remove('loading');
   } else {
     city = await installCity({ streamer, uniforms: uniforms as typeof uniforms & BuildUniforms, meta, scene, focus, camera, caption: new Caption() });
   }
@@ -224,7 +282,7 @@ async function boot() {
     ...places.map(([name, kind, x, y, size, alt]) => ({ name, alt, kind, go: () => goPlace(x, y, size, { name, kind }) }))]));
   fountains = new Fountains(scene, meta.jets ?? []);
   flood = new Flood(scene, uniforms, meta);
-  flood.load().then(() => { bar.river.input.disabled = false; flood!.setGauge(RIVER['as mapped']); }).catch((e) => console.warn('flood', e));
+  flood.load().then(() => { bar.river.input.disabled = false; flood!.setGauge(RIVER['2025 survey']); }).catch((e) => console.warn('flood', e));
   fetchJson<TrafficData>('data/traffic.json').then((td) => {
     life = nav.life = new StreetLife(scene, td);
     life.world = world;
@@ -238,7 +296,6 @@ async function boot() {
 let lastT = performance.now();
 const t0 = lastT;
 renderer.setAnimationLoop((now) => {
-  anim?.(now);
   fly?.(now);
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
@@ -251,6 +308,8 @@ renderer.setAnimationLoop((now) => {
   const t = (performance.now() - t0) / 1000;
   if (uniforms) uniforms.uTime.value = t;
   fountains?.update(t, daylight.night);
+  precip.update(t, camera.position, daylight.weather, daylight.night);
+  if (city?.complete) document.body.classList.remove('loading');
   if (life) {
     life.group.visible = !city || city.complete;
     if (life.group.visible) life.update(dt, daylight.hour, daylight.night, focus());
@@ -263,4 +322,4 @@ renderer.setAnimationLoop((now) => {
   labels?.update(camera, world, barRect, hud?.rects ?? []);
 });
 
-window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, map };
+window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map };
