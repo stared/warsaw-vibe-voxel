@@ -7,7 +7,6 @@ import type { World } from './world';
 interface Pin {
   el: HTMLElement;
   txt: HTMLElement;
-  edge: HTMLElement | null;
   p: THREE.Vector3;
   base: THREE.Vector3;
   R: number;
@@ -15,8 +14,6 @@ interface Pin {
   w: number;
   h: number;
   shift: number;
-  edgeW: number;
-  dist: string;
 }
 export interface Placed extends Facts { x: number; y: number; z: number }
 
@@ -26,7 +23,7 @@ const STEM = 20, TOP = 8;
 const overlap = (r: Rect, q: Rect) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0;
 
 // Map pins: a dot on the roof, a hairline stem, the name above. Hidden when something else is in the way (a voxel
-// ray) or when a more important label is there; the highlighted building gets an arrow on the screen edge.
+// ray) or when a more important label is there.
 export class Labels {
   gate: (x: number, z: number) => boolean = () => true;
   private readonly host = $('#labels');
@@ -36,22 +33,18 @@ export class Labels {
 
   constructor(labels: Label[], onClick: (l: Label) => void) {
     labels.forEach((l, i) => {
-      const pin = this.add(`label${l.highlight ? ' hl' : ''}${i < 6 ? ' major' : ''}`, l,
+      const pin = this.add(`label${i < 6 ? ' major' : ''}`, l,
         new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), new THREE.Vector3(l.x + 0.5, (l.g ?? 0) + 2, l.y + 0.5), (l.R ?? 30) + 6);
       pin.txt.addEventListener('click', () => onClick(l));
-      if (l.highlight) {
-        pin.edge = el('div', 'edge off', `<i>➜</i><b>${l.name}</b><small></small>`, this.host);
-        pin.edge.addEventListener('click', () => onClick(l));
-      }
       this.pins.push(pin);
     });
-    document.fonts?.ready.then(() => { for (const p of this.pins) p.w = p.edgeW = 0; });
+    document.fonts?.ready.then(() => { for (const p of this.pins) p.w = 0; });
   }
 
   private add(cls: string, f: Facts, p: THREE.Vector3, base: THREE.Vector3, R: number): Pin {
     const facts = details(f).map((d) => `<span>${d}</span>`).join('');
     const e = el('div', cls, `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${f.name}</b><span>${f.en ?? f.kind}</span>${facts ? `<p>${facts}</p>` : ''}</div>`, this.host);
-    return { el: e, txt: $('.txt', e), edge: null, p, base, R, occluded: false, w: 0, h: 0, shift: 0, edgeW: 0, dist: '' };
+    return { el: e, txt: $('.txt', e), p, base, R, occluded: false, w: 0, h: 0, shift: 0 };
   }
 
   // a temporary label on a searched place
@@ -98,7 +91,6 @@ export class Labels {
       L.el.classList.toggle('pinned', pinned);
       L.txt.style.left = side === 's' ? `${L.shift.toFixed(0)}px` : '';
       if (vis) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      if (L.edge) this.edgeArrow(L, camera, vis, inFront, x, y, bar, obstacles);
     }
   }
 
@@ -114,28 +106,5 @@ export class Labels {
       const hx = camera.position.x + dir.x * t - L.p.x, hz = camera.position.z + dir.z * t - L.p.z;
       L.occluded = t < dist - 3 && hx * hx + hz * hz > L.R * L.R;
     }
-  }
-
-  // while the highlighted building is out of view: an arrow on the screen edge towards it, with its distance
-  private edgeArrow(L: Pin, camera: THREE.Camera, vis: boolean, inFront: boolean, x: number, y: number, bar: DOMRect, obstacles: Rect[]) {
-    const edge = L.edge!, onScreen = inFront && x > 0 && x < innerWidth && y > 0 && y < innerHeight;
-    const show = !vis && (!L.occluded || !onScreen);
-    edge.classList.toggle('off', !show);
-    if (!show) return;
-    let dx = x - innerWidth / 2, dy = y - innerHeight / 2;
-    if (!inFront) { dx = -dx; dy = -dy; }
-    const dm = Math.hypot(L.p.x - camera.position.x, L.p.z - camera.position.z);
-    const dist = dm > 950 ? `${(dm / 1000).toFixed(1)} km` : `${Math.round(dm / 10) * 10} m`;
-    if (dist !== L.dist) { $('small', edge).textContent = L.dist = dist; L.edgeW = 0; }
-    if (!L.edgeW) L.edgeW = edge.offsetWidth;
-    const ew = L.edgeW || 90, ax = innerWidth / 2 - 14, ay = innerHeight / 2 - 18;
-    const k = Math.min(ax / Math.max(Math.abs(dx), 1e-3), ay / Math.max(Math.abs(dy), 1e-3));
-    let ex = onScreen ? x : innerWidth / 2 + dx * k, ey = onScreen ? y : innerHeight / 2 + dy * k;
-    ex = Math.min(Math.max(ex, 14), innerWidth - ew - 4);
-    ey = Math.min(Math.max(ey, 14), innerHeight - 14);
-    if (bar.width && ex + ew > bar.left - 8 && ey < bar.bottom + 20) { if (ex > innerWidth / 2) ex = bar.left - ew - 8; else ey = bar.bottom + 24; }
-    for (const q of obstacles) if (ex < q.x1 && ex + ew > q.x0 && ey > q.y0 - 10) ey = q.y0 - 14;
-    edge.style.transform = `translate(${ex.toFixed(0)}px, ${ey.toFixed(0)}px)`;
-    $('i', edge).style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;
   }
 }

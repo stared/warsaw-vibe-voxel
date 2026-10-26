@@ -25,7 +25,6 @@ export interface Label extends Facts {
   z: number;
   g?: number;
   R?: number;
-  highlight?: boolean;
 }
 
 export interface TileLevel {

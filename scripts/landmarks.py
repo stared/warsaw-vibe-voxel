@@ -56,6 +56,18 @@ EXTRA_LABELS = {
     "Zielona Złota": dict(kind="street greening", year=2026, at=(637420, 487015)),
     "Wisła": dict(en="Vistula", kind="river", at=(639034, 487782)),
     "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", at=(638714, 487996)),
+    "Domki Fińskie": dict(en='Finnish houses', kind='wooden houses', year=1945, alt='Osiedle Jazdów', at=(638492, 485890)),
+    "Chata Numinosum": dict(kind='arts centre', alt='Jazdów 3/5', at=(638533, 485843)),
+    "Ladom": dict(kind='arts centre', alt='Jazdów 7/14', at=(638467, 486006)),
+    "Solatorium": dict(kind='arts centre', alt='Jazdów 3/9', at=(638500, 485853)),
+    "Rotacyjny Dom Kultury": dict(kind='arts centre', alt='Jazdów 3/18', at=(638469, 485815)),
+    "Ambasada Muzyki Tradycyjnej": dict(kind='arts centre', alt='Jazdów 3/20', at=(638457, 485849)),
+    "Zaczarowany Ogród": dict(kind='arts centre', alt='Jazdów 3/17', at=(638466, 485834)),
+    "Państwomiasto": dict(kind='community centre', alt='Jazdów 3/12', at=(638481, 485871)),
+    "Miejskie Pszczoły": dict(kind='community centre', alt='Jazdów 3/8', at=(638491, 485906)),
+    "Otwarta Pracownia": dict(kind='community centre', alt='Jazdów 3/6', at=(638535, 485821)),
+    "Towarzystwo Polska-Finlandia": dict(kind='community centre', alt='Jazdów 10/8', at=(638575, 485947)),
+    "Kolektyw3": dict(kind='office', alt='Koszykowa 54 IPC Business Centre', at=(637457, 485993)),
 }
 
 
@@ -412,7 +424,7 @@ def override_labels(feats, g, top_at):
         if o and "label" in o and not f["part"] and len(f["rr"]):
             k = len(f["rr"]) // 2
             r, c = int(np.median(f["rr"])), int(np.median(f["cc"]))
-            out.append(dict(**label(o["label"]["name"], o["label"], c, r, top_at(r, c)), highlight=True))
+            out.append(label(o["label"]["name"], o["label"], c, r, top_at(r, c)))
     return out
 
 
@@ -592,18 +604,16 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
         if not (0 <= r < vol.shape[1] and 0 <= c < vol.shape[2]):
             continue
         found[n] = label(n, facts, c, r, top_at(r, c))
-    labels = override_labels(feats, g, top_at) + [found[n] for n in LABELS if n in found]
+    labels = [found[n] for n in LABELS if n in found] + override_labels(feats, g, top_at)
     from aoi import to_grid
     for n, facts in EXTRA_LABELS.items():
         c, r = (int(v) for v in to_grid(*facts["at"]))
         labels.append(label(n, facts, c, r, top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
-    extra = {"astoria": l for l in labels if l.get("highlight")}
-    return labels, make_views(found, osm, g, top_at, note, bmask, extra, vol, leaf_ids)
+    return labels, make_views(found, osm, g, top_at, note, bmask, vol, leaf_ids)
 
 
-def make_views(found, osm, g, top_at, note, bmask, found_extra=None, vol=None, leaf_ids=()):
-    found_extra = found_extra or {}
+def make_views(found, osm, g, top_at, note, bmask, vol=None, leaf_ids=()):
     """Camera presets in three.js coords (x = col, y = up, z = row), derived from landmark positions."""
     def at(name, dz=0.0):
         l = found[name]
