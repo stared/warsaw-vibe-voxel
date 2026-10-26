@@ -3,7 +3,6 @@
 html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* pinches zoom the map, never the page */ background: #1b1d22; font-family: Inter, system-ui, sans-serif; color: var(--ink); }
 #app canvas { display: block; }
 
-/* The bar: search, date, time, weather, Vistula. Top left, like the key legend bottom left: no panel, white text with a dark halo, one line per row. */
 #bar { --t2: rgba(255,255,255,.62); position: fixed; left: 14px; top: 14px; z-index: 5; width: 340px; color: #fff;
   font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }
 #bar .search { position: relative; margin: 0 0 4px; }
@@ -20,10 +19,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 #bar .search li em { margin-left: auto; font-style: normal; color: var(--t2); }
 #bar .search li.sel, #bar .search li:hover { background: rgba(255,255,255,.1); }
 #bar .search li.none { color: var(--t2); cursor: default; white-space: normal; }
-/* every row alike: the value in white and a note in grey, then its control on the same line */
 #bar .row { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
-#bar .val { flex: 0 0 165px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#bar .track, #bar .sky .choices { position: relative; flex: 1; display: flex; align-items: center; height: 16px; }
+#bar .val { flex: 0 0 140px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bar .track, #bar .choices { position: relative; flex: 1; display: flex; align-items: center; height: 16px; }
 #bar .val .mark { color: var(--t2); margin-left: 4px; }
 #bar input[type=range] { position: absolute; inset: 0; width: 100%; margin: 0; background: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
 #bar input[type=range]::-webkit-slider-runnable-track { height: 2px; background: rgba(255,255,255,.55); border-radius: 1px; box-shadow: 0 0 2px rgba(0,0,0,.6); }
@@ -31,13 +29,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 #bar input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 3px; height: 14px; margin-top: -6px; border-radius: 1px; background: #fff; box-shadow: 0 0 2px rgba(0,0,0,.8); position: relative; z-index: 2; }
 #bar input[type=range]::-moz-range-thumb { width: 3px; height: 14px; border: 0; border-radius: 1px; background: #fff; }
 #bar input[type=range]:disabled { opacity: .35; cursor: default; }
-#bar .sky .choices { column-gap: 8px; }
-#bar .sky button { padding: 0; border: 0; background: none; color: var(--t2); font: inherit; cursor: pointer; }
-#bar .sky button:hover, #bar .sky button.on { color: #fff; }
+#bar .choices { column-gap: 9px; }
+#bar .row.off { display: none; }
+#bar .choices button { white-space: nowrap; padding: 0; border: 0; background: none; color: var(--t2); font: inherit; cursor: pointer; }
+#bar .choices button:hover, #bar .choices button.on { color: #fff; }
 #bar .sky button:disabled { display: none; }
 @media (max-width: 600px) { #bar { left: 8px; right: 8px; top: 8px; width: auto; } }
 @media (max-width: 600px), (max-height: 500px) {
-  #bar .val { flex-basis: 45%; }
+  #bar .val { flex-basis: 40%; }
+  #bar .choices { column-gap: 7px; }
   #bar:has(.search li) .row { display: none; }
 }
 @media (max-height: 500px) { #bar { left: 8px; top: 8px; width: 330px; } }
@@ -76,7 +76,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .edge i { font-style: normal; display: inline-block; width: 14px; text-align: center; }
 
 #loading { position: fixed; inset: 0; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
-/* the first moments look like the loading caption that follows (caption.ts), and both like the controls that replace them: top left, white text with a halo, no box */
 #loading-text { position: fixed; left: 14px; top: 14px; color: #fff; font: 11px Inter, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }
 @media (max-width: 600px) { #loading-text { left: 8px; top: 8px; } }
 #loading.hidden { display: none; } /* at once: the caption takes over in the same place */
@@ -103,7 +102,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 #hud figcaption { font-size: 10.5px; }
 @media (max-width: 600px) { #hud { left: 8px; bottom: 8px; } }
 .noui #hud { display: none; }
-/* what the city is building while it fills in (caption.ts), where the controls will appear */
 .caption { position: fixed; left: 14px; top: 14px; z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;
   width: 340px; max-width: calc(100vw - 16px); color: #fff; font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); transition: opacity .6s; }
 .caption.off { opacity: 0; }

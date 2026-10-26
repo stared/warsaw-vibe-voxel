@@ -9,8 +9,6 @@ interface Phenology { classes: Record<string, Class>; city: { leaf: number; colo
 
 export const FOLIAGE_CLASSES = 16;
 
-// The trees' year (scripts/phenology.py): per 2 m cell which kind of tree's crown it is and which tree; per kind the
-// days it leafs out, colours and drops its leaves, with the spread between trees; the autumn colour from photos.
 export async function loadFoliage(meta: Meta, U: VoxelUniforms) {
   const [ph, buf] = await Promise.all([fetchJson<Phenology>('data/phenology.json'), fetchGzip('data/foliage.bin')]);
   const w = meta.W >> 1, h = meta.D >> 1, a = new Uint8Array(buf), rg = new Uint8Array(w * h * 2);

@@ -4,7 +4,7 @@ For further development: some may or may not be done.
 
 ## Weather and seasons
 
-Goal: the same city under different weather and seasons, chosen from the menu (and from the URL, e.g. `?weather=fog&date=10-17&hour=7.5`).
+Goal: the same city under different weather and seasons, chosen from the menu (and from the URL, e.g. `?weather=rain&date=10-17&hour=7.5`).
 
 ### References
 - **Radiation fog over the river at sunrise**: "Mglisty poranek w Warszawie. A pod mgłą ukrył się PGE Narodowy",
@@ -17,14 +17,14 @@ Goal: the same city under different weather and seasons, chosen from the menu (a
 
 ### Built (Oct 2026)
 - **Date and time** (`web/src/sun.ts`): the sun over Warsaw for any day (NOAA declination and equation of time, Polish clock time with CEST). The named hours (morning, midday, golden hour, blue hour, night) move with the sun.
-- **Weather** (`web/src/weather.ts`), one state of uniforms and lights, no geometry rebuilt: clear, overcast, fog, rain, snow, and **now** (Open-Meteo, no key: cloud, rain, snowfall, snow depth, visibility, fog codes).
-  - Fog: a post-process ground fog from the depth buffer, dense below ~60 m over the river, thinning above, swells on its top, lit warm towards a low sun.
-  - Overcast: a grey deck in the sky shader, the sun dimmed to almost nothing, light from the whole sky.
+- **Weather** (`web/src/weather.ts`), one state of uniforms and lights, no geometry rebuilt: typical (drawn per week from the date's climatology, scripts/climate.py), clear, cloudy, rain, snow.
+  - Cloudy: a grey deck in the sky shader; the light comes from overhead, dim, with soft shadows and stronger ambient occlusion.
   - Rain: wet surfaces (darker, glossy, puddles), streaks round the camera. Snow: white on what faces up, ploughed grey slush on streets, flakes.
 - **Foliage** (`scripts/phenology.py`, `web/src/foliage.ts`): every crown follows its tree's species through the year. See the calendar below.
 
 ### Still open
-- Check each preset against dated photos from the same viewpoint (the fog one: the PGE Narodowy photo above).
+- Fog: a first try (post-process height fog from the depth buffer) looked poor and was removed; the PGE Narodowy photo above is the target.
+- Check each preset against dated photos from the same viewpoint.
 - Rain: fewer pedestrians, umbrellas; reflections of lamps in wet streets at night.
 - Snow: ice along the Vistula banks in a hard frost; lawns in winter without snow.
 - A default Vistula level per season; winter extras (Christmas lights on Krakowskie Przedmieście, the rink).

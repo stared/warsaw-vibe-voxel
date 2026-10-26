@@ -4,14 +4,12 @@ const lastSunday = (year: number, month: number) => { const d = new Date(Date.UT
 export const dayOfYear = (d: Date) => Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 864e5);
 export const dateOf = (day: number, year = new Date().getFullYear()) => new Date(year, 0, day);
 
-// Polish clock time: CEST from the last Sunday of March to the last Sunday of October
 export function utcOffset(day: number, year = new Date().getFullYear()) {
   const start = dayOfYear(new Date(year, 2, lastSunday(year, 2))), end = dayOfYear(new Date(year, 9, lastSunday(year, 9)));
   return day >= start && day < end ? 2 : 1;
 }
 
-// the sun's elevation and azimuth (from north, clockwise) over Warsaw at a clock hour on a day of the year
-// (NOAA's low-precision declination and equation of time: well under a minute of arc and time)
+// NOAA low-precision declination and equation of time
 export function sunAt(day: number, hour: number) {
   const g = 2 * Math.PI / 365 * (day - 1 + (hour - 12) / 24);
   const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g)
@@ -32,7 +30,6 @@ export function solarNoon(day: number) {
   return lo;
 }
 
-// the clock hour when the sun passes an elevation, in the morning or the evening (clamped when it never does)
 export function hourAt(day: number, deg: number, evening: boolean) {
   const noon = solarNoon(day);
   let lo = evening ? noon : noon - 12, hi = evening ? noon + 12 : noon;

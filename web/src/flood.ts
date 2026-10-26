@@ -10,6 +10,8 @@ export class Flood {
   info: FloodInfo | null = null;
   private mesh: THREE.Mesh | null = null;
   private readonly uLevel = { value: 0 };
+  private river: THREE.Vector3[] = [];
+  private readonly frustum = new THREE.Frustum();
 
   constructor(private readonly scene: THREE.Scene, private readonly U: VoxelUniforms, private readonly meta: Meta) {}
 
@@ -20,6 +22,9 @@ export class Flood {
     const tex = dataTexture(rg, W, D, THREE.RGFormat);
     tex.magFilter = tex.minFilter = THREE.NearestFilter;
     this.info = info;
+    for (let y = 0; y < D; y += 24) for (let x = 0; x < W; x += 24) {
+      if (a[n + y * W + x] > 0) this.river.push(new THREE.Vector3(x, info.surface0 + info.fall * y - info.base, y));
+    }
     this.U.uFlood.value = tex;
     const g = new THREE.PlaneGeometry(W, D, 1, 1).rotateX(-Math.PI / 2).translate(W / 2, 0, D / 2);
     const p = g.attributes.position;
@@ -29,6 +34,11 @@ export class Flood {
     this.mesh.visible = false;
     this.mesh.renderOrder = 1;
     this.scene.add(this.mesh);
+  }
+
+  inView(camera: THREE.Camera, far: number) {
+    this.frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    return this.river.some((p) => this.frustum.containsPoint(p) && p.distanceTo(camera.position) < far);
   }
 
   // gauge reading in cm (Warszawa-Bulwary)

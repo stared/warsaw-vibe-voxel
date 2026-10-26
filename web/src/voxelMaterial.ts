@@ -26,6 +26,7 @@ export interface VoxelUniforms {
   uFolMap: U<THREE.Texture>;
   uFolDate: U<THREE.Vector4[]>;
   uFolCol: U<THREE.Color[]>;
+  uGrass: U<THREE.Color[]>;
 }
 export interface BuildUniforms { uStage: U<number>; uBldOn: U<THREE.Texture> }
 export interface ZoneUniforms {
@@ -54,6 +55,7 @@ export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partia
     uFolMap: { value: tiny(THREE.RGFormat, new Uint8Array(2)) },
     uFolDate: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Vector4(-1, 0, 0, 0)) },
     uFolCol: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Color(0.3, 0.2, 0.05)) },
+    uGrass: { value: Array.from({ length: 12 }, () => new THREE.Color(1, 1, 1)) },
   };
   if (engine === 'city') return { ...base, uStage: { value: 0 }, uBldOn: { value: tiny(THREE.RedFormat, new Uint8Array(1)) } };
   const ids = () => tiny(THREE.RedIntegerFormat, new Uint16Array(1), THREE.UnsignedShortType);
@@ -93,9 +95,8 @@ function makeLampTexture(meta: Meta) {
 }
 
 // A leaf voxel through the year (foliage.ts): x = in leaf (0 bare .. 1), y = turned (0 green .. 1 autumn colour), z = class.
-// Each tree draws its own offset from its kind's spread, so a street of lindens does not turn as one.
 const FOLIAGE = `
-  uniform sampler2D uFolMap; uniform vec4 uFolDate[${FOLIAGE_CLASSES}]; uniform vec3 uFolCol[${FOLIAGE_CLASSES}]; uniform float uDay; uniform float uFolOn;
+  uniform sampler2D uFolMap; uniform vec4 uFolDate[${FOLIAGE_CLASSES}]; uniform vec3 uFolCol[${FOLIAGE_CLASSES}]; uniform float uDay; uniform float uFolOn; uniform vec3 uGrass[12];
   vec3 foliageAt(vec3 cell) {
     vec2 f = texelFetch(uFolMap, ivec2(cell.xz * 0.5), 0).rg;
     int cls = int(f.r * 255.0 + 0.5);
@@ -108,7 +109,18 @@ const FOLIAGE = `
     float leaf = t < 200.0 ? smoothstep(d.x, d.x + 14.0, t) : 1.0 - smoothstep(d.z - 8.0, d.z + 8.0, t);
     return vec3(leaf, smoothstep(d.y - 10.0, d.y + 10.0, t), float(cls));
   }
-  // bare branches keep a sparse lattice of twigs; the rest of the crown is gone
+  vec3 grassTint() {
+    float m = mod(uDay / 30.42 - 0.5, 12.0);
+    int a = int(m);
+    return mix(uGrass[a], uGrass[(a + 1) % 12], fract(m));
+  }
+  float litter(vec3 cell) {
+    vec2 f = texelFetch(uFolMap, ivec2(cell.xz * 0.5), 0).rg;
+    int cls = int(f.r * 255.0 + 0.5);
+    if (cls == 0 || uFolDate[cls].x < 0.0) return 0.0;
+    vec3 fo = foliageAt(cell);
+    return (1.0 - fo.x) * fo.y * (1.0 - smoothstep(uFolDate[cls].z + 15.0, uFolDate[cls].z + 50.0, uDay));
+  }
   bool leafGone(vec3 cell, vec3 fo) { return hash13(cell * 1.7 + 3.1) > fo.x && hash13(cell * 2.3 + 7.7) > 0.3; }`;
 
 const NORMAL_FROM_IDX = `
@@ -236,7 +248,7 @@ const SURFACE = `
       }
     }
   } else if (m == ${MAT.GRASS}) {
-    col = base * (0.88 + 0.2 * h); gRough = 1.0;
+    col = base * grassTint() * (0.88 + 0.2 * h); gRough = 1.0;
   } else if (m == ${MAT.WATER}) {
     float r = sin(cell.x * 0.9 + uTime * 1.3) * sin(cell.z * 1.1 - uTime) * 0.5 + 0.5;
     col = mix(vec3(0.012, 0.085, 0.15), vec3(0.03, 0.2, 0.26), r * r) * (0.94 + 0.12 * h); gRough = 0.04; gMetal = 0.3;
@@ -286,8 +298,15 @@ const SURFACE = `
   } else if (m == ${MAT.MARK}) {
     col = base * (0.95 + 0.05 * h);
   }
+  if (uFolOn > 0.5 && vN.y > 0.5 && lvl < 0.5 && m != ${MAT.WATER} && m != ${MAT.LEAF} && m != ${MAT.MARK}) {
+    float lit = litter(cell) * (m == ${MAT.GRASS} || m == ${MAT.SOIL} ? 0.9 : 0.35);
+    if (hash13(cell * 3.1 + 0.7) < lit) {
+      int cls = int(texelFetch(uFolMap, ivec2(cell.xz * 0.5), 0).r * 255.0 + 0.5);
+      col = mix(uFolCol[cls], vec3(0.32, 0.22, 0.12), 0.45 * hash13(cell * 1.3)) * (0.7 + 0.3 * h);
+      gRough = 1.0; gMetal = 0.0;
+    }
+  }
   if (uSnow > 0.0 && vN.y > 0.5 && m != ${MAT.WATER} && m != ${MAT.LAMP} && m != ${MAT.JET} && m != ${MAT.SIGN}) {
-    // snow lies on what faces up; streets and pavements are ploughed and salted into grey slush
     float lum = dot(base, vec3(0.3, 0.59, 0.11));
     float street = lvl < 0.5 && m != ${MAT.GRASS} && m != ${MAT.SOIL} && m != ${MAT.LEAF} ? 1.0 : 0.0;
     float cover = smoothstep(0.0, 0.6, uSnow - 0.35 * hash13(cell + 0.5)) * mix(1.0, 0.35 + 0.4 * step(0.5, hash12(floor(cell.xz / 3.0))), street);
@@ -295,7 +314,6 @@ const SURFACE = `
     col = mix(col, snowCol, cover);
     gRough = mix(gRough, 0.8, cover); gMetal *= 1.0 - cover; gEmissive *= 1.0 - cover;
   } else if (uWet > 0.0 && m != ${MAT.WATER} && m != ${MAT.LEAF} && m != ${MAT.GLASS}) {
-    // wet: porous surfaces darken, flat ones turn glossy, with puddles where the noise pools
     float flat_ = vN.y > 0.5 ? 1.0 : 0.0;
     float pud = flat_ * smoothstep(0.6, 0.7, hash12(floor(cell.xz / 2.0)) * 0.5 + hash12(floor(cell.xz / 7.0)) * 0.5);
     col *= mix(1.0, mix(0.82, mix(0.5, 0.3, pud), flat_), uWet);
@@ -321,7 +339,6 @@ const SURFACE = `
   if (uClay != 0) { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }
   #endif`;
 
-// shadows: buildings as they load, and crowns only as much as they are in leaf
 export function makeBuildDepthMaterial(uniforms: VoxelUniforms & BuildUniforms) {
   const m = new THREE.MeshDepthMaterial();
   m.onBeforeCompile = (shader) => {

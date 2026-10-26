@@ -1,89 +1,34 @@
 import * as THREE from 'three';
-import { BlendFunction, Effect, EffectAttribute } from 'postprocessing';
 
 export interface Weather {
   cloud: number;
-  fog: number;
   rain: number;
   snow: number;
   cover: number;
 }
 
 export const WEATHERS: Record<string, Weather> = {
-  clear: { cloud: 0, fog: 0, rain: 0, snow: 0, cover: 0 },
-  overcast: { cloud: 1, fog: 0, rain: 0, snow: 0, cover: 0 },
-  fog: { cloud: 0, fog: 1, rain: 0, snow: 0, cover: 0 },
-  rain: { cloud: 1, fog: 0, rain: 1, snow: 0, cover: 0 },
-  snow: { cloud: 1, fog: 0, rain: 0, snow: 1, cover: 1 },
+  clear: { cloud: 0, rain: 0, snow: 0, cover: 0 },
+  cloudy: { cloud: 1, rain: 0, snow: 0, cover: 0 },
+  rain: { cloud: 1, rain: 1, snow: 0, cover: 0 },
+  snow: { cloud: 1, rain: 0, snow: 1, cover: 1 },
 };
 
-// the weather in a word or two
-export function describe(w: Weather) {
-  if (w.fog >= 0.5) return 'Fog';
-  if (w.snow >= 0.3) return 'Snow';
-  if (w.rain >= 0.3) return 'Rain';
-  if (w.rain > 0 || w.snow > 0) return 'Drizzle';
-  if (w.cloud >= 0.7) return 'Overcast';
-  return w.cloud >= 0.3 ? 'Some cloud' : 'Clear sky';
+export interface Climate { clear: number[]; cloudy: number[]; rain: number[]; snow: number[]; cover: number[]; snowy: boolean[] }
+
+const roll = (day: number, k: number) => { const x = Math.sin(day * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
+
+export function typical(c: Climate, day: number): { w: Weather; said: string } {
+  const i = day - 1, week = Math.floor(day / 7), r = roll(week, 1);
+  const kind = r < c.snow[i] ? 'snow' : r < c.snow[i] + c.rain[i] ? 'rain' : r < c.snow[i] + c.rain[i] + c.cloudy[i] ? 'cloudy' : 'clear';
+  const w = { ...WEATHERS[kind] };
+  if (kind !== 'snow' && roll(week, 2) < c.cover[i]) w.cover = 1;
+  const said = kind === 'snow' ? 'snowing' : kind;
+  return { w, said: w.cover && kind !== 'snow' ? `${said}, snow` : said };
 }
 
-// how far one sees, as a share of a clear day's haze distance
-export const visibility = (w: Weather) => 1 - 0.1 * w.cloud - 0.4 * w.rain - 0.55 * w.snow - 0.15 * w.fog;
+export const visibility = (w: Weather) => 1 - 0.1 * w.cloud - 0.4 * w.rain - 0.55 * w.snow;
 
-// Ground fog over the Vistula valley, from the depth buffer: dense below a top, thinning fast above it, integrated
-// along each view ray, so towers stand out of it and it lies flat over the river; lit warm towards a low sun.
-const FOG = `
-uniform mat4 uCamWorld; uniform mat4 uProjInv; uniform vec3 uCamPos;
-uniform float uTop; uniform float uDensity; uniform float uFalloff; uniform vec3 uFogCol; uniform vec3 uSunCol; uniform vec3 uSunDir; uniform float uTime;
-float F(float y) { return y < uTop ? uDensity * (y - uTop) : uDensity * (1.0 - exp(-(y - uTop) * uFalloff)) / uFalloff; }
-float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
-  return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y); }
-void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
-  if (uDensity <= 0.0) { outputColor = inputColor; return; }
-  vec4 v = uProjInv * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
-  vec3 dirV = v.xyz / v.w;
-  float dist = depth >= 0.9999 ? 2500.0 : -getViewZ(depth) * length(dirV) / -dirV.z;
-  vec3 rd = normalize((uCamWorld * vec4(dirV, 0.0)).xyz);
-  vec3 end = uCamPos + rd * dist;
-  float y0 = uCamPos.y, y1 = end.y;
-  // the top is not a flat cut: slow swells over a few hundred metres
-  float sw = (noise(end.xz * 0.006 + uTime * 0.01) - 0.5) * 14.0;
-  y1 -= sw;
-  float od = abs(rd.y) < 1e-3 ? (y0 < uTop ? uDensity : uDensity * exp(-(y0 - uTop) * uFalloff)) * dist : (F(y1) - F(y0 - sw)) / rd.y;
-  float a = 1.0 - exp(-max(od, 0.0));
-  float toSun = pow(max(dot(rd, uSunDir), 0.0), 5.0);
-  float lift = smoothstep(uTop - 40.0, uTop + 5.0, min(y0, max(y1, uTop - 40.0)));
-  vec3 col = uFogCol * mix(0.8, 1.0, lift) + uSunCol * (0.4 * lift + 0.55 * toSun);
-  outputColor = vec4(mix(inputColor.rgb, col, a), inputColor.a);
-}`;
-
-export class FogEffect extends Effect {
-  constructor(private readonly camera: THREE.PerspectiveCamera) {
-    super('GroundFog', FOG, {
-      attributes: EffectAttribute.DEPTH,
-      blendFunction: BlendFunction.NORMAL,
-      uniforms: new Map<string, THREE.Uniform>([
-        ['uCamWorld', new THREE.Uniform(new THREE.Matrix4())], ['uProjInv', new THREE.Uniform(new THREE.Matrix4())],
-        ['uCamPos', new THREE.Uniform(new THREE.Vector3())], ['uTop', new THREE.Uniform(45)], ['uDensity', new THREE.Uniform(0)],
-        ['uFalloff', new THREE.Uniform(0.1)], ['uFogCol', new THREE.Uniform(new THREE.Color())], ['uSunCol', new THREE.Uniform(new THREE.Color())],
-        ['uSunDir', new THREE.Uniform(new THREE.Vector3(0, 1, 0))], ['uTime', new THREE.Uniform(0)],
-      ]),
-    });
-  }
-
-  u(name: string) { return this.uniforms.get(name)!; }
-
-  update(_r: THREE.WebGLRenderer, _b: THREE.WebGLRenderTarget, dt: number) {
-    const c = this.camera;
-    this.u('uCamWorld').value.copy(c.matrixWorld);
-    this.u('uProjInv').value.copy(c.projectionMatrixInverse);
-    this.u('uCamPos').value.copy(c.position);
-    this.u('uTime').value += dt;
-  }
-}
-
-// rain streaks or snowflakes in a box that travels with the camera
 const DROPS = 9000;
 const PRECIP_V = `
 uniform float uTime; uniform vec3 uCam; uniform float uBox; uniform float uSnow; uniform float uSize;

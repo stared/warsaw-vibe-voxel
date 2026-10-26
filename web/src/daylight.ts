@@ -3,11 +3,8 @@ import { Sky } from './sky';
 import { sunAt } from './sun';
 import { clamp, lerp, smooth } from './util';
 import type { VoxelUniforms } from './voxelMaterial';
-import { visibility, WEATHERS, type FogEffect, type Weather } from './weather';
+import { visibility, WEATHERS, type Weather } from './weather';
 
-// The light of an hour on a day, under some weather: sun or moon, sky, haze and reflections. The shadow map covers
-// only the part of the city in view (a square around the focus, growing with distance), snapped to whole texels so
-// shadows don't shimmer.
 export class Daylight {
   hour = 0;
   day = 237;
@@ -16,7 +13,7 @@ export class Daylight {
   readonly sky = new Sky();
   uniforms: VoxelUniforms | null = null;
   bloom: { intensity: number } | null = null;
-  fog: FogEffect | null = null;
+  ao: { intensity: number; aoRadius: number } | null = null;
   private readonly sun = new THREE.DirectionalLight(0xffffff, 3);
   private readonly hemi = new THREE.HemisphereLight(0xbfd6ff, 0x6b5a48, 0.6);
   private readonly pmrem: THREE.PMREMGenerator;
@@ -50,54 +47,43 @@ export class Daylight {
     const night = this.night = 1 - smooth(-7, 1, elDeg), day = 1 - night;
     const deep = smooth(-9, -17, elDeg), golden = (1 - smooth(8, 34, elDeg)) * (1 - cloud);
     const dir = elDeg > -2 ? this.skyDir(az, Math.max(el, 2.5 * Math.PI / 180)) : new THREE.Vector3(0.45, 0.75, 0.5).normalize(); // the moon, high in the SE
-    const sun = this.sun, hemi = this.hemi;
-    sun.color.setRGB(1, lerp(0.97, 0.66, golden), lerp(0.92, 0.42, golden)).lerp(new THREE.Color(0x9fb4ff), night);
-    sun.intensity = lerp(lerp(4.4, 4.8, golden), 0.5, night) * (elDeg > -2 ? smooth(-2, 3, elDeg) * day + night : night) * lerp(1, 0.08, cloud);
-    sun.shadow.normalBias = clamp(0.3 / Math.max(dir.y, 0.05), 0.5, 3);
+    const sun = this.sun, hemi = this.hemi, light = elDeg > -2 ? dir.clone().lerp(new THREE.Vector3(0, 1, 0), 0.8 * cloud).normalize() : dir;
+    sun.color.setRGB(1, lerp(0.97, 0.66, golden), lerp(0.92, 0.42, golden)).lerp(new THREE.Color(0x9fb4ff), night).lerp(new THREE.Color(0xd8dde6), cloud * day);
+    sun.intensity = lerp(lerp(4.4, 4.8, golden), 0.5, night) * (elDeg > -2 ? smooth(-2, 3, elDeg) * day + night : night) * lerp(1, 0.4 * Math.max(0, Math.sin(el)), cloud);
+    sun.shadow.radius = lerp(3, 22, cloud);
+    sun.shadow.normalBias = clamp(0.3 / Math.max(light.y, 0.05), 0.5, 3);
     hemi.color.set(0xbfd6ff).lerp(new THREE.Color(0xffc49a), golden * 0.5).lerp(new THREE.Color(0x4a64b0), night); // facades stay blue at night, never black
     hemi.groundColor.set(0x6b5a48).lerp(new THREE.Color(0x3a2a30), night);
     hemi.intensity = lerp(0.3, lerp(0.95, 0.6, deep), night);
-    if (cloud > 0) { // under a cloud deck the light comes from the whole sky, grey and shadowless
+    if (cloud > 0) {
       hemi.color.lerp(new THREE.Color(0xd4d8de).lerp(new THREE.Color(0x5a5250), night), cloud);
       hemi.groundColor.lerp(new THREE.Color(0x6e6a66).lerp(new THREE.Color(0x2a2420), night), cloud);
-      hemi.intensity = lerp(hemi.intensity, lerp(1.15 * smooth(-4, 25, elDeg) + 0.45, 0.75, night), cloud);
+      hemi.intensity = lerp(hemi.intensity, lerp(0.15 + 0.55 * Math.max(0, Math.sin(el)), 0.75, night), cloud);
     }
     this.sky.set({ elDeg, sunDir: dir, trueSun: this.skyDir(az, el), golden, night, deep, cloud });
-    this.lightDir.copy(dir);
+    this.lightDir.copy(light);
     this.shadowKey = '';
     if (this.uniforms) {
       this.uniforms.uNight.value = night;
       this.uniforms.uDeep.value = deep;
       this.uniforms.uHorizon.value.copy(this.sky.horizon).convertSRGBToLinear();
-      this.uniforms.uWet.value = Math.max(w.rain, w.fog * 0.3);
+      this.uniforms.uWet.value = w.rain;
       this.uniforms.uSnow.value = w.cover;
       this.uniforms.uDay.value = this.day;
     }
-    if (this.fog) this.setGroundFog(this.fog, w.fog, dir, elDeg, night);
     if (this.bloom) this.bloom.intensity = lerp(0.15, 0.9, night);
+    if (this.ao) Object.assign(this.ao, { intensity: lerp(2.2, 3.4, cloud * day), aoRadius: lerp(6, 9, cloud * day) });
     this.scene.fog = new THREE.Fog(this.sky.horizon.clone(), 2500, 7000);
-    const key = `${(elDeg / 0.6).toFixed(0)},${cloud}`;
-    if (key !== this.envKey) { // reflections, baked only when the sky has visibly changed
+    const key = `${(elDeg / 0.6).toFixed(0)},${cloud.toFixed(1)}`;
+    if (key !== this.envKey) {
       this.env?.dispose();
       this.env = this.pmrem.fromScene(this.sky.envScene(), 0, 1, 10000);
       this.scene.environment = this.env.texture;
       this.envKey = key;
     }
-    this.scene.environmentIntensity = lerp(lerp(0.38, 0.7, cloud), lerp(0.55, 0.3, deep), night);
+    this.scene.environmentIntensity = lerp(lerp(0.38, 0.45, cloud), lerp(0.55, 0.3, deep), night);
   }
 
-  // radiation fog: a sea ~60 m deep over the river (Vistula ~4 m in the scene, the escarpment's top ~40 m), lit warm
-  // from above by a low sun
-  private setGroundFog(fog: FogEffect, f: number, dir: THREE.Vector3, elDeg: number, night: number) {
-    fog.u('uDensity').value = f / 55;
-    fog.u('uTop').value = 64;
-    fog.u('uFalloff').value = 0.2;
-    fog.u('uFogCol').value.copy(new THREE.Color(0xd9d8d6).lerp(new THREE.Color(0x3a3c48), night)).convertSRGBToLinear().multiplyScalar(lerp(1, 0.35, night));
-    fog.u('uSunCol').value.copy(this.sun.color).multiplyScalar(smooth(-1, 6, elDeg) * (1 - smooth(10, 40, elDeg) * 0.6) * 0.9);
-    fog.u('uSunDir').value.copy(dir);
-  }
-
-  // haze beyond what you look at; in rain or snow it closes in, but what you look at stays in view
   setFogFrom(dist: number) {
     const fog = this.scene.fog as THREE.Fog | null;
     if (!fog) return;

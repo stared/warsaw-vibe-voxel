@@ -17,9 +17,8 @@ import type { Kind, TrafficData } from './sim/types';
 import { TileStreamer } from './stream';
 import type { Facts, Label, Meta, Place, View } from './types';
 import { dateOf, dayOfYear, hourAt, solarNoon } from './sun';
-import { $, coarsePointer, ease, el, fetchJson } from './util';
-import { liveWeather } from './live';
-import { describe, Precip, WEATHERS } from './weather';
+import { $, coarsePointer, ease, el, fetchJson, lerp } from './util';
+import { type Climate, Precip, typical, type Weather, WEATHERS } from './weather';
 import type { World } from './world';
 import { makeUniforms, makeVoxelMaterial, type BuildUniforms, type Engine, type ZoneUniforms } from './voxelMaterial';
 import './style.css';
@@ -28,9 +27,8 @@ declare global {
   interface Window { __ready?: boolean; __three?: object; __life?: StreetLife; __streamer?: TileStreamer }
 }
 
-// the Warszawa-Bulwary gauge in cm (the scale since 1 Nov 2025)
-const RIVER = { 'record low, Sep 2025': 104, '2025 survey': 185, 'long-term mean': 330, 'warning': 700, 'alarm': 750,
-  'flood of 2010': 879, 'flood of 1844 (~)': 963, 'over the embankments': 1120 };
+// Warszawa-Bulwary gauge, cm (scale since 1 Nov 2025)
+const RIVER = { 'record low': 104, typical: 185, '2010 flood': 879, '1844 flood': 963 };
 
 const TODAY = dayOfYear(new Date());
 const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
@@ -44,8 +42,9 @@ const controls = makeControls();
 const post = makePost(renderer, scene, camera);
 const daylight = new Daylight(renderer, scene);
 const nav = new Nav(camera, controls, renderer.domElement, scene, (v) => flyTo(v), onMode);
-const bar = new Bar({ days: DAYS, weathers: [...Object.keys(WEATHERS), 'now'], river: RIVER, onDay: (d) => { setDay(d); share(); },
-  onHour: (h) => { setHour(h); share(); }, onWeather: (w) => (w === 'now' ? setNow().catch((e) => console.warn('weather now', e)) : (setWeather(w), share())), onRiver: (cm) => flood?.setGauge(cm) });
+const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)], river: RIVER, onDay: (d) => { setDay(d); share(); },
+  onDayEnd: () => { if (weatherName === 'typical') setWeather('typical'); },
+  onHour: (h) => { setHour(h); share(); }, onWeather: (w) => { setWeather(w); share(); }, onRiver: (cm) => flood?.setGauge(cm) });
 const precip = new Precip(scene);
 const map = new THREE.Box3();
 const tiltShift = qs.get('tilt') !== '0' && innerWidth >= 600 && (engine === 'city' || qs.get('tilt') === '1');
@@ -55,10 +54,11 @@ let city: Awaited<ReturnType<typeof installCity>> | null = null;
 let uniforms: ReturnType<typeof makeUniforms> | null = null, streamer: TileStreamer | null = null, views: Record<string, View> = {};
 let fly: ((now: number) => void) | null = null;
 let barRect: DOMRect | null = null;
-let snowChance: number[] = [];
+let climate: Climate | null = null;
 
 nav.cancelFly = () => { fly = null; };
-bar.setRiver(RIVER['2025 survey']);
+bar.setRiver(RIVER.typical);
+bar.showRiver(false);
 new ResizeObserver(() => { barRect = null; }).observe(bar.el);
 el('div', '', `<div>by <a href="https://p.migdal.pl/" target="_blank" rel="noopener">Piotr Migdał</a> & <a href="https://quesma.com/blog/invisible-cities-one-shot/" target="_blank" rel="noopener">Opus 5.5</a>, <a href="https://github.com/stared/warsaw-vibe-voxel" target="_blank" rel="noopener">source code</a></div>
   <div>based on GUGiK 2025 and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div>`).id = 'credits';
@@ -127,7 +127,6 @@ function setHour(h: number) {
   bar.setHour(h);
 }
 
-// the named hours move with the sun through the year
 const timesOf = (d: number) => ({ morning: Math.max(7.5, hourAt(d, 6, false)), midday: solarNoon(d), 'golden hour': hourAt(d, 9, true),
   'blue hour': hourAt(d, -7, true), night: Math.min(23.5, Math.max(23, hourAt(d, -14, true))) });
 
@@ -140,23 +139,31 @@ function setDay(d: number) {
   setHour(was ? now[was] : daylight.hour);
 }
 
-// only what Warsaw's weather can do on that day (scripts/climate.py): no snow from late April to late October
 function offerWeathers(d: number) {
-  const snow = snowChance[d - 1] >= 0.01;
+  const snow = climate?.snowy[d - 1] ?? true;
   bar.offer('snow', snow);
-  if (!snow && weatherName === 'snow') setWeather('overcast');
+  if (!snow && weatherName === 'snow') setWeather('typical');
 }
 
-let weatherName = 'clear';
-function setWeather(name: string, w = WEATHERS[name]) {
+let weatherName = 'typical';
+let fade: { from: Weather; to: Weather; t0: number } | null = null;
+function setWeather(name: string, now = false) {
   weatherName = name;
-  daylight.weather = w;
-  // a preset is already named by its button; the label says what live weather turned out to be
-  bar.setWeather(name, name === 'now' ? describe(w) : 'Weather', name === 'now' ? 'now in Warsaw' : '');
-  daylight.apply(daylight.hour);
+  const t = name === 'typical' && climate ? typical(climate, daylight.day) : null;
+  const to = t?.w ?? WEATHERS[name] ?? WEATHERS.clear;
+  bar.setWeather(name, t?.said ?? '');
+  fade = now ? null : { from: { ...daylight.weather }, to, t0: performance.now() };
+  if (now) { daylight.weather = to; daylight.apply(daylight.hour); }
 }
 
-// what you set goes into the address, so a link shows the same day, hour and weather
+function stepWeather(now: number) {
+  if (!fade) return;
+  const k = Math.min(1, (now - fade.t0) / 1500), e = ease(k), { from, to } = fade;
+  daylight.weather = { cloud: lerp(from.cloud, to.cloud, e), rain: lerp(from.rain, to.rain, e), snow: lerp(from.snow, to.snow, e), cover: lerp(from.cover, to.cover, e) };
+  daylight.apply(daylight.hour);
+  if (k >= 1) fade = null;
+}
+
 let shareT = 0;
 function share() {
   clearTimeout(shareT);
@@ -164,19 +171,9 @@ function share() {
     const d = dateOf(daylight.day);
     qs.set('date', `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     qs.set('hour', daylight.hour.toFixed(2));
-    if (weatherName in WEATHERS && weatherName !== 'clear') qs.set('weather', weatherName); else qs.delete('weather');
+    if (weatherName !== 'typical') qs.set('weather', weatherName); else qs.delete('weather');
     history.replaceState(null, '', `?${qs}`);
   }, 400);
-}
-
-// today, this hour, and the weather outside right now
-async function setNow() {
-  const d = new Date(), w = await liveWeather();
-  daylight.day = dayOfYear(d);
-  bar.setDay(daylight.day, timesOf(daylight.day));
-  offerWeathers(daylight.day);
-  setWeather('now', w);
-  setHour(Math.min(23.5, Math.max(4, d.getHours() + d.getMinutes() / 60)));
 }
 
 function flyTo(v: Pick<View, 'pos' | 'target' | 'ms'>) {
@@ -247,8 +244,8 @@ function keepInside() {
 }
 
 async function boot() {
-  const [meta, climate] = await Promise.all([fetchJson<Meta>('data/meta.json'), fetchJson<{ snow: number[] }>('data/climate.json')]);
-  snowChance = climate.snow;
+  let meta: Meta;
+  [meta, climate] = await Promise.all([fetchJson<Meta>('data/meta.json'), fetchJson<Climate>('data/climate.json')]);
   views = meta.views;
   uniforms = makeUniforms(meta, engine);
   loadFoliage(meta, uniforms).then((city) => bar.setDays({ 'leaves out': city.leaf, 'trees in colour': city.colour, 'leaves down': city.fall, ...DAYS }))
@@ -262,11 +259,11 @@ async function boot() {
   controls.target.set(...(cam ? [cam[3], cam[4], cam[5]] as const : v0.target));
   daylight.uniforms = uniforms;
   daylight.bloom = post.bloom;
-  daylight.fog = post.fog;
+  daylight.ao = post.n8.configuration;
   daylight.theta = (meta.theta_deg || 0) * Math.PI / 180;
   const md = qs.get('date')?.split('-').map(Number);
-  setWeather((qs.get('weather') ?? '') in WEATHERS ? qs.get('weather')! : 'clear');
   setDay(md ? dayOfYear(new Date(new Date().getFullYear(), md[0] - 1, md[1])) : TODAY);
+  setWeather((qs.get('weather') ?? '') in WEATHERS ? qs.get('weather')! : 'typical', true);
   setHour(qs.get('hour') ? +qs.get('hour')! : timesOf(daylight.day)['golden hour']);
   if (engine === 'zones') {
     await (await import('./zones')).installZones({ streamer, uniforms: uniforms as typeof uniforms & ZoneUniforms, meta, focus, qs, composer: post.composer, n8: post.n8, camera });
@@ -282,7 +279,7 @@ async function boot() {
     ...places.map(([name, kind, x, y, size, alt]) => ({ name, alt, kind, go: () => goPlace(x, y, size, { name, kind }) }))]));
   fountains = new Fountains(scene, meta.jets ?? []);
   flood = new Flood(scene, uniforms, meta);
-  flood.load().then(() => { bar.river.input.disabled = false; flood!.setGauge(RIVER['2025 survey']); }).catch((e) => console.warn('flood', e));
+  flood.load().then(() => { bar.river.input.disabled = false; flood!.setGauge(RIVER.typical); }).catch((e) => console.warn('flood', e));
   fetchJson<TrafficData>('data/traffic.json').then((td) => {
     life = nav.life = new StreetLife(scene, td);
     life.world = world;
@@ -293,10 +290,11 @@ async function boot() {
   window.__ready = true;
 }
 
-let lastT = performance.now();
+let lastT = performance.now(), riverT = 0, riverSeen = -1e9;
 const t0 = lastT;
 renderer.setAnimationLoop((now) => {
   fly?.(now);
+  stepWeather(now);
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
   nav.update(dt);
@@ -318,6 +316,11 @@ renderer.setAnimationLoop((now) => {
   streamer?.update(camera);
   daylight.fitShadow(focus(), camera, viewDist, map);
   post.composer.render();
+  if (flood && now - riverT > 250) {
+    riverT = now;
+    if (flood.inView(camera, 2500) || Math.abs(bar.river.value - RIVER.typical) > 20) riverSeen = now;
+    bar.showRiver(now - riverSeen < 2000);
+  }
   barRect ??= bar.rect;
   labels?.update(camera, world, barRect, hud?.rects ?? []);
 });

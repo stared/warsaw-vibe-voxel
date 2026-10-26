@@ -126,7 +126,7 @@ Data the model is built from:
   - **[Deutscher Wetterdienst](https://opendata.dwd.de/climate_environment/CDC/)** phenological observations (source: Deutscher Wetterdienst, [Datenlizenz Deutschland – Namensnennung 2.0](https://www.govdata.de/dl-de/by-2-0)): when each species leafs out, colours and drops its leaves.
   - **[iNaturalist](https://www.inaturalist.org/)** "Leaves" annotations, weekly counts, for the species the DWD does not record.
   - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each species' canopy in autumn and summer, for the autumn colours; the photos are listed in `scripts/foliage_photos.json`.
-  - **[Open-Meteo](https://open-meteo.com/)** ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)): the historical archive (ERA5) for when snow can fall, and the current weather for "now".
+  - **[Open-Meteo](https://open-meteo.com/)** ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)): the historical archive (ERA5) for when snow can fall.
 
 References used to check and curate details (these are not redistributed):
 - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each landmark. They are compared side by side with renders: facades, colours, bridge structure.

@@ -92,7 +92,6 @@ export class Sky {
     u.uCityGlow.value.copy(C(0x8a5a6a)).multiplyScalar(0.35 * night);
     u.uCloudLit.value.copy(mixC(C(0xffffff), mixC(C(0x6a5f86), C(0x3a3550), deep), night));
     u.uCloudDark.value.copy(mixC(C(0xd8dfe8), mixC(C(0x223260), C(0x0e1428), deep), night));
-    // overcast: one grey deck, lighter towards the horizon; at night lit dull orange-grey from below by the city's lights
     const deckLit = mixC(C(0xc4c9cf), C(0x4a3c33), night), deckDark = mixC(C(0x8e959e), C(0x231d1a), night);
     u.uCloudLit.value.lerp(deckLit, cloud);
     u.uCloudDark.value.lerp(deckDark, cloud);
