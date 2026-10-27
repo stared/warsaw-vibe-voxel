@@ -6,6 +6,7 @@ import { installCity } from './city';
 import { Daylight } from './daylight';
 import { Flood } from './flood';
 import { loadFoliage } from './foliage';
+import { loadWindows } from './windows';
 import { Fountains } from './fountains';
 import { Hud } from './hud';
 import { Labels } from './labels';
@@ -56,6 +57,7 @@ let uniforms: ReturnType<typeof makeUniforms> | null = null, streamer: TileStrea
 let fly: ((now: number) => void) | null = null;
 let barRect: DOMRect | null = null;
 let climate: Climate | null = null;
+let setWindows: ((hour: number, day: number) => void) | null = null;
 
 nav.cancelFly = () => { fly = null; };
 bar.setRiver(RIVER.typical);
@@ -251,6 +253,7 @@ async function boot() {
   uniforms = makeUniforms(meta, engine);
   loadFoliage(meta, uniforms).then((city) => bar.setDays({ 'leaves out': city.leaf, 'trees in colour': city.colour, 'leaves down': city.fall, ...DAYS }))
     .catch((e) => console.warn('foliage', e));
+  loadWindows(meta, uniforms).then((set) => { setWindows = set; }).catch((e) => console.warn('windows', e));
   streamer = new TileStreamer(meta, makeVoxelMaterial(uniforms), scene);
   world = nav.world = streamer.world;
   nav.streamer = streamer;
@@ -306,6 +309,7 @@ renderer.setAnimationLoop((now) => {
   daylight.setFogFrom(viewDist);
   const t = (performance.now() - t0) / 1000;
   if (uniforms) { uniforms.uTime.value = t; pkinLight(daylight.day, t, uniforms.uPkinLight.value); }
+  setWindows?.(daylight.hour, daylight.day);
   fountains?.update(t, daylight.night);
   precip.update(t, camera.position, daylight.weather, daylight.night);
   if (city?.complete) document.body.classList.remove('loading');

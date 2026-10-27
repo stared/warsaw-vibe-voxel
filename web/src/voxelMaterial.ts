@@ -14,7 +14,6 @@ export interface VoxelUniforms {
   uLampMap: U<THREE.Texture>;
   uSize: U<THREE.Vector2>;
   uNight: U<number>;
-  uDeep: U<number>;
   uTime: U<number>;
   uHorizon: U<THREE.Color>;
   uDrop: U<number>;
@@ -28,6 +27,11 @@ export interface VoxelUniforms {
   uFolCol: U<THREE.Color[]>;
   uGrass: U<THREE.Color[]>;
   uLeaf: U<THREE.Color>;
+  uWinMap: U<THREE.Texture>;
+  uWinMed: U<number[]>;
+  uWinShape: U<number[]>;
+  uWinFloors: U<number[]>;
+  uWinCol: U<THREE.Vector3[]>;
   uAlbedo: U<number>;
   uPkinLight: U<THREE.Color>;
 }
@@ -46,7 +50,6 @@ export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partia
     uLampMap: { value: makeLampTexture(meta) },
     uSize: { value: new THREE.Vector2(meta.W, meta.D) },
     uNight: { value: 0 },
-    uDeep: { value: 0 },
     uTime: { value: 0 },
     uHorizon: { value: new THREE.Color(0.7, 0.75, 0.8) },
     uDrop: { value: 0 },
@@ -60,6 +63,11 @@ export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partia
     uFolCol: { value: Array.from({ length: FOLIAGE_CLASSES }, () => new THREE.Color(0.3, 0.2, 0.05)) },
     uGrass: { value: Array.from({ length: 12 }, () => new THREE.Color(1, 1, 1)) },
     uLeaf: { value: new THREE.Color(1, 1, 1) },
+    uWinMap: { value: tiny(THREE.RedFormat, new Uint8Array(1)) },
+    uWinMed: { value: new Array(8).fill(0.12) },
+    uWinShape: { value: Array.from({ length: 72 }, (_, i) => (i % 9) / 4) },
+    uWinFloors: { value: new Array(8).fill(0) },
+    uWinCol: { value: Array.from({ length: 8 }, () => new THREE.Vector3(0.7, 0.25, 0.05)) },
     uAlbedo: { value: 0.7 },
     uPkinLight: { value: new THREE.Color(0.95, 0.74, 0.4) },
   };
@@ -170,17 +178,38 @@ const ZONES_PARS = `
 
 const FRAG_PARS = `
   uniform sampler2D uPalette; uniform sampler2D uLampMap;
-  uniform vec2 uSize; uniform float uNight; uniform float uDeep; uniform float uTime; uniform vec3 uHorizon;
+  uniform vec2 uSize; uniform float uNight; uniform float uTime; uniform vec3 uHorizon;
   uniform float uDrop; uniform sampler2D uFlood; uniform float uWet; uniform float uSnow; uniform float uAlbedo; uniform vec3 uPkinLight;
   varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
   float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
   float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
   vec3 gEmissive; float gRough; float gMetal;
   ${FOLIAGE}
-  vec3 roomLight(float r) {
-    if (r < 0.55) return vec3(1.0, 0.66, 0.34);
-    if (r < 0.85) return vec3(1.0, 0.82, 0.58);
-    return vec3(0.95, 0.96, 0.92);
+  uniform sampler2D uWinMap; uniform float uWinMed[8]; uniform float uWinShape[72]; uniform float uWinFloors[8]; uniform vec3 uWinCol[8];
+  // a building's share of lit windows now: its type's measured median times the building's own habit, a point on the
+  // type's measured spread (scripts/window_stats.py)
+  vec3 building(vec3 cell) {
+    int v = int(texelFetch(uWinMap, ivec2(cell.xz), 0).r * 255.0 + 0.5);
+    int kind = v & 7;
+    float habit = (float(v >> 3) + 0.5) / 32.0;
+    if (kind == 0) { kind = 1; habit = hash12(floor(cell.xz / 24.0)); }
+    float q = habit * 7.999; int i = int(q);
+    float s = mix(uWinShape[kind * 9 + i], uWinShape[kind * 9 + i + 1], fract(q));
+    return vec3(clamp(uWinMed[kind] * s, 0.0, 1.0), float(kind), habit);
+  }
+  vec3 roomLight(float r, int kind) {
+    vec3 c = uWinCol[kind];
+    if (r < c.x) return mix(vec3(1.0, 0.66, 0.34), vec3(1.0, 0.82, 0.58), r / max(c.x, 1e-3));
+    if (r < c.x + c.y) return vec3(0.95, 0.96, 0.92);
+    return vec3(0.8, 0.9, 1.0);
+  }
+  // a window or a run of windows (room), on floor fl: lit or not, and its light
+  vec3 windowLight(vec3 cell, vec2 room, float fl) {
+    vec3 b = building(cell);
+    int kind = int(b.y);
+    bool floors = hash12(vec2(b.z * 91.7, 3.1)) < uWinFloors[kind];
+    bool lit = floors ? hash12(vec2(fl, b.z * 57.3)) < b.x && hash12(room) < 0.92 : hash12(room) < b.x;
+    return lit ? roomLight(hash12(room + 7.1), kind) * (0.55 + 0.35 * hash12(room + 3.3)) : vec3(0.0);
   }`;
 
 const SURFACE = `
@@ -196,7 +225,6 @@ const SURFACE = `
   float h = hash13(cell);
   gEmissive = vec3(0.); gRough = 0.88; gMetal = 0.0;
   vec3 col = base * (0.97 + 0.06 * h);
-  float litFrac = mix(0.2, 0.09, uDeep);
   bool shopLvl = lvl > 0.5 && lvl < 3.5;
   if (m == ${MAT.WALL} || m == ${MAT.CONCRETE}) {
     if (vert) {
@@ -211,8 +239,8 @@ const SURFACE = `
         vec2 room = vec2(floor(u / 4.0) + wpos * 17.31 + vN.x * 3.1, floor(lvl / 3.0) + vN.z * 5.7);
         if (shop) {
           if (hash12(vec2(floor(u / 6.0), wpos * 3.7)) < 0.8) gEmissive = vec3(1.0, 0.8, 0.55) * 1.5 * uNight;
-        } else if (hash12(room) < litFrac) {
-          gEmissive = roomLight(hash12(room + 7.1)) * (0.55 + 0.35 * hash12(room + 3.3)) * uNight;
+        } else {
+          gEmissive = windowLight(cell, room, floor(lvl / 3.0)) * uNight;
         }
       }
     }
@@ -222,9 +250,9 @@ const SURFACE = `
       else {
         col = base * (0.8 + 0.12 * step(0.5, mod(u, 2.0)));
         gRough = 0.08; gMetal = mix(0.35, 0.6, uNight);
-        vec2 zone = vec2(floor(u / 40.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
+        vec2 zone = vec2(floor(u / 6.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
         if (shopLvl && lvl < 4.0) gEmissive = vec3(1.0, 0.86, 0.66) * 1.3 * uNight;
-        else if (hash12(zone) < litFrac * 1.2) gEmissive = mix(vec3(0.86, 0.94, 0.92), vec3(1.0, 0.92, 0.8), step(0.7, hash12(zone + 1.7))) * 0.75 * uNight;
+        else gEmissive = windowLight(cell, zone, floor(lvl / 4.0)) * 1.2 * uNight;
       }
     } else { gRough = 0.3; gMetal = 0.4; }
   } else if (m == ${MAT.CLASSIC}) {
@@ -234,15 +262,16 @@ const SURFACE = `
     if (vert && mod(lvl, 4.0) > 1.5) {
       col = mix(base * 0.4, vec3(0.12, 0.16, 0.2), 0.6) + 0.02 * h; gRough = 0.08; gMetal = 0.55;
       vec2 zone = vec2(floor(u / 12.0) + wpos * 13.7 + vN.x * 2.3, floor(lvl / 4.0) + vN.z * 4.1);
-      if (hash12(zone) < litFrac * 0.9) gEmissive = vec3(0.86, 0.94, 0.92) * 0.7 * uNight;
+      gEmissive = windowLight(cell, zone, floor(lvl / 4.0)) * uNight;
     } else { gRough = 0.4; gMetal = 0.3; }
   } else if (m == ${MAT.PKIN}) {
-    float wash = 0.45 + 0.55 * (1.0 - fract(lvl / 34.0));
-    gEmissive = uPkinLight * uNight * (vert ? 0.55 * wash : 0.45);
+    float tower = smoothstep(20.0, 28.0, lvl), wash = 1.0 - 0.3 * smoothstep(28.0, 190.0, lvl);
+    vec3 light = mix(vec3(1.0, 0.78, 0.5) * 0.6 * (1.0 - 0.6 * smoothstep(4.0, 18.0, lvl)), uPkinLight * wash * 2.4, tower);
+    gEmissive = vert ? col * light * uNight : vec3(0.0);
   } else if (m == ${MAT.WINDOW}) {
     gRough = 0.15; gMetal = 0.35;
     col *= 0.6;
-    if (hash13(floor(cell / 2.0)) < litFrac * 0.4) gEmissive = vec3(1.0, 0.82, 0.55) * 0.9 * uNight;
+    gEmissive = windowLight(cell, floor(cell.xz / 2.0) + floor(cell.y / 2.0) * 7.3, floor(cell.y / 3.0)) * uNight;
   } else if (m == ${MAT.LEAF}) {
     col = base * uLeaf * (0.8 + 0.35 * h); gRough = 0.95;
     if (uFolOn > 0.5) {

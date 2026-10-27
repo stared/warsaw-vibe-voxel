@@ -1,0 +1,5094 @@
+[
+{
+"photo": "File:Kościół Wizytek w Warszawie02.jpg",
+"taken": "2019-06-22T22:14",
+"hour": 22,
+"weekend": true,
+"building": "Visitation (Wizytki) convent wing and neighbouring building, Krakowskie Przedmieście",
+"type": "religious",
+"windows": 26.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "2 rows of ~8 windows on the long wing plus side wing; all dark, lamplight reflections only; blue-hour sky"
+},
+{
+"photo": "File:Zamek królweski.jpg",
+"taken": "2015-08-10T23:29",
+"hour": 23,
+"weekend": false,
+"building": "Royal Castle, east/south wing",
+"type": "public",
+"windows": 18.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "museum; floodlit facade, windows dark"
+},
+{
+"photo": "File:Park Morskie Oko 1.jpg",
+"taken": "2023-08-20T00:07",
+"hour": 0,
+"weekend": true,
+"building": "residential tower block by Park Morskie Oko (Mokotów)",
+"type": "residential",
+"windows": 90.0,
+"lit": 13.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.1,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~14 floors x ~6 openings on front plus narrow side; lower floors partly behind trees; one red-curtained, one bluish (TV/LED) and one balcony string-light"
+},
+{
+"photo": "File:29-12-2019 Warszawa Prudential.jpg",
+"taken": "2019-12-29T17:46",
+"hour": 17,
+"weekend": true,
+"building": "Prudential tower (Hotel Warszawa), pl. Powstańców Warszawy",
+"type": "hotel",
+"windows": 94.0,
+"lit": 23.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "7 cols x 12 floors + top 2x5; lit = glowing curtains; facade floodlit on pilasters so some may be spill light"
+},
+{
+"photo": "File:29-12-2019 Warszawa Prudential.jpg",
+"taken": "2019-12-29T17:46",
+"hour": 17,
+"weekend": true,
+"building": "lower wing next to Prudential (\"Polska SA\" sign)",
+"type": "office",
+"windows": 58.0,
+"lit": 22.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.95,
+"neutral": 0.05,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "row 2: 10/12 lit, row 1: 5/12, row 3: 0/12, arched first floor 7/11, attic 0/11; Sunday between Christmas and New Year"
+},
+{
+"photo": "File:29-12-2019 Warszawa Prudential.jpg",
+"taken": "2019-12-29T17:46",
+"hour": 17,
+"weekend": true,
+"building": "building on right edge, Świętokrzyska/Mazowiecka side",
+"type": "unknown",
+"windows": 36.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0,
+"cool": 0.5
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "partly cut off; one red-lit window"
+},
+{
+"photo": "File:Kościół pw. św. Karola Boromeusza z widokiem na ulicę Powązkowską.jpg",
+"taken": "2022-09-02T21:07",
+"hour": 21,
+"weekend": false,
+"building": "apartment block behind Powązkowska street, left",
+"type": "residential",
+"windows": 100.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.1,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant, 3x upscaled; ~7 floors x ~14 windows"
+},
+{
+"photo": "File:Kościół pw. św. Karola Boromeusza z widokiem na ulicę Powązkowską.jpg",
+"taken": "2022-09-02T21:07",
+"hour": 21,
+"weekend": false,
+"building": "apartment blocks (towers and slabs) behind Powązkowska, centre-right",
+"type": "residential",
+"windows": 300.0,
+"lit": 24.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.1,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant; ~8 floors x ~40 columns estimated; staircase light strips excluded"
+},
+{
+"photo": "File:Złota 44 from Palace of Culture and Science observation deck.jpg",
+"taken": "2017-10-14T18:52",
+"hour": 18,
+"weekend": true,
+"building": "Złota 44",
+"type": "residential",
+"windows": 175.0,
+"lit": 17.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.1,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "seen through observation-deck net; ~25 floors x 7 panels; one floor ~5 lit warm; top floors greenish amenity lighting; bluish spots on left are reflections of PKiN lighting, not counted; dusk sky"
+},
+{
+"photo": "File:Dom Słowa Bożego im. ks. K. Romaniuka.jpg",
+"taken": "2023-04-17T03:48",
+"hour": 3,
+"weekend": false,
+"building": "Dom Słowa Bożego (former Albertine institute), Praga-Południe",
+"type": "religious",
+"windows": 36.0,
+"lit": 1.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "03:48; facade washed by street floodlight; only one roof dormer lit"
+},
+{
+"photo": "File:Dom Słowa Bożego im. ks. K. Romaniuka.jpg",
+"taken": "2023-04-17T03:48",
+"hour": 3,
+"weekend": false,
+"building": "residential tower block left of Dom Słowa Bożego",
+"type": "residential",
+"windows": 20.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "03:48; two window columns x ~9 floors visible"
+},
+{
+"photo": "File:Christmas decorations in Warsaw, 2024, 03.jpg",
+"taken": "2024-12-06T03:32",
+"hour": 3,
+"weekend": false,
+"building": "Royal Castle, facade on Castle Square",
+"type": "public",
+"windows": 18.0,
+"lit": 1.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "Christmas tree in front; crowd of people suggests EXIF hour wrong (03:32 implausible for crowd though sky is dark)"
+},
+{
+"photo": "File:Anti abortion campaign in the old town square Warsaw.jpg",
+"taken": "2025-12-11T18:22",
+"hour": 18,
+"weekend": false,
+"building": "Royal Castle, west facade on Castle Square",
+"type": "public",
+"windows": 27.0,
+"lit": 1.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "museum; Christmas tree in front; only one small window possibly lit"
+},
+{
+"photo": "File:Anti abortion campaign in the old town square Warsaw.jpg",
+"taken": "2025-12-11T18:22",
+"hour": 18,
+"weekend": false,
+"building": "Old Town tenements on west side of Castle Square",
+"type": "mixed",
+"windows": 115.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.15,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~7 narrow houses, 3-4 floors + dormers; restaurants/shops at street level lit with Christmas decorations; Thursday 18:22 in December"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "tall apartment building, left foreground (Wola/Mirów)",
+"type": "residential",
+"windows": 85.0,
+"lit": 15.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.75,
+"neutral": 0.1,
+"cool": 0.15
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~6 cols x 15 floors visible; a couple of bluish windows"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "mid-rise apartment building with balconies, left-centre",
+"type": "residential",
+"windows": 56.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.75,
+"neutral": 0.15,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~8 cols x 7 floors; facade uplit at ground"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "tall apartment building, centre (upper part)",
+"type": "residential",
+"windows": 70.0,
+"lit": 9.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "upper section ~7 cols x 10 floors"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "lower slab of centre building",
+"type": "unknown",
+"windows": 63.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "~7 cols x 9 floors, no lit windows"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "apartment building, centre-right foreground",
+"type": "residential",
+"windows": 48.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.1,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~6 cols x 8 floors; some blue-white (TV/LED)"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "background residential slabs (Muranów/Mirów blocks)",
+"type": "residential",
+"windows": 480.0,
+"lit": 165.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.1,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant; several 10-12 storey slabs, density estimated from small patches (~1/3 lit)"
+},
+{
+"photo": "File:Warsaw (19121212152).jpg",
+"taken": "2015-05-28T22:15",
+"hour": 22,
+"weekend": false,
+"building": "glass office tower in front of PKiN (likely Warsaw Financial Center)",
+"type": "office",
+"windows": 250.0,
+"lit": 190.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.3,
+"neutral": 0.6,
+"cool": 0.1
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "curtain wall, floors almost fully lit; window count is bays x floors estimate"
+},
+{
+"photo": "File:Nocna biedronka na białobrzeskiej.jpg",
+"taken": "2024-12-07T20:01",
+"hour": 20,
+"weekend": true,
+"building": "residential block left of Biedronka, ul. Białobrzeska",
+"type": "residential",
+"windows": 16.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.3,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "4 floors x 4 windows visible; Saturday 20:01"
+},
+{
+"photo": "File:Nocna biedronka na białobrzeskiej.jpg",
+"taken": "2024-12-07T20:01",
+"hour": 20,
+"weekend": true,
+"building": "residential block right of Biedronka, ul. Białobrzeska",
+"type": "residential",
+"windows": 22.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "~5 floors visible, partly behind trees"
+},
+{
+"photo": "File:Przedszkole piotruś pan zimowy wieczór.jpg",
+"taken": "2024-01-15T16:48",
+"hour": 16,
+"weekend": false,
+"building": "Przedszkole Piotruś Pan (kindergarten)",
+"type": "public",
+"windows": 14.0,
+"lit": 10.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.4,
+"neutral": 0.6,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "ground and first floor all lit (Christmas decorations in windows), attic floor dark with curtains; Monday 16:48"
+},
+{
+"photo": "File:Kościół Świętego Ducha w Warszawie 01.jpg",
+"taken": "2017-12-01T21:37",
+"hour": 21,
+"weekend": false,
+"building": "tenements on ul. Freta / Nowe Miasto, right side",
+"type": "mixed",
+"windows": 45.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "Holy Spirit church at end of street; long exposure with blue sky; Friday 21:37 December"
+},
+{
+"photo": "File:Kościół Świętego Ducha w Warszawie 01.jpg",
+"taken": "2017-12-01T21:37",
+"hour": 21,
+"weekend": false,
+"building": "tenements on left side of street",
+"type": "residential",
+"windows": 22.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:Rynek Nowego Miasta 7 Warszawa 01.jpg",
+"taken": "2017-12-01T22:04",
+"hour": 22,
+"weekend": false,
+"building": "Rynek Nowego Miasta 7 (tenement block on New Town Market Square)",
+"type": "mixed",
+"windows": 80.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "3 floors x ~20 + dormers + arched ground floor; lit: 1 ground window + door, ~5 upper windows; Friday 22:04 December; snow"
+},
+{
+"photo": "File:Strona Dekkerta Warszawa 03.jpg",
+"taken": "2017-12-01T18:38",
+"hour": 18,
+"weekend": false,
+"building": "Dekert side of Old Town Market Square (tenement row)",
+"type": "mixed",
+"windows": 150.0,
+"lit": 33.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "counted lit windows house by house; Christmas market stalls block ground floor; Friday 18:38 December; Christmas string lights not counted"
+},
+{
+"photo": "File:Szpital msw nocą.jpg",
+"taken": "2017-04-09T00:09",
+"hour": 0,
+"weekend": true,
+"building": "Centralny Szpital Kliniczny MSWiA (hospital), ul. Wołoska",
+"type": "public",
+"windows": 260.0,
+"lit": 35.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.35,
+"neutral": 0.45,
+"cool": 0.2
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "main block ~7 floors x 18 cols + side wings; ~13 lit in stairwell/corridor section; fluorescent white/greenish; Sunday 00:09"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N95, 1.jpg",
+"taken": "2025-10-05T01:13",
+"hour": 1,
+"weekend": true,
+"building": "office building by Dworzec Centralny bus loop (left)",
+"type": "office",
+"windows": 70.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.6,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "glass facade partly hidden by canopy; Sunday 01:13, rain"
+},
+{
+"photo": "File:Pałac Kultury i Nauki - panoramio - Mister No (2).jpg",
+"taken": "2016-06-22T23:05",
+"hour": 23,
+"weekend": false,
+"building": "office tower right of PKiN (distant)",
+"type": "office",
+"windows": 180.0,
+"lit": 25.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.7,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant; ~15 floors; lit windows in small clusters; PKiN itself floodlit/projection not counted; Wednesday 23:05"
+},
+{
+"photo": "File:Pałac Kultury i Nauki - panoramio - Mister No (2).jpg",
+"taken": "2016-06-22T23:05",
+"hour": 23,
+"weekend": false,
+"building": "tower left of PKiN (distant)",
+"type": "unknown",
+"windows": 100.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.6,
+"cool": 0.1
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "distant, small"
+},
+{
+"photo": "File:Świętokrzyska 14-18, Warsaw, September 2025.jpg",
+"taken": "2025-09-13T20:23",
+"hour": 20,
+"weekend": true,
+"building": "Świętokrzyska 14-18 (brick-patterned block, front)",
+"type": "office",
+"windows": 140.0,
+"lit": 17.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "6 upper floors x ~22 + white ground-floor band; ~12 lit upper, ~5 lit in pale lower band; Saturday evening"
+},
+{
+"photo": "File:Świętokrzyska 14-18, Warsaw, September 2025.jpg",
+"taken": "2025-09-13T20:23",
+"hour": 20,
+"weekend": true,
+"building": "pale building at left (Świętokrzyska/Mazowiecka corner)",
+"type": "office",
+"windows": 40.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "facade washed pink by signage; most windows dark with blinds"
+},
+{
+"photo": "File:Świętokrzyska 14-18, Warsaw, September 2025.jpg",
+"taken": "2025-09-13T20:23",
+"hour": 20,
+"weekend": true,
+"building": "long beige building along Świętokrzyska (right)",
+"type": "public",
+"windows": 150.0,
+"lit": 2.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "distant, oblique; arcade shops lit at street level"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N43, 2.jpg",
+"taken": "2025-10-05T01:37",
+"hour": 1,
+"weekend": true,
+"building": "office building above Złote Tarasy / Dworzec Centralny bus loop",
+"type": "office",
+"windows": 70.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.8,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "glazed curtain wall, panes hard to separate; fog; 01:37 Sat night"
+},
+{
+"photo": "File:20180119 171712 January 2018 in Warsaw.jpg",
+"taken": "2018-01-19T17:17",
+"hour": 17,
+"weekend": false,
+"building": "Old Town Market Square, north side (Strona Dekerta, Museum of Warsaw)",
+"type": "mixed",
+"windows": 90.0,
+"lit": 24.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "blue hour 17:17 January; Christmas market and lights; houses partly museum"
+},
+{
+"photo": "File:20180119 171712 January 2018 in Warsaw.jpg",
+"taken": "2018-01-19T17:17",
+"hour": 17,
+"weekend": false,
+"building": "Old Town Market Square, east side (Strona Barssa)",
+"type": "mixed",
+"windows": 120.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "oblique; Christmas lights strung across facades make counting hard"
+},
+{
+"photo": "File:Kolonia Wawelberga 3.jpg",
+"taken": "2023-07-29T23:01",
+"hour": 23,
+"weekend": true,
+"building": "Kolonia Wawelberga, brick house",
+"type": "residential",
+"windows": 16.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.3,
+"cool": 0.5
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "several windows blue (TV/LED); trees cover part of the facade"
+},
+{
+"photo": "File:Kępna (6).jpg",
+"taken": "2023-05-20T21:44",
+"hour": 21,
+"weekend": true,
+"building": "derelict tenement, Kępna street courtyard",
+"type": "residential",
+"windows": 17.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "building looks abandoned/unused (broken, boarded windows); lit only by street lamps"
+},
+{
+"photo": "File:Polonia Hotel in Warsaw seen from the Palace of Culture and Science.jpg",
+"taken": "2017-10-14T18:47",
+"hour": 18,
+"weekend": true,
+"building": "Hotel Metropol (Marszałkowska / Al. Jerozolimskie)",
+"type": "hotel",
+"windows": 200.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "seen from PKiN at dusk; balcony grid"
+},
+{
+"photo": "File:Polonia Hotel in Warsaw seen from the Palace of Culture and Science.jpg",
+"taken": "2017-10-14T18:47",
+"hour": 18,
+"weekend": true,
+"building": "Polonia Palace Hotel",
+"type": "hotel",
+"windows": 150.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "facade floodlit with uplights between windows, interior light hard to separate; dusk"
+},
+{
+"photo": "File:Polonia Hotel in Warsaw seen from the Palace of Culture and Science.jpg",
+"taken": "2017-10-14T18:47",
+"hour": 18,
+"weekend": true,
+"building": "tenement east of Polonia on Al. Jerozolimskie",
+"type": "mixed",
+"windows": 96.0,
+"lit": 4.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "dusk, sky still bright; window glow weak"
+},
+{
+"photo": "File:Polonia Hotel in Warsaw seen from the Palace of Culture and Science.jpg",
+"taken": "2017-10-14T18:47",
+"hour": 18,
+"weekend": true,
+"building": "office block with horizontal ribbon windows behind (Al. Jerozolimskie)",
+"type": "office",
+"windows": 200.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "distant; counts approximate"
+},
+{
+"photo": "File:Warsaw Old Town (52278170319).jpg",
+"taken": "2022-07-25T00:52",
+"hour": 0,
+"weekend": false,
+"building": "tenements on Castle Square (plac Zamkowy, west side)",
+"type": "mixed",
+"windows": 110.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "street lamps light facades, curtains reflect; 00:52 Sun night/Mon"
+},
+{
+"photo": "File:Warsaw Old Town (52278170319).jpg",
+"taken": "2022-07-25T00:52",
+"hour": 0,
+"weekend": false,
+"building": "Royal Castle, Castle Square facade",
+"type": "public",
+"windows": 40.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "tower floodlit; windows dark"
+},
+{
+"photo": "File:City Moonrise - Flickr - radkuch.13.jpg",
+"taken": "2020-05-07T03:54",
+"hour": 3,
+"weekend": false,
+"building": "apartment block with balconies (moonset, telephoto)",
+"type": "residential",
+"windows": 40.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "pre-dawn twilight 03:54 May, bright blue sky; no window clearly lit; title says moonrise but EXIF time fits moonset of full moon"
+},
+{
+"photo": "File:Warszawa - Metro - Rondo ONZ (17008416482).jpg",
+"taken": "2015-03-26T22:33",
+"hour": 22,
+"weekend": false,
+"building": "residential tower at Rondo ONZ (Świętokrzyska 31/33)",
+"type": "residential",
+"windows": 180.0,
+"lit": 28.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~15 rows x ~12 visible; counted lit per row and summed; Thursday 22:33"
+},
+{
+"photo": "File:Nocno-świąteczne krakowskie przedmieście 47 49 51.jpg",
+"taken": "2023-12-31T17:05",
+"hour": 17,
+"weekend": true,
+"building": "Krakowskie Przedmieście 49 (JESS Hotel & Spa, yellow)",
+"type": "hotel",
+"windows": 20.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "New Year's Eve 17:05; some windows with Christmas lights"
+},
+{
+"photo": "File:Nocno-świąteczne krakowskie przedmieście 47 49 51.jpg",
+"taken": "2023-12-31T17:05",
+"hour": 17,
+"weekend": true,
+"building": "Krakowskie Przedmieście 51 (white, right)",
+"type": "mixed",
+"windows": 22.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "New Year's Eve; two lit dormers, Christmas lights in windows"
+},
+{
+"photo": "File:Nocno-świąteczne krakowskie przedmieście 47 49 51.jpg",
+"taken": "2023-12-31T17:05",
+"hour": 17,
+"weekend": true,
+"building": "Krakowskie Przedmieście 47 (white, left)",
+"type": "mixed",
+"windows": 16.0,
+"lit": 4.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.3,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly hidden by tree and street sign; blue Christmas lights in one window"
+},
+{
+"photo": "File:Pod skrzydłami światła ochota.jpg",
+"taken": "2019-01-08T16:45",
+"hour": 16,
+"weekend": false,
+"building": "apartment block at plac Pod Skrzydłami, Ochota",
+"type": "residential",
+"windows": 45.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.4,
+"neutral": 0.6,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "16:45 January, sky still grey; snow; trees obscure part"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N24, 1.jpg",
+"taken": "2025-10-05T01:11",
+"hour": 1,
+"weekend": true,
+"building": "glass office tower above Dworzec Centralny bus loop (Złote Tarasy offices)",
+"type": "office",
+"windows": 160.0,
+"lit": 15.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.9,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "01:11 Sat/Sun night; fog; curtain wall panes counted as windows"
+},
+{
+"photo": "File:Rynek Nowego Miasta 15-19 Warszawa.jpg",
+"taken": "2017-12-01T21:59",
+"hour": 21,
+"weekend": false,
+"building": "Rynek Nowego Miasta 15 (white palace)",
+"type": "mixed",
+"windows": 14.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "upper two floors only; ground floor restaurant windows all lit; snow, overcast pink sky"
+},
+{
+"photo": "File:Rynek Nowego Miasta 15-19 Warszawa.jpg",
+"taken": "2017-12-01T21:59",
+"hour": 21,
+"weekend": false,
+"building": "Rynek Nowego Miasta 17-19 (red and yellow houses)",
+"type": "residential",
+"windows": 39.0,
+"lit": 14.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "dormers included; tree partly in front"
+},
+{
+"photo": "File:Kościół św. Jacka w Warszawie 01.jpg",
+"taken": "2017-12-01T21:45",
+"hour": 21,
+"weekend": false,
+"building": "tenement on Freta next to St Hyacinth church",
+"type": "mixed",
+"windows": 14.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "church itself floodlit (skipped)"
+},
+{
+"photo": "File:Kępna (7).jpg",
+"taken": "2023-05-20T21:45",
+"hour": 21,
+"weekend": true,
+"building": "derelict tenement, Kępna street courtyard",
+"type": "residential",
+"windows": 15.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "same abandoned building as 0412; street lamp light only"
+},
+{
+"photo": "File:Plac teatralny s2.jpg",
+"taken": "2012-08-14T23:42",
+"hour": 23,
+"weekend": false,
+"building": "north frontage of Plac Teatralny (classicist block with pediment)",
+"type": "office",
+"windows": 115.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.6,
+"cool": 0.1
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "Tuesday 23:42 August; several bright white office-like windows on 1st floor; ground floor cafes with umbrellas"
+},
+{
+"photo": "File:Warsaw cityscape, Warsaw, Masovian Voivodeship, Poland, November 2019 (1).jpg",
+"taken": "2019-11-10T16:18",
+"hour": 16,
+"weekend": true,
+"building": "Hotel Metropol (Marszałkowska)",
+"type": "hotel",
+"windows": 260.0,
+"lit": 36.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "about 11 floors x ~24 columns seen from high viewpoint; counted lit across both wings; blue hour, rain; distant skyscrapers too small to count"
+},
+{
+"photo": "File:Krakowskie Przedmieście 57-63 Warszawa.jpg",
+"taken": "2017-12-01T18:59",
+"hour": 18,
+"weekend": false,
+"building": "Krakowskie Przedmieście 57/59 (pink tenement with dormers)",
+"type": "mixed",
+"windows": 24.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "4 of 4 dormers lit, 2 first-floor windows lit; Christmas street decorations"
+},
+{
+"photo": "File:Krakowskie Przedmieście 57-63 Warszawa.jpg",
+"taken": "2017-12-01T18:59",
+"hour": 18,
+"weekend": false,
+"building": "Krakowskie Przedmieście 61 (white tenement, Demmers Teahouse)",
+"type": "mixed",
+"windows": 23.0,
+"lit": 4.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "2 on 2nd floor, 2 on 1st floor lit"
+},
+{
+"photo": "File:Krakowskie Przedmieście 57-63 Warszawa.jpg",
+"taken": "2017-12-01T18:59",
+"hour": 18,
+"weekend": false,
+"building": "Krakowskie Przedmieście 63 (yellow tenement)",
+"type": "mixed",
+"windows": 22.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "3 lit on 1st floor; one bright spot may be lamp reflection"
+},
+{
+"photo": "File:Krakowskie Przedmieście 57-63 Warszawa.jpg",
+"taken": "2017-12-01T18:59",
+"hour": 18,
+"weekend": false,
+"building": "tenement left of 57 (lilac, partly cut)",
+"type": "mixed",
+"windows": 15.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobusy nocne, 3.jpg",
+"taken": "2025-10-05T01:38",
+"hour": 1,
+"weekend": true,
+"building": "curved block behind Złote Tarasy (seen from Centralny bus loop)",
+"type": "unknown",
+"windows": 240.0,
+"lit": 9.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "heavy fog and rain; 01:38 Sunday; windows hard to separate"
+},
+{
+"photo": "File:Południk warszawski noc.jpg",
+"taken": "2023-12-31T17:31",
+"hour": 17,
+"weekend": true,
+"building": "Teatr Wielki side wing, Plac Teatralny",
+"type": "public",
+"windows": 14.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "1 of 6 upper windows lit; ~6 small windows behind colonnade look orange-lit (could be curtains); New Year's Eve"
+},
+{
+"photo": "File:Cent uw nocą.jpg",
+"taken": "2019-12-12T19:30",
+"hour": 19,
+"weekend": false,
+"building": "CeNT, University of Warsaw (Banacha)",
+"type": "public",
+"windows": 200.0,
+"lit": 13.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0,
+"neutral": 0.8,
+"cool": 0.2
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "glass curtain-wall grid, panes counted as windows; lit atrium at ground (lobby, not shops); Thursday 19:30"
+},
+{
+"photo": "File:Cent uw nocą.jpg",
+"taken": "2019-12-12T19:30",
+"hour": 19,
+"weekend": false,
+"building": "glass building left of CeNT",
+"type": "public",
+"windows": 60.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:Freta 29-37 Warszawa.jpg",
+"taken": "2017-12-01T22:02",
+"hour": 22,
+"weekend": false,
+"building": "Rynek Nowego Miasta row, Freta 29-37",
+"type": "mixed",
+"windows": 45.0,
+"lit": 13.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.95,
+"neutral": 0.05,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "long exposure (ghost figure); restaurants lit on ground floor; Christmas tree; 22:02 Friday"
+},
+{
+"photo": "File:Warsaw (58025974).jpeg",
+"taken": "2014-01-04T20:00",
+"hour": 20,
+"weekend": true,
+"building": "MDM block with corner tower (Śródmieście)",
+"type": "residential",
+"windows": 260.0,
+"lit": 80.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.75,
+"neutral": 0.25,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~7 floors x ~38 columns over two faces; lit share estimated from 2-3 floors (~30%); long exposure from rooftop"
+},
+{
+"photo": "File:Warsaw (58025974).jpeg",
+"taken": "2014-01-04T20:00",
+"hour": 20,
+"weekend": true,
+"building": "MDM block, left foreground",
+"type": "mixed",
+"windows": 56.0,
+"lit": 17.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "purple floodlight from shop sign makes some panes ambiguous"
+},
+{
+"photo": "File:Warsaw (58025974).jpeg",
+"taken": "2014-01-04T20:00",
+"hour": 20,
+"weekend": true,
+"building": "long block further right along street",
+"type": "residential",
+"windows": 90.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "distant"
+},
+{
+"photo": "File:29-12-2019 Warszawa Nowy Świat.jpg",
+"taken": "2019-12-29T17:23",
+"hour": 17,
+"weekend": true,
+"building": "Nowy Świat, west side (Sixty Six hotel etc.)",
+"type": "mixed",
+"windows": 20.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.1,
+"cool": 0.3
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "facade uplit and Christmas lights; some 'lit' panes may be reflections"
+},
+{
+"photo": "File:29-12-2019 Warszawa Nowy Świat.jpg",
+"taken": "2019-12-29T17:23",
+"hour": 17,
+"weekend": true,
+"building": "Nowy Świat, east side tenements",
+"type": "mixed",
+"windows": 30.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "Christmas illuminations across street"
+},
+{
+"photo": "File:Widok na Pałac Kultury i Nauki w Warszawie.jpg",
+"taken": "2015-05-01T23:15",
+"hour": 23,
+"weekend": false,
+"building": "Hotel InterContinental",
+"type": "hotel",
+"windows": 360.0,
+"lit": 90.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant, small; share estimated from texture; 23:15 Friday May 1 holiday"
+},
+{
+"photo": "File:Widok na Pałac Kultury i Nauki w Warszawie.jpg",
+"taken": "2015-05-01T23:15",
+"hour": 23,
+"weekend": false,
+"building": "office tower between Złota 44 and InterContinental",
+"type": "office",
+"windows": 240.0,
+"lit": 60.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant; some bright rows"
+},
+{
+"photo": "File:Warsaw24oct.jpg",
+"taken": "2020-10-23T20:02",
+"hour": 20,
+"weekend": false,
+"building": "6-storey modernist block on Mickiewicza (Żoliborz)",
+"type": "residential",
+"windows": 180.0,
+"lit": 28.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "protest night; curtains/plants visible; counted per floor on near half, extrapolated to far end"
+},
+{
+"photo": "File:Hotel Polonia Palace.jpg",
+"taken": "2020-09-27T20:57",
+"hour": 20,
+"weekend": true,
+"building": "Hotel Polonia Palace (Al. Jerozolimskie)",
+"type": "hotel",
+"windows": 14.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "facade floodlit; upper windows dark; lit restaurant at ground left"
+},
+{
+"photo": "File:Aleje Jerozolimskie Warszawa 02.jpg",
+"taken": "2017-12-02T17:49",
+"hour": 17,
+"weekend": true,
+"building": "blue-lit block on right, Al. Jerozolimskie",
+"type": "office",
+"windows": 36.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "facade washed blue by floodlights"
+},
+{
+"photo": "File:Aleje Jerozolimskie Warszawa 02.jpg",
+"taken": "2017-12-02T17:49",
+"hour": 17,
+"weekend": true,
+"building": "high-rise behind Jerozolimskie (likely Hotel Marriott)",
+"type": "hotel",
+"windows": 300.0,
+"lit": 30.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "small in frame; top floor row lit"
+},
+{
+"photo": "File:Państwowy instytut medyczny mswia noc 3.jpg",
+"taken": "2026-02-09T18:06",
+"hour": 18,
+"weekend": false,
+"building": "Państwowy Instytut Medyczny MSWiA, high-rise wing (Wołoska)",
+"type": "public",
+"windows": 24.0,
+"lit": 9.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.6,
+"cool": 0.1
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "hospital; tall block partly visible behind low wing; Monday 18:06"
+},
+{
+"photo": "File:Państwowy instytut medyczny mswia noc 3.jpg",
+"taken": "2026-02-09T18:06",
+"hour": 18,
+"weekend": false,
+"building": "Państwowy Instytut Medyczny MSWiA, low wing",
+"type": "public",
+"windows": 30.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0,
+"neutral": 0.9,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "lit panes are a vertical stairwell strip; side windows dark; car park decks lit at right not counted"
+},
+{
+"photo": "File:2024 Warszawa plac Szczepaniaka, 1.jpg",
+"taken": "2024-02-29T17:55",
+"hour": 17,
+"weekend": false,
+"building": "residential block across Plac Szczepaniaka (centre)",
+"type": "residential",
+"windows": 24.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.75,
+"neutral": 0.15,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "one pane bluish (TV?); framed by light columns"
+},
+{
+"photo": "File:2024 Warszawa plac Szczepaniaka, 1.jpg",
+"taken": "2024-02-29T17:55",
+"hour": 17,
+"weekend": false,
+"building": "residential block right of square (behind trees)",
+"type": "residential",
+"windows": 40.0,
+"lit": 11.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly hidden by bare trees"
+},
+{
+"photo": "File:Palais De La Culture Et De La Science (237632649).jpeg",
+"taken": "2017-11-26T15:59",
+"hour": 15,
+"weekend": true,
+"building": "Hotel InterContinental",
+"type": "hotel",
+"windows": 300.0,
+"lit": 100.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "blue hour 15:59 Sunday; small in frame, lit share ~1/3 estimated from texture; PKiN skipped (floodlit rainbow)"
+},
+{
+"photo": "File:Palais De La Culture Et De La Science (237632649).jpeg",
+"taken": "2017-11-26T15:59",
+"hour": 15,
+"weekend": true,
+"building": "office tower behind InterContinental (likely Warsaw Financial Center)",
+"type": "office",
+"windows": 180.0,
+"lit": 15.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "one top floor fully lit, rest mostly dark"
+},
+{
+"photo": "File:Stare Miasto, Warszawa 4.jpg",
+"taken": "2022-01-06T17:55",
+"hour": 17,
+"weekend": false,
+"building": "Old Town Market Square tenements",
+"type": "mixed",
+"windows": 39.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "Christmas light strings in front; one dormer red-lit; most panes reflect festoon lights only; Epiphany holiday"
+},
+{
+"photo": "File:Przystanek uniwersytet noc.jpg",
+"taken": "2023-12-31T16:49",
+"hour": 16,
+"weekend": true,
+"building": "yellow tenement at Uniwersytet stop, Krakowskie Przedmieście",
+"type": "mixed",
+"windows": 20.0,
+"lit": 1.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "New Year's Eve 16:49; lit shops behind bus shelter"
+},
+{
+"photo": "File:Przystanek uniwersytet noc.jpg",
+"taken": "2023-12-31T16:49",
+"hour": 16,
+"weekend": true,
+"building": "pink building left, Krakowskie Przedmieście",
+"type": "unknown",
+"windows": 15.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "facade washed by pink light"
+},
+{
+"photo": "File:2024 Warszawa Nowowiejska, śnieg, 2.jpg",
+"taken": "2024-01-15T18:16",
+"hour": 18,
+"weekend": false,
+"building": "MDM-era apartment block on Nowowiejska (north side)",
+"type": "mixed",
+"windows": 120.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "heavy snowfall/fog washes out far windows; counted ~7 floors x ~17 cols in the near half; lit count from near part only"
+},
+{
+"photo": "File:Willa na harfowej noc.jpg",
+"taken": "2023-03-13T19:53",
+"hour": 19,
+"weekend": false,
+"building": "Willa na Harfowej (apartment block)",
+"type": "residential",
+"windows": 170.0,
+"lit": 29.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.45,
+"neutral": 0.5,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "left wing ~24 windows/7 lit; main block 7 floors, ~22 lit counted individually; balconies hide some windows"
+},
+{
+"photo": "File:Śródmieście Północne, Warszawa, Poland - panoramio (116).jpg",
+"taken": "2016-04-05T19:49",
+"hour": 19,
+"weekend": false,
+"building": "Rotunda PKO BP",
+"type": "office",
+"windows": 60.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.7,
+"cool": 0.2
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "curtain-wall bays counted, not separate windows; a few ceiling lights visible inside upper floors; blue dusk sky; bank branch lit at ground"
+},
+{
+"photo": "File:Prime Corporate Center.jpg",
+"taken": "2020-02-08T19:30",
+"hour": 19,
+"weekend": true,
+"building": "Prime Corporate Center tower",
+"type": "office",
+"windows": 300.0,
+"lit": 3.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.0,
+"neutral": 0.7,
+"cool": 0.3
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "blue LED dots on every mullion are architectural lighting, not windows; only ~3 window bays truly lit"
+},
+{
+"photo": "File:Prime Corporate Center.jpg",
+"taken": "2020-02-08T19:30",
+"hour": 19,
+"weekend": true,
+"building": "office building in front-left of Prime Corporate Center",
+"type": "office",
+"windows": 120.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.8,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "two lit groups of 3-4 panes; Saturday evening"
+},
+{
+"photo": "File:5 oddział straży ogniowej.jpg",
+"taken": "2023-05-20T21:28",
+"hour": 21,
+"weekend": true,
+"building": "Fire brigade headquarters, Marcinkowskiego 2 (main building)",
+"type": "public",
+"windows": 21.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "facade floodlit; windows dark; late dusk"
+},
+{
+"photo": "File:5 oddział straży ogniowej.jpg",
+"taken": "2023-05-20T21:28",
+"hour": 21,
+"weekend": true,
+"building": "buildings behind/right of fire station",
+"type": "unknown",
+"windows": 25.0,
+"lit": 4.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1.0,
+"neutral": 0.0,
+"cool": 0.0
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "3 bright orange ground windows + 1 upper"
+},
+{
+"photo": "File:Warsaw - St. Annes Church - 20240914220045.jpg",
+"taken": "2024-09-14T22:00",
+"hour": 22,
+"weekend": true,
+"building": "tenements on Krakowskie Przedmieście / Castle Square right of St Anne's tower",
+"type": "mixed",
+"windows": 30.0,
+"lit": 1.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1.0,
+"neutral": 0.0,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "facades partly lit by streetlights; St Anne's church itself floodlit (not counted)"
+},
+{
+"photo": "File:Kampania wyborcza w Warszawie 2024 32.jpg",
+"taken": "2024-04-03T20:47",
+"hour": 20,
+"weekend": false,
+"building": "building housing Orzo club (upper floors)",
+"type": "mixed",
+"windows": 30.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "only top-left strip of upper windows visible, all dark; ground floor club brightly lit with string lights; silent disco event"
+},
+{
+"photo": "File:Warsaw - Monument to the Ghetto Heroes by night (menorah).jpg",
+"taken": "2013-04-21T20:54",
+"hour": 20,
+"weekend": true,
+"building": "Muranów apartment block left of Ghetto Heroes menorah",
+"type": "residential",
+"windows": 48.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.1,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "one blue-lit window (TV/LED); partly behind trees"
+},
+{
+"photo": "File:Warsaw - Monument to the Ghetto Heroes by night (menorah).jpg",
+"taken": "2013-04-21T20:54",
+"hour": 20,
+"weekend": true,
+"building": "Muranów apartment block right of menorah",
+"type": "residential",
+"windows": 36.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly hidden by sculpture"
+},
+{
+"photo": "File:20 Kondratowicza Street, Warsaw.jpg",
+"taken": "2015-12-20T18:56",
+"hour": 18,
+"weekend": true,
+"building": "Targówek district office, Kondratowicza 20",
+"type": "public",
+"windows": 100.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.4,
+"neutral": 0.6,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "Sunday; LED Christmas lights on roof edge; ground-floor glazing lit (lobby)"
+},
+{
+"photo": "File:20 Kondratowicza Street, Warsaw.jpg",
+"taken": "2015-12-20T18:56",
+"hour": 18,
+"weekend": true,
+"building": "apartment block behind Christmas market",
+"type": "residential",
+"windows": 90.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": ""
+},
+{
+"photo": "File:20 Kondratowicza Street, Warsaw.jpg",
+"taken": "2015-12-20T18:56",
+"hour": 18,
+"weekend": true,
+"building": "tall apartment block on right (Bródno)",
+"type": "residential",
+"windows": 150.0,
+"lit": 25.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "small and dim, counted lit dots roughly"
+},
+{
+"photo": "File:Palace of Culture and Science, Warsaw, Poland.jpg",
+"taken": "2017-10-14T18:34",
+"hour": 18,
+"weekend": true,
+"building": "Palace of Culture and Science, lower wing at Pałac Młodzieży / Museum of Evolution entrance",
+"type": "public",
+"windows": 20.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "tower is floodlit (architectural) and skipped; only one tower window clearly lit; lower windows counted"
+},
+{
+"photo": "File:Iglica varso nocą.jpg",
+"taken": "2023-01-14T19:34",
+"hour": 19,
+"weekend": true,
+"building": "Varso Tower upper floors",
+"type": "office",
+"windows": 100.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.0,
+"neutral": 0.4,
+"cool": 0.6
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "glass panes barely distinguishable; lit = top lantern panes + two strips; spire floodlit; Saturday"
+},
+{
+"photo": "File:Varšava, Aleje Jerozolimskie v noci.jpg",
+"taken": "2022-07-21T22:07",
+"hour": 22,
+"weekend": false,
+"building": "apartment block at Al. Jerozolimskie / Marszałkowska corner",
+"type": "mixed",
+"windows": 150.0,
+"lit": 11.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "lens flare; front face ~7 floors x 10 cols, side face blurrier; 5 lit in one row on 1st floor"
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "Q22 tower (Deloitte logo), Al. Jana Pawła II",
+"type": "office",
+"windows": 600.0,
+"lit": 220.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.1,
+"neutral": 0.7,
+"cool": 0.2
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "extrapolated from ~6 counted floors; lit windows cluster in bands along floors; 21:16 Thursday"
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "beige hotel/office tower near Grzybowska",
+"type": "hotel",
+"windows": 230.0,
+"lit": 50.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "narrow left face many lit; main face scattered warm"
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "slab apartment block (Osiedle Za Żelazną Bramą area), centre",
+"type": "residential",
+"windows": 375.0,
+"lit": 110.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.15,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~15 floors x ~25 cols; counted 3 floors and extrapolated; a few blue/purple windows"
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "office block centre-right behind cranes",
+"type": "office",
+"windows": 350.0,
+"lit": 120.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.15,
+"neutral": 0.75,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly occluded by crane"
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "residential block far right",
+"type": "residential",
+"windows": 180.0,
+"lit": 40.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": ""
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "dark tower centre (likely Cosmopolitan, Twarda 4)",
+"type": "residential",
+"windows": 200.0,
+"lit": 4.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "near-black glass; identity uncertain"
+},
+{
+"photo": "File:Warszawa - panorama miasta w grudniu 2021.jpg",
+"taken": "2021-12-16T21:16",
+"hour": 21,
+"weekend": false,
+"building": "low office building in foreground (y~1000-1100)",
+"type": "office",
+"windows": 60.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:Warszawa - Fort Wola 25.11.23 (1).jpg",
+"taken": "2023-11-25T16:18",
+"hour": 16,
+"weekend": true,
+"building": "Fort Wola shopping centre, entrance glazing",
+"type": "retail",
+"windows": 20.0,
+"lit": 20.0,
+"pattern": "all_lit",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "curtain-wall panels not windows; Christmas lights; open mall at 16:18 Saturday"
+},
+{
+"photo": "File:Hotel nyx noc.jpg",
+"taken": "2023-01-14T19:34",
+"hour": 19,
+"weekend": true,
+"building": "NYX Hotel in Varso Place",
+"type": "hotel",
+"windows": 75.0,
+"lit": 9.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.3,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "blue LED strips over windows are decorative and not counted; ~5 floors visible"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobusy nocne, 1.jpg",
+"taken": "2025-10-05T01:12",
+"hour": 1,
+"weekend": true,
+"building": "curved office building behind Złote Tarasy",
+"type": "office",
+"windows": 210.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "fog/rain; 01:12 Sunday; Złote Tarasy and Multikino glazing excluded (not window grids)"
+},
+{
+"photo": "File:Warszawa - 52770756093.jpg",
+"taken": "2022-12-31T18:59",
+"hour": 18,
+"weekend": true,
+"building": "tenements on Nowy Świat (both sides)",
+"type": "mixed",
+"windows": 100.0,
+"lit": 3.0,
+"pattern": "ground_only",
+"colour": {
+"warm": 1.0,
+"neutral": 0.0,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "New Year's Eve; facades lit by Christmas decorations; upper windows almost all dark"
+},
+{
+"photo": "File:Varsovia (Polonia) Warszawa (Polska). 233.jpg",
+"taken": "2023-01-01T23:00",
+"hour": 23,
+"weekend": true,
+"building": "building next to Visitationist Church (Krakowskie Przedmieście)",
+"type": "public",
+"windows": 18.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "church floodlit (not counted)"
+},
+{
+"photo": "File:Dekoracje świąteczne 2021, ul. Krakowskie Przedmieście, Warszawa (6).jpg",
+"taken": "2022-01-10T21:12",
+"hour": 21,
+"weekend": false,
+"building": "building on Krakowskie Przedmieście (right side)",
+"type": "unknown",
+"windows": 50.0,
+"lit": 1.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.0,
+"neutral": 1.0,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "steep upward angle; Christmas street decorations"
+},
+{
+"photo": "File:2024-08-12 Warszawa Pl. Bankowy Pesa Swing.jpg",
+"taken": "2024-08-12T21:06",
+"hour": 21,
+"weekend": false,
+"building": "classicist building on Plac Bankowy/Senatorska (Madison Av. restaurant at ground)",
+"type": "public",
+"windows": 70.0,
+"lit": 11.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "facade floodlit, hard to separate floodlight reflection from interior light; lit ones mostly on one floor; town hall tower lit blue behind"
+},
+{
+"photo": "File:Warsaw streets on 21.02.2023 durig Biden's visit (28).jpg",
+"taken": "2023-02-21T17:55",
+"hour": 17,
+"weekend": false,
+"building": "former Smyk / CDT department store, Al. Jerozolimskie/Krucza (now offices)",
+"type": "office",
+"windows": 100.0,
+"lit": 25.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.7,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "counted in bays; police blue lights during Biden visit; neon sculpture"
+},
+{
+"photo": "File:Barak warszawianki nocą.jpg",
+"taken": "2019-12-12T19:30",
+"hour": 19,
+"weekend": false,
+"building": "tall building behind UW barrack (background left)",
+"type": "unknown",
+"windows": 40.0,
+"lit": 18.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.8,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "small in frame, partly behind barrack"
+},
+{
+"photo": "File:Anti abortion activists in central Warsaw 2.jpg",
+"taken": "2025-12-11T18:20",
+"hour": 18,
+"weekend": false,
+"building": "Royal Castle (Zamek Królewski)",
+"type": "public",
+"windows": 90.0,
+"lit": 2.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "facade floodlit red-orange; Christmas tree"
+},
+{
+"photo": "File:2024 Warszawa rondo Mackiewicza, śnieg, 1.jpg",
+"taken": "2024-01-15T18:36",
+"hour": 18,
+"weekend": false,
+"building": "apartment block at Rondo Mackiewicza (left)",
+"type": "residential",
+"windows": 170.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "heavy snowfall and sodium haze reduce contrast; probably undercounted"
+},
+{
+"photo": "File:2024 Warszawa rondo Mackiewicza, śnieg, 1.jpg",
+"taken": "2024-01-15T18:36",
+"hour": 18,
+"weekend": false,
+"building": "large block on right at Rondo Mackiewicza",
+"type": "unknown",
+"windows": 250.0,
+"lit": 2.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "snowfall"
+},
+{
+"photo": "File:Exterior of the Presidential Palace in Warsaw by night1, 11.11.2017.jpg",
+"taken": "2017-11-11T19:26",
+"hour": 19,
+"weekend": true,
+"building": "Presidential Palace, main facade",
+"type": "public",
+"windows": 48.0,
+"lit": 9.0,
+"pattern": "ground_only",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "Independence Day; facade floodlit white-red with projected text; upper 2 floors (~36) dark, ground-floor arched windows behind fence ~9 lit warm"
+},
+{
+"photo": "File:Exterior of the Presidential Palace in Warsaw by night1, 11.11.2017.jpg",
+"taken": "2017-11-11T19:26",
+"hour": 19,
+"weekend": true,
+"building": "Presidential Palace, left (north) wing",
+"type": "public",
+"windows": 22.0,
+"lit": 1.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "floodlit wall; 2 floors x ~11 windows, one ground window faintly lit"
+},
+{
+"photo": "File:Exterior of the Presidential Palace in Warsaw by night1, 11.11.2017.jpg",
+"taken": "2017-11-11T19:26",
+"hour": 19,
+"weekend": true,
+"building": "Presidential Palace, right (south) wing",
+"type": "public",
+"windows": 16.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "floodlit red; oblique view"
+},
+{
+"photo": "File:Pałac Kultury i Nauki 01.jpg",
+"taken": "2017-11-30T06:02",
+"hour": 6,
+"weekend": false,
+"building": "Palace of Culture and Science, upper floors above main entrance",
+"type": "public",
+"windows": 16.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "pre-dawn 06:02; portico floodlit; tower windows top-right only partially visible, all dark"
+},
+{
+"photo": "File:Dekoracje świąteczne 2021, Stare Miasto, Warszawa (5).jpg",
+"taken": "2022-02-06T20:47",
+"hour": 20,
+"weekend": true,
+"building": "tenement on Castle Square east side (Plac Zamkowy, centre)",
+"type": "mixed",
+"windows": 24.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant, phone photo; first floor ~6 of 6 lit warm-ish, 1 on second floor, top dark; ground floor shop windows lit"
+},
+{
+"photo": "File:Dekoracje świąteczne 2021, Stare Miasto, Warszawa (5).jpg",
+"taken": "2022-02-06T20:47",
+"hour": 20,
+"weekend": true,
+"building": "tenement at Castle Square, left (Plac Zamkowy/Senatorska corner)",
+"type": "mixed",
+"windows": 28.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant; mostly dark upper floors, ground arcade shops lit"
+},
+{
+"photo": "File:Zimowo wieczorna brama uniwersytetu warszawskiego.jpg",
+"taken": "2026-01-01T18:10",
+"hour": 18,
+"weekend": false,
+"building": "University of Warsaw building left of main gate (Krakowskie Przedmieście 26/28)",
+"type": "public",
+"windows": 20.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "New Year's Day holiday; facade floodlit from below, windows dark"
+},
+{
+"photo": "File:Choinka przed starym buwem.jpg",
+"taken": "2025-01-01T19:07",
+"hour": 19,
+"weekend": false,
+"building": "Old BUW (University Library), UW campus",
+"type": "public",
+"windows": 24.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "New Year's Day; facade floodlit, windows show reflected floodlight only; Christmas tree in front"
+},
+{
+"photo": "File:Plac teatralny s4.jpg",
+"taken": "2012-08-14T23:45",
+"hour": 23,
+"weekend": false,
+"building": "Pałac Jabłonowskich (Plac Teatralny, Bank Handlowy/Citi)",
+"type": "office",
+"windows": 30.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "facade floodlit warm, long exposure; a few left-wing windows show faint interior light; bank ATM signs at ground"
+},
+{
+"photo": "File:Śródmieście Północne, Warszawa, Poland - panoramio (12).jpg",
+"taken": "2009-10-12T02:26",
+"hour": 2,
+"weekend": false,
+"building": "Presidential Palace, main facade",
+"type": "public",
+"windows": 45.0,
+"lit": 12.0,
+"pattern": "ground_only",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "long exposure with star filter, floodlit facade; ground-floor arcade glows; upper windows bright from floodlight, hard to separate interior light"
+},
+{
+"photo": "File:Śródmieście Północne, Warszawa, Poland - panoramio (12).jpg",
+"taken": "2009-10-12T02:26",
+"hour": 2,
+"weekend": false,
+"building": "Presidential Palace, left wing",
+"type": "public",
+"windows": 26.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "long exposure; some upper windows warm"
+},
+{
+"photo": "File:Śródmieście Północne, Warszawa, Poland - panoramio (12).jpg",
+"taken": "2009-10-12T02:26",
+"hour": 2,
+"weekend": false,
+"building": "Presidential Palace, right wing",
+"type": "public",
+"windows": 26.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "long exposure 02:26; several upper and ground windows warm"
+},
+{
+"photo": "File:Protest of All-Poland Women's Strike in Warsaw (October 30, 2020) 10.jpg",
+"taken": "2020-10-30T19:10",
+"hour": 19,
+"weekend": false,
+"building": "Novotel Warszawa Centrum (Amica sign), Rondo Dmowskiego",
+"type": "hotel",
+"windows": 240.0,
+"lit": 38.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "blurry phone shot; counted ~38 lit points on ~30 floors x 8 visible columns; COVID period"
+},
+{
+"photo": "File:Protest of All-Poland Women's Strike in Warsaw (October 30, 2020) 10.jpg",
+"taken": "2020-10-30T19:10",
+"hour": 19,
+"weekend": false,
+"building": "low office/hotel block with rooftop billboard near Rondo Dmowskiego",
+"type": "unknown",
+"windows": 50.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "blurry"
+},
+{
+"photo": "File:Protest of All-Poland Women's Strike in Warsaw (October 30, 2020) 10.jpg",
+"taken": "2020-10-30T19:10",
+"hour": 19,
+"weekend": false,
+"building": "dark glass office tower, right foreground (Rondo Dmowskiego)",
+"type": "office",
+"windows": 200.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.6,
+"cool": 0.2
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "curtain wall, grid cells estimated; Friday evening, few lit"
+},
+{
+"photo": "File:Warszawa Świętojańska 12ab 02.JPG",
+"taken": "2012-09-14T23:01",
+"hour": 23,
+"weekend": false,
+"building": "Old Town tenements, Świętojańska (3 houses)",
+"type": "mixed",
+"windows": 16.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "upper windows: 3 storeys + dormers; one dormer and one 2nd-floor window (orange curtain) lit; two of three shop windows lit"
+},
+{
+"photo": "File:Katedra polowa Wojska Polskiego Warszawa 01.jpg",
+"taken": "2017-12-01T22:28",
+"hour": 22,
+"weekend": false,
+"building": "post-war block at end of Długa street (beyond Field Cathedral)",
+"type": "unknown",
+"windows": 18.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "distant, foggy, sodium street light makes facade yellow; cathedral floodlit"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N12, 1.jpg",
+"taken": "2025-10-05T01:11",
+"hour": 1,
+"weekend": true,
+"building": "curved office building behind Złote Tarasy (Lumen/Skylight complex)",
+"type": "office",
+"windows": 110.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "01:11 Sat/Sun night; ~5 visible floors x ~22; nearly all dark"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N12, 1.jpg",
+"taken": "2025-10-05T01:11",
+"hour": 1,
+"weekend": true,
+"building": "Skylight tower (Złote Tarasy)",
+"type": "office",
+"windows": 40.0,
+"lit": 4.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.0,
+"neutral": 1.0,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly in fog/rain; a few white-lit windows and one lit strip"
+},
+{
+"photo": "File:Warszawa - 52770679110.jpg",
+"taken": "2022-12-31T21:42",
+"hour": 21,
+"weekend": true,
+"building": "tenements on far side of Old Town Market Square",
+"type": "mixed",
+"windows": 60.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "New Year's Eve; facades partly hidden by Christmas light canopy; windows estimated from unobstructed part"
+},
+{
+"photo": "File:Warszawa - 52770679110.jpg",
+"taken": "2022-12-31T21:42",
+"hour": 21,
+"weekend": true,
+"building": "tenements on left side of Old Town Market Square",
+"type": "mixed",
+"windows": 20.0,
+"lit": 1.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "New Year's Eve; floodlit corner, upper windows mostly dark"
+},
+{
+"photo": "File:Grudzień 2017 Warszawa Krakowskie Przedmieście.jpg",
+"taken": "2017-12-13T15:51",
+"hour": 15,
+"weekend": false,
+"building": "classicist building on west side of Krakowskie Przedmieście (left)",
+"type": "unknown",
+"windows": 47.0,
+"lit": 17.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "blue hour after sunset on a weekday afternoon; counted per floor: top 4/12, 2nd 1/12, 1st 8/13, ground 4/10"
+},
+{
+"photo": "File:Grudzień 2017 Warszawa Krakowskie Przedmieście.jpg",
+"taken": "2017-12-13T15:51",
+"hour": 15,
+"weekend": false,
+"building": "building on east side of Krakowskie Przedmieście (right, with Turkish flag)",
+"type": "unknown",
+"windows": 24.0,
+"lit": 3.0,
+"pattern": "ground_only",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "ground-floor arched windows warm; upper floors dark against bright dusk sky; Christmas lights on trees"
+},
+{
+"photo": "File:Warszawa - Metro - Rondo ONZ (16389715793).jpg",
+"taken": "2015-03-26T22:31",
+"hour": 22,
+"weekend": false,
+"building": "residential/hotel slab near Rondo ONZ (with 'Z' sign)",
+"type": "residential",
+"windows": 110.0,
+"lit": 16.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~11 floors x 10 columns"
+},
+{
+"photo": "File:Warszawa - Metro - Rondo ONZ (16389715793).jpg",
+"taken": "2015-03-26T22:31",
+"hour": 22,
+"weekend": false,
+"building": "office tower with Bank Zachodni WBK sign",
+"type": "office",
+"windows": 200.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.6,
+"cool": 0.2
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "dark curtain wall, grid estimated"
+},
+{
+"photo": "File:Warszawa - Metro - Rondo ONZ (16389715793).jpg",
+"taken": "2015-03-26T22:31",
+"hour": 22,
+"weekend": false,
+"building": "office building with Deloitte sign (Al. Jana Pawła II)",
+"type": "office",
+"windows": 80.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.5,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant"
+},
+{
+"photo": "File:Warszawa - Metro - Rondo ONZ (16389715793).jpg",
+"taken": "2015-03-26T22:31",
+"hour": 22,
+"weekend": false,
+"building": "Rondo 1 (probable), dark glass tower right",
+"type": "office",
+"windows": 300.0,
+"lit": 25.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.6,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "lit band on one partial floor and scattered windows; crown lit architecturally"
+},
+{
+"photo": "File:Belweder Palace in Warsaw (43742896332).jpg",
+"taken": "2018-05-19T23:19",
+"hour": 23,
+"weekend": true,
+"building": "Belweder Palace",
+"type": "public",
+"windows": 22.0,
+"lit": 13.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "floodlit white-red; ground floor all 8 windows + 5 side-wing windows lit warm behind curtains; 9 upper windows dark (floodlit wall)"
+},
+{
+"photo": "File:Skrzyżowanie ul. Dereniowej i Indiry Gandhi, Warszawa.jpg",
+"taken": "2022-04-02T00:23",
+"hour": 0,
+"weekend": true,
+"building": "residential tower block at Dereniowa / Indiry Gandhi",
+"type": "residential",
+"windows": 40.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "snowfall and fog, 00:23; ~13 floors x 3 visible columns, one faint and one bright window"
+},
+{
+"photo": "File:Ul. Z. Baló, WAW.jpg",
+"taken": "2023-01-30T17:07",
+"hour": 17,
+"weekend": false,
+"building": "green apartment blocks on ul. Zoltána Baló",
+"type": "mixed",
+"windows": 78.0,
+"lit": 13.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.3,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "two sections, ~6 floors x ~13 openings incl. balcony doors; one blue/RGB window (decor)"
+},
+{
+"photo": "File:Ul. Z. Baló, WAW.jpg",
+"taken": "2023-01-30T17:07",
+"hour": 17,
+"weekend": false,
+"building": "cream apartment block right, ul. Baló",
+"type": "mixed",
+"windows": 56.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "partly behind trees; one window with pink/red light"
+},
+{
+"photo": "File:Plac Zawiszy Warszawa przystanek 02.jpg",
+"taken": "2017-12-02T17:57",
+"hour": 17,
+"weekend": true,
+"building": "Campanile hotel, Plac Zawiszy",
+"type": "hotel",
+"windows": 35.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "long exposure (tram streak)"
+},
+{
+"photo": "File:Plac Zawiszy Warszawa przystanek 02.jpg",
+"taken": "2017-12-02T17:57",
+"hour": 17,
+"weekend": true,
+"building": "slab block next to hotel, Plac Zawiszy",
+"type": "residential",
+"windows": 27.0,
+"lit": 9.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "lower floors hidden by tram streak"
+},
+{
+"photo": "File:Plac Zawiszy Warszawa przystanek 02.jpg",
+"taken": "2017-12-02T17:57",
+"hour": 17,
+"weekend": true,
+"building": "residential tower block, Plac Zawiszy (centre-right)",
+"type": "residential",
+"windows": 80.0,
+"lit": 15.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly behind trees"
+},
+{
+"photo": "File:Krakowskie Przedmieście 45-51 Warszawa.jpg",
+"taken": "2017-12-01T19:03",
+"hour": 19,
+"weekend": false,
+"building": "Krakowskie Przedmieście 45",
+"type": "mixed",
+"windows": 13.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "facade floodlit; 2 dormers + 3 floors x 3 dark; red-lit shop door at ground"
+},
+{
+"photo": "File:Krakowskie Przedmieście 45-51 Warszawa.jpg",
+"taken": "2017-12-01T19:03",
+"hour": 19,
+"weekend": false,
+"building": "Krakowskie Przedmieście 47/49",
+"type": "mixed",
+"windows": 15.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "3 dormers + 4 floors x 3, all dark; 'office space for rent' banners; optician shop lit"
+},
+{
+"photo": "File:Krakowskie Przedmieście 45-51 Warszawa.jpg",
+"taken": "2017-12-01T19:03",
+"hour": 19,
+"weekend": false,
+"building": "Krakowskie Przedmieście 51",
+"type": "mixed",
+"windows": 16.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "4 floors x 4 all dark (street lamp glare only); shops lit; Christmas street decorations"
+},
+{
+"photo": "File:Warszawa PKiN noca (1).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "Novotel Warszawa Centrum (Hisense sign)",
+"type": "hotel",
+"windows": 300.0,
+"lit": 85.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "civil dusk after sunset, elevated view; counted ~3 of 10 lit on 6 floors, extrapolated to ~30 floors"
+},
+{
+"photo": "File:Warszawa PKiN noca (1).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "white residential tower (Śródmieście, near Marszałkowska)",
+"type": "residential",
+"windows": 44.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "front face ~11 floors x 4"
+},
+{
+"photo": "File:Warszawa PKiN noca (1).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "long residential block right of white tower",
+"type": "residential",
+"windows": 110.0,
+"lit": 14.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~7 floors x 16"
+},
+{
+"photo": "File:Warszawa PKiN noca (1).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "residential block lower right foreground (Marszałkowska area)",
+"type": "residential",
+"windows": 56.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "late summer evening, still fairly light outside"
+},
+{
+"photo": "File:Pałac Paca 9.jpg",
+"taken": "2019-11-11T17:21",
+"hour": 17,
+"weekend": false,
+"building": "Pałac Paca (Ministry of Health), Miodowa 15",
+"type": "public",
+"windows": 23.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "Independence Day holiday; central risalit floodlit white-red; all windows dark"
+},
+{
+"photo": "File:Warsaw at dusk July 2024.jpg",
+"taken": "2024-07-14T21:34",
+"hour": 21,
+"weekend": true,
+"building": "long residential block, foreground left",
+"type": "residential",
+"windows": 140.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "summer dusk 40 min after sunset; ~5 floors x 28; counted per floor 3/4/4/1/0"
+},
+{
+"photo": "File:Warsaw at dusk July 2024.jpg",
+"taken": "2024-07-14T21:34",
+"hour": 21,
+"weekend": true,
+"building": "office building with Matexi sign",
+"type": "office",
+"windows": 96.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "Sunday evening; top floor mostly lit (8 windows), few elsewhere; facade has vertical accent lights"
+},
+{
+"photo": "File:Plac teatralny s5.jpg",
+"taken": "2012-08-14T23:49",
+"hour": 23,
+"weekend": false,
+"building": "Kościół św. Andrzeja (Środowisk Twórczych) wings, Plac Teatralny",
+"type": "religious",
+"windows": 26.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "facade floodlit; window panes look pale from floodlight, no clear interior light; ground-floor arched doors dark"
+},
+{
+"photo": "File:Plac teatralny s5.jpg",
+"taken": "2012-08-14T23:49",
+"hour": 23,
+"weekend": false,
+"building": "residential tower block behind the church (Senatorska/Plac Teatralny)",
+"type": "residential",
+"windows": 42.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~7 rows x 6 cols visible; 4 lit on top visible floor, 1 lower; Tue 23:49 August"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N43, 1.jpg",
+"taken": "2025-10-05T01:13",
+"hour": 1,
+"weekend": true,
+"building": "office building at Złote Tarasy / Multikino, Dworzec Centralny side",
+"type": "office",
+"windows": 80.0,
+"lit": 18.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.6,
+"cool": 0.3
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "foggy rainy night 01:13; floors with visible white interior lights partly, hard to separate window units; extrapolated"
+},
+{
+"photo": "File:Protest of All-Poland Women's Strike in Warsaw (October 30, 2020) 11.jpg",
+"taken": "2020-10-30T19:10",
+"hour": 19,
+"weekend": false,
+"building": "Hotel Novotel Warszawa Centrum (ex-Forum)",
+"type": "hotel",
+"windows": 780.0,
+"lit": 22.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.95,
+"neutral": 0.05,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~20 cols x 39 floors visible; counted ~20 clearly lit + few dim; Oct 2020 pandemic low occupancy; phone photo, slightly blurred"
+},
+{
+"photo": "File:Protest of All-Poland Women's Strike in Warsaw (October 30, 2020) 11.jpg",
+"taken": "2020-10-30T19:10",
+"hour": 19,
+"weekend": false,
+"building": "Oxford Tower (Chałubińskiego 8)",
+"type": "office",
+"windows": 360.0,
+"lit": 3.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "dark glass grid, Fri 19:10; blurred, only a couple of lit cells"
+},
+{
+"photo": "File:Mostowa 21-25 Warszawa.jpg",
+"taken": "2017-12-01T21:26",
+"hour": 21,
+"weekend": false,
+"building": "Mostowa 21-25 tenements, Old Town (courtyard side)",
+"type": "residential",
+"windows": 43.0,
+"lit": 13.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.45,
+"neutral": 0.4,
+"cool": 0.15
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "three houses; left 5/17, middle 7/18, right 1/8 lit; dormer windows bright white LED; some red/pink curtains; Fri 21:26 Dec, snow; sky brightened by exposure"
+},
+{
+"photo": "File:Fiat na Placu Defilad 2.jpg",
+"taken": "2017-12-02T22:13",
+"hour": 22,
+"weekend": true,
+"building": "white office block east of Plac Defilad (Marszałkowska, behind Zara)",
+"type": "office",
+"windows": 72.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "~9 cols x 8 rows, all dark Sat 22:13 Dec; ground floor shops lit"
+},
+{
+"photo": "File:Fiat na Placu Defilad 2.jpg",
+"taken": "2017-12-02T22:13",
+"hour": 22,
+"weekend": true,
+"building": "upper floors of Domy Centrum block (Wars/Sawa/Junior) at Marszałkowska",
+"type": "retail",
+"windows": 20.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.5,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "only top rows visible; Zara billboard; partly cropped"
+},
+{
+"photo": "File:Kolonia Wawelberga 9.jpg",
+"taken": "2023-07-29T23:09",
+"hour": 23,
+"weekend": true,
+"building": "Kolonia Wawelberga tenement (Wola)",
+"type": "residential",
+"windows": 15.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0,
+"cool": 0.5
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "rain and haze, trees obscure; one cool-white lit window right, one small warm one top; two bright spots on ground-floor window may be reflections; Sat 23:09 July"
+},
+{
+"photo": "File:Winter Fun In The City Center (139180707).jpeg",
+"taken": "2016-01-16T16:51",
+"hour": 16,
+"weekend": true,
+"building": "Old Town Market Square tenements (north side), ice rink",
+"type": "mixed",
+"windows": 46.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "lowest visible floor lit warm across 3 houses (restaurants/Christmas decor), left house lit on 3 floors; upper floors mostly dark; dormers dark; heavy fairy lights in front make some panes look pale; Sat 16:51 Jan"
+},
+{
+"photo": "File:Memorial to Polish resistance (19409301030).jpg",
+"taken": "2015-01-01T18:15",
+"hour": 18,
+"weekend": false,
+"building": "Supreme Court (Sąd Najwyższy), Plac Krasińskich",
+"type": "public",
+"windows": 30.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "glass curtain wall between columns, dark; 1 Jan holiday 18:15; panes not individually clear"
+},
+{
+"photo": "File:Warsaw, Smyk by night, 2022.jpg",
+"taken": "2022-06-03T22:42",
+"hour": 22,
+"weekend": false,
+"building": "Smyk department store (Al. Jerozolimskie / Krucza)",
+"type": "retail",
+"windows": 200.0,
+"lit": 50.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.4,
+"neutral": 0.5,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "glass ribbon floors; interiors on several floors faintly lit; big blue neon on facade; Fri 22:42 June; restaurant floors lit"
+},
+{
+"photo": "File:Warsaw, Smyk by night, 2022.jpg",
+"taken": "2022-06-03T22:42",
+"hour": 22,
+"weekend": false,
+"building": "glass office tower west on Jerozolimskie (likely Q22)",
+"type": "office",
+"windows": 375.0,
+"lit": 55.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.7,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~15 cols x 25 floors; scattered lit cells clustered in a few floors; distant"
+},
+{
+"photo": "File:Warsaw, Smyk by night, 2022.jpg",
+"taken": "2022-06-03T22:42",
+"hour": 22,
+"weekend": false,
+"building": "tenement with 'Orbis' sign, right foreground (Jerozolimskie)",
+"type": "hotel",
+"windows": 30.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "~5 cols x 6 rows; mostly dark with curtains"
+},
+{
+"photo": "File:Warsaw, Smyk by night, 2022.jpg",
+"taken": "2022-06-03T22:42",
+"hour": 22,
+"weekend": false,
+"building": "beige tenement on Jerozolimskie left of Smyk",
+"type": "mixed",
+"windows": 30.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "distant"
+},
+{
+"photo": "File:Plac Zawiszy Warszawa przystanek 01.jpg",
+"taken": "2017-12-02T17:52",
+"hour": 17,
+"weekend": true,
+"building": "Hotel Campanile, Plac Zawiszy",
+"type": "hotel",
+"windows": 48.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "6 cols x 8 rows; Sat 17:52 Dec"
+},
+{
+"photo": "File:Plac Zawiszy Warszawa przystanek 01.jpg",
+"taken": "2017-12-02T17:52",
+"hour": 17,
+"weekend": true,
+"building": "residential block east of Plac Zawiszy (behind tram)",
+"type": "residential",
+"windows": 56.0,
+"lit": 13.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly hidden by tram pantograph and wires; distant"
+},
+{
+"photo": "File:Plac Zawiszy Warszawa przystanek 01.jpg",
+"taken": "2017-12-02T17:52",
+"hour": 17,
+"weekend": true,
+"building": "building right of Campanile (Grójecka/Raszyńska)",
+"type": "unknown",
+"windows": 16.0,
+"lit": 7.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "small, partly cropped"
+},
+{
+"photo": "File:Pałac Wesslów Warszawa 01.jpg",
+"taken": "2017-12-01T19:16",
+"hour": 19,
+"weekend": false,
+"building": "Pałac Wesslów, Krakowskie Przedmieście 25 (Prokuratura Regionalna)",
+"type": "public",
+"windows": 37.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "9 windows x 3 upper floors + 10 barred ground windows; 3 adjacent lit on 1st floor right (one office), one desk-lamp glow; ground floor barred, a few small screen/standby lights; Fri 19:16 Dec"
+},
+{
+"photo": "File:Śródmieście Północne, Warszawa, Poland - panoramio - Roman Eugeniusz (14).jpg",
+"taken": "2016-08-02T21:01",
+"hour": 21,
+"weekend": false,
+"building": "dark office tower right of PKiN (likely Warsaw Financial Center)",
+"type": "office",
+"windows": 150.0,
+"lit": 20.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "ribbon glazing, units unclear; Tue 21:01 Aug, deep twilight; PKiN floodlit skipped"
+},
+{
+"photo": "File:Warszawa PKiN noca (2).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "residential tower with Hisense sign (Marszałkowska, south of Plac Defilad)",
+"type": "residential",
+"windows": 360.0,
+"lit": 105.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~12 cols x 30 floors; sampled several floors at 3-5 lit of 12 and extrapolated; Fri 20:12 late August, blue hour after sunset, long-exposure-like HDR"
+},
+{
+"photo": "File:Warszawa PKiN noca (2).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "residential blocks lower right (Złota/Zgoda area)",
+"type": "residential",
+"windows": 48.0,
+"lit": 16.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "~8 cols x 6 rows, oblique"
+},
+{
+"photo": "File:Warszawa PKiN noca (2).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "Domy Centrum long block along Marszałkowska (foreground)",
+"type": "retail",
+"windows": 60.0,
+"lit": 45.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "top-floor ribbon windows lit continuously (shops/offices), units hard to separate"
+},
+{
+"photo": "File:Warszawa PKiN noca (2).jpg",
+"taken": "2025-08-29T20:12",
+"hour": 20,
+"weekend": false,
+"building": "low buildings lower right foreground",
+"type": "residential",
+"windows": 30.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly in shadow"
+},
+{
+"photo": "File:Kamienica Leona Breslauera – Górnośląska 22.jpg",
+"taken": "2023-09-15T22:05",
+"hour": 22,
+"weekend": false,
+"building": "Kamienica Leona Breslauera, Górnośląska 22",
+"type": "residential",
+"windows": 20.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "derelict/largely empty tenement under protective canopy; all windows dark Fri 22:05 Sept"
+},
+{
+"photo": "File:Warszawa Centralna railway station 2018.jpg",
+"taken": "2018-10-27T23:59",
+"hour": 23,
+"weekend": true,
+"building": "Złota 44 residential tower",
+"type": "residential",
+"windows": 250.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly visible top-right; few lit cells; Sat 23:59 Oct 2018, building newly completed and sparsely occupied"
+},
+{
+"photo": "File:Pałac prymasowski świąteczny wieczór.jpg",
+"taken": "2023-12-31T17:27",
+"hour": 17,
+"weekend": true,
+"building": "Hotel Bellotto (Pałac Prymasowski), Senatorska",
+"type": "hotel",
+"windows": 27.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "floodlit facade (white/cyan) makes panes pale; counted 3 lit portico 1st floor, 2 lit ground portico, 3 lit ground right wing (backlit curtains), 2 far-right; dormers and side 1st-floor dark; Christmas lights in front; 31 Dec 17:27"
+},
+{
+"photo": "File:Kolonia Wawelberga 12.jpg",
+"taken": "2023-07-29T23:26",
+"hour": 23,
+"weekend": true,
+"building": "Kolonia Wawelberga brick building (Wola)",
+"type": "residential",
+"windows": 14.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "very oblique; orange is street light on the facade, not interior; Sat 23:26 July"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N46, 2.jpg",
+"taken": "2025-10-05T01:42",
+"hour": 1,
+"weekend": true,
+"building": "glass office building next to Dworzec Centralny bus loop (Złote Tarasy complex)",
+"type": "office",
+"windows": 32.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0,
+"neutral": 0.7,
+"cool": 0.3
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partial, rain/fog; Sun 01:42"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N91, 1.jpg",
+"taken": "2025-10-05T01:15",
+"hour": 1,
+"weekend": true,
+"building": "Złote Tarasy mall facade above Sephora",
+"type": "retail",
+"windows": 15.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "small spot lights inside upper panes; Sun 01:15"
+},
+{
+"photo": "File:Przystanek Norblin 03, Warszawa.jpg",
+"taken": "2021-12-12T18:44",
+"hour": 18,
+"weekend": true,
+"building": "residential block west of Norblin stop (left-middle)",
+"type": "residential",
+"windows": 80.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "fog, phone underexposed: dim windows likely missed; Sun 18:44 Dec"
+},
+{
+"photo": "File:Przystanek Norblin 03, Warszawa.jpg",
+"taken": "2021-12-12T18:44",
+"hour": 18,
+"weekend": true,
+"building": "residential block with billboard (centre)",
+"type": "residential",
+"windows": 160.0,
+"lit": 11.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "fog; grid barely visible, counted bright cells only"
+},
+{
+"photo": "File:Plac Zamkowy w Warszawie w lutym.jpg",
+"taken": "2022-02-06T21:50",
+"hour": 21,
+"weekend": true,
+"building": "tenement at south side of Plac Zamkowy (Krakowskie Przedmieście 1)",
+"type": "mixed",
+"windows": 25.0,
+"lit": 6.0,
+"pattern": "ground_only",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "ground-floor arcade lit (5) plus one dormer; upper floors dark; Sun 21:50 Feb, rain"
+},
+{
+"photo": "File:Plac Zamkowy w Warszawie w lutym.jpg",
+"taken": "2022-02-06T21:50",
+"hour": 21,
+"weekend": true,
+"building": "tenement east of Plac Zamkowy (right, with wreaths)",
+"type": "mixed",
+"windows": 21.0,
+"lit": 5.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "one full 1st-floor row lit warm with Christmas wreaths (probably restaurant/office), top floor and dormers dark"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N16, 1.jpg",
+"taken": "2025-10-05T01:16",
+"hour": 1,
+"weekend": true,
+"building": "glass office building next to Dworzec Centralny bus loop (Złote Tarasy complex)",
+"type": "office",
+"windows": 32.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0,
+"neutral": 0.7,
+"cool": 0.3
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "same building as 0072/0067 likely; Sun 01:16; fog"
+},
+{
+"photo": "File:Kampania wyborcza w Warszawie 2024 25.jpg",
+"taken": "2024-04-03T20:17",
+"hour": 20,
+"weekend": false,
+"building": "MDM-style block on Marszałkowska opposite Plac Defilad",
+"type": "mixed",
+"windows": 280.0,
+"lit": 53.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.85,
+"neutral": 0.15,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "~7 floors x ~40 columns; counted ~8-11 lit per floor row; trees partly obscure lower floors"
+},
+{
+"photo": "File:Kamienica Pod Gryfami, pl. Trzech Krzyży 18, Warszawa, Poland 2019.jpg",
+"taken": "2019-08-21T21:19",
+"hour": 21,
+"weekend": false,
+"building": "Kamienica Pod Gryfami (ICBC), pl. Trzech Krzyży 18",
+"type": "office",
+"windows": 66.0,
+"lit": 2.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.0,
+"neutral": 0.0,
+"cool": 1.0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "facade floodlit, windows themselves dark; only two dome/dormer windows greenish-lit; Costa Coffee lit at ground"
+},
+{
+"photo": "File:29-12-2019 Warszawa Plac Zamkowy.jpg",
+"taken": "2019-12-29T16:37",
+"hour": 16,
+"weekend": true,
+"building": "Royal Castle (Zamek Królewski), Plac Zamkowy facade",
+"type": "public",
+"windows": 40.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.0,
+"neutral": 0.0,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "museum after closing; Christmas tree; blue hour sky"
+},
+{
+"photo": "File:Biurowce przy daimlera wieczorem.jpg",
+"taken": "2020-02-03T17:48",
+"hour": 17,
+"weekend": false,
+"building": "Mercedes-Benz office building, Daimlera / Al. Jerozolimskie",
+"type": "office",
+"windows": 240.0,
+"lit": 90.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.15,
+"neutral": 0.7,
+"cool": 0.15
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "rounded ~8-floor facade ~30 bays; lit in clusters of adjacent bays; car showroom lit at ground"
+},
+{
+"photo": "File:Biurowce przy daimlera wieczorem.jpg",
+"taken": "2020-02-03T17:48",
+"hour": 17,
+"weekend": false,
+"building": "office building with Canon/Nordea signs, Daimlera",
+"type": "office",
+"windows": 175.0,
+"lit": 60.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.75,
+"cool": 0.15
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "~7 floors x ~25; clustered lit open-plan sections"
+},
+{
+"photo": "File:Biurowce przy daimlera wieczorem.jpg",
+"taken": "2020-02-03T17:48",
+"hour": 17,
+"weekend": false,
+"building": "Nordea office building (left), Al. Jerozolimskie",
+"type": "office",
+"windows": 30.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.0,
+"neutral": 0.8,
+"cool": 0.2
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant, partly hidden by billboard"
+},
+{
+"photo": "File:Warszawa west station noc.jpg",
+"taken": "2019-01-11T16:57",
+"hour": 16,
+"weekend": false,
+"building": "West Station I office tower (front facade)",
+"type": "office",
+"windows": 260.0,
+"lit": 190.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.65,
+"cool": 0.05
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "~13 floors x ~20 bays; most open-plan floors lit at 17:00 Friday; vertical LED strips are architectural, not counted"
+},
+{
+"photo": "File:Warszawa west station noc.jpg",
+"taken": "2019-01-11T16:57",
+"hour": 16,
+"weekend": false,
+"building": "West Station I office tower (side facade)",
+"type": "office",
+"windows": 170.0,
+"lit": 100.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.65,
+"cool": 0.05
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "upper section above LED frame; estimated"
+},
+{
+"photo": "File:Warszawa west station noc.jpg",
+"taken": "2019-01-11T16:57",
+"hour": 16,
+"weekend": false,
+"building": "West Station II office tower",
+"type": "office",
+"windows": 120.0,
+"lit": 80.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.7,
+"cool": 0.1
+},
+"brightness": "bright",
+"confidence": "low",
+"notes": "farther, partly behind LED strips"
+},
+{
+"photo": "File:Zamek Królewski nocą w Warszawie widok od strony ogrodów królewskich (cropped).jpg",
+"taken": "2022-07-17T21:43",
+"hour": 21,
+"weekend": true,
+"building": "Royal Castle, Vistula/garden facade",
+"type": "public",
+"windows": 75.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1.0,
+"neutral": 0.0,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "facade floodlit warm; hard to separate floodlight from interior; ~10 central first-floor windows appear lit from inside; drone shot"
+},
+{
+"photo": "File:Kwiatowy PKiN w Warszawie.jpg",
+"taken": "2015-05-01T23:26",
+"hour": 23,
+"weekend": false,
+"building": "InterContinental hotel (left)",
+"type": "hotel",
+"windows": 160.0,
+"lit": 40.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "small and distant; PKiN skipped (floodlit architectural lighting)"
+},
+{
+"photo": "File:Kolonia Wawelberga 2.jpg",
+"taken": "2023-07-29T22:58",
+"hour": 22,
+"weekend": true,
+"building": "Kolonia Wawelberga tenement, Wola",
+"type": "residential",
+"windows": 24.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "Saturday 23:00 July; trees hide right part"
+},
+{
+"photo": "File:Wilnow Palace (8511470554).jpg",
+"taken": "2013-01-06T16:28",
+"hour": 16,
+"weekend": true,
+"building": "Wilanów Palace, cour d'honneur facade",
+"type": "public",
+"windows": 22.0,
+"lit": 0.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.0,
+"neutral": 0.0,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "facade floodlit orange, windows dark; light fountain Christmas decoration"
+},
+{
+"photo": "File:Kolonia Wawelberga 5.jpg",
+"taken": "2023-07-29T23:04",
+"hour": 23,
+"weekend": true,
+"building": "Kolonia Wawelberga tenement, Wola",
+"type": "residential",
+"windows": 20.0,
+"lit": 2.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "mostly hidden by trees; lit gateway at ground not counted"
+},
+{
+"photo": "File:Okęcka sala widowiskowa nocą.jpg",
+"taken": "2022-10-30T19:02",
+"hour": 19,
+"weekend": true,
+"building": "Okęcka Sala Widowiskowa (library, clinic, culture centre), Okęcie",
+"type": "public",
+"windows": 49.0,
+"lit": 26.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.05,
+"neutral": 0.75,
+"cool": 0.2
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "central glazed bay 3 floors x ~8 panes all lit; side wings 2 of ~25 lit; window units counted"
+},
+{
+"photo": "File:Aleje Jerozolimskie Warszawa 01.jpg",
+"taken": "2017-12-02T17:47",
+"hour": 17,
+"weekend": true,
+"building": "office block on Al. Jerozolimskie near Chałubińskiego (centre)",
+"type": "office",
+"windows": 70.0,
+"lit": 15.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "distant, ~5 floors x 14; long exposure light trails; PKiN floodlit skipped"
+},
+{
+"photo": "File:Aleje Jerozolimskie Warszawa 01.jpg",
+"taken": "2017-12-02T17:47",
+"hour": 17,
+"weekend": true,
+"building": "office building on Al. Jerozolimskie (right foreground)",
+"type": "office",
+"windows": 40.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0.0
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "oblique view ~6 floors x 7"
+},
+{
+"photo": "File:Choinka lp 2015.JPG",
+"taken": "2015-12-30T16:44",
+"hour": 16,
+"weekend": false,
+"building": "Lasy Państwowe HQ (former Prokom/Asseco), Grójecka",
+"type": "office",
+"windows": 64.0,
+"lit": 32.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.5,
+"neutral": 0.35,
+"cool": 0.15
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "4 glazed office floors x ~16 bays: top floor fully lit warm, 4th fully lit cool-white, two middle floors nearly dark; between Christmas and New Year; Christmas tree"
+},
+{
+"photo": "File:Polonia Palace Hotel, Warsaw, 2024.jpg",
+"taken": "2024-09-06T19:41",
+"hour": 19,
+"weekend": false,
+"building": "Polonia Palace Hotel, Al. Jerozolimskie",
+"type": "hotel",
+"windows": 180.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "blue hour; facade floodlit warm making interior light hard to judge; restaurant at ground lit"
+},
+{
+"photo": "File:Polonia Palace Hotel 01.jpg",
+"taken": "2017-11-30T06:07",
+"hour": 6,
+"weekend": false,
+"building": "Polonia Palace Hotel, Al. Jerozolimskie",
+"type": "hotel",
+"windows": 180.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.2,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "06:07 morning before sunrise; facade floodlit white; right part behind trees"
+},
+{
+"photo": "File:Pałac Prezydencki w Warszawie03.jpg",
+"taken": "2019-06-22T22:10",
+"hour": 22,
+"weekend": true,
+"building": "Presidential Palace, Krakowskie Przedmieście",
+"type": "public",
+"windows": 45.0,
+"lit": 4.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "deep blue sky after sunset; floodlit facade with projection; tree hides centre"
+},
+{
+"photo": "File:Dekoracje świąteczne 2021, Stare Miasto, Warszawa (3).jpg",
+"taken": "2022-02-06T20:40",
+"hour": 20,
+"weekend": true,
+"building": "tenements on Old Town Market Square (Rynek Starego Miasta)",
+"type": "mixed",
+"windows": 120.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0.0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "Christmas lights glare; many dark (museum/restaurant upper floors, short-term rentals)"
+},
+{
+"photo": "File:Dekoracje świąteczne 2021, Stare Miasto, Warszawa (6).jpg",
+"taken": "2022-02-06T20:50",
+"hour": 20,
+"weekend": true,
+"building": "tenements on Plac Zamkowy (right side)",
+"type": "mixed",
+"windows": 40.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "facade far and dark; Christmas decorations in front"
+},
+{
+"photo": "File:Warszawa Plac Unii Lubelskiej (01).jpg",
+"taken": "2018-11-23T16:27",
+"hour": 16,
+"weekend": false,
+"building": "Plac Unii tower (ING)",
+"type": "office",
+"windows": 300.0,
+"lit": 30.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.3,
+"neutral": 0.6,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "fog; ~2 floors mostly lit near middle, rest scattered; count of lit bright windows, extrapolated grid"
+},
+{
+"photo": "File:Warszawa Plac Unii Lubelskiej (01).jpg",
+"taken": "2018-11-23T16:27",
+"hour": 16,
+"weekend": false,
+"building": "Plac Unii lower block (deer projection)",
+"type": "office",
+"windows": 75.0,
+"lit": 10.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "projection on corner excluded"
+},
+{
+"photo": "File:Warszawa Plac Unii Lubelskiej (01).jpg",
+"taken": "2018-11-23T16:27",
+"hour": 16,
+"weekend": false,
+"building": "office building on Plac Unii Lubelskiej / Puławska (right)",
+"type": "office",
+"windows": 126.0,
+"lit": 12.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.3,
+"neutral": 0.4,
+"cool": 0.3
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "several cool-white lit windows; ~16:30 Friday Nov"
+},
+{
+"photo": "File:Katedra polowa Wojska Polskiego Warszawa 02.jpg",
+"taken": "2017-12-01T22:33",
+"hour": 22,
+"weekend": false,
+"building": "Ordinariat Polowy building next to Field Cathedral, Długa",
+"type": "public",
+"windows": 42.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.2,
+"neutral": 0.3,
+"cool": 0.5
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "lit ones mostly ground-floor, bluish"
+},
+{
+"photo": "File:Katedra polowa Wojska Polskiego Warszawa 02.jpg",
+"taken": "2017-12-01T22:33",
+"hour": 22,
+"weekend": false,
+"building": "apartment block on Długa (right)",
+"type": "residential",
+"windows": 48.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "partly behind streetlight glare"
+},
+{
+"photo": "File:Pałac Prezydencki w Warszawie.jpg",
+"taken": "2012-08-25T20:15",
+"hour": 20,
+"weekend": true,
+"building": "Presidential Palace",
+"type": "public",
+"windows": 28.0,
+"lit": 14.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.4,
+"neutral": 0.6,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "main floor 14 windows glowing (curtains lit, may be partly floodlight), upper floor 14 dark; facade floodlit; dusk 20:15 Aug but sky black"
+},
+{
+"photo": "File:Grójecka 216 noc.jpg",
+"taken": "2024-01-05T18:48",
+"hour": 18,
+"weekend": false,
+"building": "apartment block Grójecka 216",
+"type": "residential",
+"windows": 230.0,
+"lit": 60.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.75,
+"neutral": 0.2,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "counted lit per floor across 8 floors (~6-12 each); Christmas lights on balconies, one tree; Friday 18:48 Jan"
+},
+{
+"photo": "File:2025 Warszawa pętla Dworzec Centralny, autobus nocny N25, 1.jpg",
+"taken": "2025-10-05T01:38",
+"hour": 1,
+"weekend": true,
+"building": "curved building behind Złote Tarasy dome",
+"type": "unknown",
+"windows": 150.0,
+"lit": 6.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "fog, ribbon windows hard to count; 01:38 Sunday"
+},
+{
+"photo": "File:Centrum33.jpg",
+"taken": "2012-08-15T00:00",
+"hour": 0,
+"weekend": false,
+"building": "Skylight office tower (Złote Tarasy)",
+"type": "office",
+"windows": 600.0,
+"lit": 140.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "3 full floors lit plus partial floors; likely cleaning; EXIF 00:00 exactly may be a placeholder time; 15 Aug holiday"
+},
+{
+"photo": "File:Centrum33.jpg",
+"taken": "2012-08-15T00:00",
+"hour": 0,
+"weekend": false,
+"building": "InterContinental hotel",
+"type": "hotel",
+"windows": 300.0,
+"lit": 25.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "far, partly hazy"
+},
+{
+"photo": "File:Kolonia Wawelberga 7.jpg",
+"taken": "2023-07-29T23:08",
+"hour": 23,
+"weekend": true,
+"building": "Kolonia Wawelberga house",
+"type": "residential",
+"windows": 22.0,
+"lit": 5.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "trees block part of facade; Saturday 23:08 July"
+},
+{
+"photo": "File:Pałac Kultury i Nauki (1).jpg",
+"taken": "2021-06-13T22:09",
+"hour": 22,
+"weekend": true,
+"building": "high-rises east of Marszałkowska (Ściana Wschodnia area)",
+"type": "residential",
+"windows": 240.0,
+"lit": 30.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "aerial blue-hour shot, small; PKiN floodlit skipped"
+},
+{
+"photo": "File:Warszawa Krakowskie Przedmieście 71.JPG",
+"taken": "2012-09-14T23:11",
+"hour": 23,
+"weekend": false,
+"building": "Krakowskie Przedmieście 71 tenement",
+"type": "mixed",
+"windows": 12.0,
+"lit": 4.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "whole 2nd floor lit (4/4), top and 1st floor dark; Cafe Trakt below"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "white grid office tower (left)",
+"type": "office",
+"windows": 280.0,
+"lit": 100.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "long exposure; counted a few floors (~4 of 10 lit) and extrapolated"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "glass office tower left of PKiN (Rondo 1 area)",
+"type": "office",
+"windows": 490.0,
+"lit": 250.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "very many lit floors, Thursday 22:16; extrapolated"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "striped office tower right of the glass tower",
+"type": "office",
+"windows": 240.0,
+"lit": 110.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.7,
+"neutral": 0.3,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "partly hidden"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "Złota 44",
+"type": "residential",
+"windows": 600.0,
+"lit": 12.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "in 2015 not yet occupied; only top crown row lit"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "large residential slab foreground (Wola/Grzybowska)",
+"type": "residential",
+"windows": 600.0,
+"lit": 120.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.15,
+"cool": 0.25
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "many blue TV-flicker windows; extrapolated from several floors"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "dark brown office tower centre",
+"type": "office",
+"windows": 200.0,
+"lit": 15.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": ""
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "residential block lower right",
+"type": "residential",
+"windows": 250.0,
+"lit": 50.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "long low office slab right (ribbon windows)",
+"type": "office",
+"windows": 320.0,
+"lit": 100.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.3,
+"neutral": 0.7,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "ribbon windows, lit by floor sections"
+},
+{
+"photo": "File:Warsaw (19130300421).jpg",
+"taken": "2015-05-28T22:16",
+"hour": 22,
+"weekend": false,
+"building": "pinkish tower far right",
+"type": "hotel",
+"windows": 180.0,
+"lit": 20.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "identification uncertain"
+},
+{
+"photo": "File:Varsovia (Polonia) Warszawa (Polska). 212.jpg",
+"taken": "2022-12-28T21:51",
+"hour": 21,
+"weekend": false,
+"building": "Złota 44",
+"type": "residential",
+"windows": 500.0,
+"lit": 80.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "small, HDR-processed photo"
+},
+{
+"photo": "File:Varsovia (Polonia) Warszawa (Polska). 212.jpg",
+"taken": "2022-12-28T21:51",
+"hour": 21,
+"weekend": false,
+"building": "Skylight round tower",
+"type": "office",
+"windows": 300.0,
+"lit": 30.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": ""
+},
+{
+"photo": "File:Nocne ujęcie gmachu mechaniki pw.jpg",
+"taken": "2023-01-21T18:20",
+"hour": 18,
+"weekend": true,
+"building": "Gmach Mechaniki, Politechnika Warszawska",
+"type": "public",
+"windows": 36.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.1,
+"neutral": 0.4,
+"cool": 0.5
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "3 lit on top floor, 3 on ground floor; trees in front; Saturday 18:20 Jan"
+},
+{
+"photo": "File:Nocne ujęcie gmachu mechaniki pw.jpg",
+"taken": "2023-01-21T18:20",
+"hour": 18,
+"weekend": true,
+"building": "residential block right of Gmach Mechaniki",
+"type": "residential",
+"windows": 21.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.2,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": ""
+},
+{
+"photo": "File:2024 Warszawa plac Szczepaniaka, 4.jpg",
+"taken": "2024-02-29T17:59",
+"hour": 17,
+"weekend": false,
+"building": "Allianz office building, Plac Szczepaniaka",
+"type": "office",
+"windows": 200.0,
+"lit": 140.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "top 6 floors almost fully lit, lower 2 partly; Thursday 18:00 Feb; counted panes per floor"
+},
+{
+"photo": "File:2024 Warszawa plac Szczepaniaka, 4.jpg",
+"taken": "2024-02-29T17:59",
+"hour": 17,
+"weekend": false,
+"building": "dark glass office tower behind",
+"type": "office",
+"windows": 180.0,
+"lit": 70.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.6,
+"neutral": 0.4,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:2024 Warszawa plac Szczepaniaka, 4.jpg",
+"taken": "2024-02-29T17:59",
+"hour": 17,
+"weekend": false,
+"building": "stone-clad office building right",
+"type": "office",
+"windows": 160.0,
+"lit": 50.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.4,
+"cool": 0.1
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:Park Skaryszewski 7.jpg",
+"taken": "2023-09-28T21:09",
+"hour": 21,
+"weekend": false,
+"building": "E. Wedel factory (Praga)",
+"type": "unknown",
+"windows": 90.0,
+"lit": 60.0,
+"pattern": "whole_floors",
+"colour": {
+"warm": 0.05,
+"neutral": 0.55,
+"cool": 0.4
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "factory, likely night shift; facade also floodlit; top floor right part dark"
+},
+{
+"photo": "File:Kawęczyńska.jpg",
+"taken": "2023-08-14T22:37",
+"hour": 22,
+"weekend": false,
+"building": "tenements on Kawęczyńska",
+"type": "residential",
+"windows": 100.0,
+"lit": 6.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.6,
+"neutral": 0.2,
+"cool": 0.2
+},
+"brightness": "dim",
+"confidence": "medium",
+"notes": "Monday 22:37 Aug; flags; one window red, one blue in ground floor"
+},
+{
+"photo": "File:Chmiena 25 by night.jpg",
+"taken": "2017-02-22T18:09",
+"hour": 18,
+"weekend": false,
+"building": "Chmielna 25",
+"type": "office",
+"windows": 14.0,
+"lit": 14.0,
+"pattern": "all_lit",
+"colour": {
+"warm": 0,
+"neutral": 0.6,
+"cool": 0.4
+},
+"brightness": "bright",
+"confidence": "medium",
+"notes": "glazed bays all lit; blue LED panels are decorative, excluded"
+},
+{
+"photo": "File:Poland 2011-10-08 (6611233715).jpg",
+"taken": "2011-10-08T18:34",
+"hour": 18,
+"weekend": true,
+"building": "Palace of Culture and Science (not floodlit)",
+"type": "public",
+"windows": 200.0,
+"lit": 4.0,
+"pattern": "all_dark",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "silhouette at blue hour 18:34 Saturday Oct; windows faint"
+},
+{
+"photo": "File:Bagatela 15.jpg",
+"taken": "2023-08-05T21:12",
+"hour": 21,
+"weekend": true,
+"building": "Kamienica Jana Łaskiego, Bagatela 15",
+"type": "residential",
+"windows": 140.0,
+"lit": 20.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.8,
+"neutral": 0.15,
+"cool": 0.05
+},
+"brightness": "medium",
+"confidence": "high",
+"notes": "Saturday 21:12 Aug; one red-lit turret window; PKO Bank ground floor"
+},
+{
+"photo": "File:Warsaw cityscape, Warsaw, Masovian Voivodeship, Poland, November 2019.jpg",
+"taken": "2019-11-10T16:17",
+"hour": 16,
+"weekend": true,
+"building": "Hotel Metropol, Marszałkowska",
+"type": "hotel",
+"windows": 170.0,
+"lit": 22.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "Sunday 16:17 Nov at dusk"
+},
+{
+"photo": "File:Warsaw cityscape, Warsaw, Masovian Voivodeship, Poland, November 2019.jpg",
+"taken": "2019-11-10T16:17",
+"hour": 16,
+"weekend": true,
+"building": "Skylight round tower",
+"type": "office",
+"windows": 240.0,
+"lit": 30.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": "far"
+},
+{
+"photo": "File:Ul. Indiry Gandhi 9, Warszawa.jpg",
+"taken": "2022-04-02T00:26",
+"hour": 0,
+"weekend": true,
+"building": "Indiry Gandhi 9",
+"type": "unknown",
+"windows": 22.0,
+"lit": 0.0,
+"pattern": "ground_only",
+"colour": {
+"warm": 0,
+"neutral": 1,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "high",
+"notes": "only glazed ground-floor lobby lit; 00:26 Saturday; snowfall"
+},
+{
+"photo": "File:Warszawa Świętojańska 4.JPG",
+"taken": "2012-09-14T23:05",
+"hour": 23,
+"weekend": false,
+"building": "Świętojańska 4 tenement",
+"type": "mixed",
+"windows": 15.0,
+"lit": 3.0,
+"pattern": "scattered",
+"colour": {
+"warm": 1,
+"neutral": 0,
+"cool": 0
+},
+"brightness": "bright",
+"confidence": "high",
+"notes": "3 of 5 top-floor windows lit, lower floors dark; Friday 23:05"
+},
+{
+"photo": "File:2026 Warszawa Gdański Business Center, 2.jpg",
+"taken": "2026-02-23T18:10",
+"hour": 18,
+"weekend": false,
+"building": "Gdański Business Center glass building (left)",
+"type": "office",
+"windows": 150.0,
+"lit": 55.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": "Monday 18:10 Feb"
+},
+{
+"photo": "File:2026 Warszawa Gdański Business Center, 2.jpg",
+"taken": "2026-02-23T18:10",
+"hour": 18,
+"weekend": false,
+"building": "Gdański Business Center stone building (centre)",
+"type": "office",
+"windows": 54.0,
+"lit": 18.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "medium",
+"notes": ""
+},
+{
+"photo": "File:2026 Warszawa Gdański Business Center, 2.jpg",
+"taken": "2026-02-23T18:10",
+"hour": 18,
+"weekend": false,
+"building": "Gdański Business Center white building (right)",
+"type": "office",
+"windows": 80.0,
+"lit": 20.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.5,
+"neutral": 0.5,
+"cool": 0
+},
+"brightness": "dim",
+"confidence": "low",
+"notes": ""
+},
+{
+"photo": "File:Lodowisko na Rynku Starego Miasta, Warszawa.jpg",
+"taken": "2021-12-19T19:54",
+"hour": 19,
+"weekend": true,
+"building": "tenements on Old Town Market Square",
+"type": "residential",
+"windows": 60.0,
+"lit": 8.0,
+"pattern": "scattered",
+"colour": {
+"warm": 0.9,
+"neutral": 0.1,
+"cool": 0
+},
+"brightness": "medium",
+"confidence": "low",
+"notes": "Christmas lights in front; lit windows mainly first floor; Sunday 19:54 Dec"
+}
+]

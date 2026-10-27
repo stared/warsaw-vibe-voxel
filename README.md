@@ -131,6 +131,7 @@ Data the model is built from:
   - **[iNaturalist](https://www.inaturalist.org/)** "Leaves" annotations, weekly counts, for the species the DWD does not record.
   - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each species' canopy in autumn and summer, for the autumn colours; the photos are listed in `scripts/foliage_photos.json`.
   - **[Open-Meteo](https://open-meteo.com/)** ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)): the historical archive (ERA5) for when snow can fall.
+- **Lit windows at night** (`scripts/window_photos.py`, `scripts/window_stats.py`, `scripts/windows.py`): 324 dated night photos of Warsaw from [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Night_in_Warsaw) (EXIF time, sun below −4°), 268 facades counted window by window (`scripts/window_counts.json`). Per building type (from OSM), the median share of lit windows by clock time and weekday or weekend, how much buildings of a type differ, whether they light whole floors, and the colour of the light.
 - **Labels** (`scripts/notable.py`, `scripts/wikidata.py`, `scripts/labels.py`):
   - **[Wikidata](https://www.wikidata.org/)** ([CC0](https://creativecommons.org/publicdomain/zero/1.0/)): the places on the map, their Polish and English names and official websites.
   - **[Wikimedia pageviews](https://wikimedia.org/api/rest_v1/)** for Polish and English Wikipedia, Oct 2025 – Sep 2026, to rank them.

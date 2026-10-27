@@ -70,7 +70,6 @@ export class Daylight {
     this.shadowKey = '';
     if (this.uniforms) {
       this.uniforms.uNight.value = night;
-      this.uniforms.uDeep.value = deep;
       this.uniforms.uHorizon.value.copy(this.sky.horizon).convertSRGBToLinear();
       this.uniforms.uWet.value = w.rain;
       this.uniforms.uSnow.value = w.cover;
