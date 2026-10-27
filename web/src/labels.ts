@@ -20,10 +20,8 @@ interface Pin {
 }
 export interface Placed extends Facts { x: number; y: number; z: number }
 
-const details = (f: Facts) => [f.height && `${f.height} m`, f.year, f.rebuilt && `rebuilt ${f.rebuilt}`, f.by, f.building && 'under construction'].filter(Boolean);
-const domain = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-const link = (u?: string) => u ? `<a href="${u}" target="_blank" rel="noopener">${domain(u)}</a>` : '';
-const levelAt = (d: number, far: number) => d < Math.max(250, Math.min(far * 0.3, 900)) ? 2 : d < far * 0.6 ? 1 : 0;
+const details = (f: Facts) => [f.en && f.kind, f.height && `${f.height} m`, f.year, f.rebuilt && `rebuilt ${f.rebuilt}`, f.by, f.building && 'under construction'].filter(Boolean);
+const levelAt = (d: number, far: number) => d < Math.max(250, Math.min(far * 0.3, 900)) ? 2 : 0;
 
 const STEM = 20, TOP = 8;
 const overlap = (r: Rect, q: Rect) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0;
@@ -41,16 +39,18 @@ export class Labels {
     labels.forEach((l) => {
       const pin = this.add(`label${(l.far ?? 0) >= 9000 ? ' major' : ''}`, l,
         new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), new THREE.Vector3(l.x + 0.5, (l.g ?? 0) + 2, l.y + 0.5), (l.R ?? 30) + 6);
-      pin.txt.addEventListener('click', () => onClick(l));
+      pin.txt.addEventListener('click', () => {
+        if (l.site && pin.level === 2) open(l.site, '_blank', 'noopener');
+        else onClick(l);
+      });
       this.pins.push(pin);
     });
     document.fonts?.ready.then(() => { for (const p of this.pins) p.dims = []; });
   }
 
   private add(cls: string, f: Facts, p: THREE.Vector3, base: THREE.Vector3, R: number): Pin {
-    const facts = details(f).map((d) => `<span>${d}</span>`).join('') + link(f.site);
+    const facts = details(f).map((d) => `<span>${d}</span>`).join('');
     const e = el('div', cls, `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${f.name}</b><span>${f.en ?? f.kind}</span>${facts ? `<p>${facts}</p>` : ''}</div>`, this.host);
-    e.querySelector('a')?.addEventListener('click', (ev) => ev.stopPropagation());
     return { el: e, txt: $('.txt', e), p, base, R, occluded: false, w: 0, h: 0, far: f.far ?? 1300, level: -1, dims: [], shift: 0 };
   }
 
@@ -105,7 +105,6 @@ export class Labels {
   private setLevel(L: Pin, level: number) {
     if (L.level === level && L.dims[level]) return;
     L.level = level;
-    L.el.classList.toggle('mid', level >= 1);
     L.el.classList.toggle('near', level === 2);
     L.dims[level] ??= [L.txt.offsetWidth || 160, L.txt.offsetHeight || 30];
   }

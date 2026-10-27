@@ -3,7 +3,8 @@ import { $, coarsePointer, el } from './util';
 
 export interface Rect { x0: number; x1: number; y0: number; y1: number }
 
-const KEYS = [['KeyQ', 'Q', '⌃'], ['KeyW', 'W', '↑'], ['KeyE', 'E', '⌄'], ['KeyA', 'A', '↶'], ['KeyS', 'S', '↓'], ['KeyD', 'D', '↷']];
+const TILT = (d: 1 | -1) => `<svg viewBox="-4 -4 8 8"><path d="M-3 ${d}l3 ${-2 * d} 3 ${2 * d}"/></svg>`;
+const KEYS = [['KeyQ', 'Q', TILT(1)], ['KeyW', 'W', ''], ['KeyE', 'E', TILT(-1)], ['KeyA', 'A', ''], ['KeyS', 'S', ''], ['KeyD', 'D', '']];
 const ALIAS: Record<string, string> = { ArrowUp: 'KeyW', ArrowDown: 'KeyS', ArrowLeft: 'KeyA', ArrowRight: 'KeyD' };
 
 // an outlined mouse with the part in use filled (l/r button, w wheel), drag arrows either side
@@ -19,7 +20,7 @@ const MOUSE: Record<Mode, [string, string, string][]> = {
   walk: [['l', mouse('l', true), 'look'], ['', mouse('l'), 'walk'], ['', PERSON, 'follow'], ['Escape', ESC, 'fly up']],
   ride: [['l', mouse('l', true), 'look'], ['Escape', ESC, 'fly up']],
 };
-const WHO: Record<string, string> = { you: 'You are this pedestrian', person: 'Following a pedestrian', car: 'Following a car', bus: 'Following a bus', tram: 'Following a tram' };
+const WHO: Record<string, string> = { person: 'Following a pedestrian', car: 'Following a car', bus: 'Following a bus', tram: 'Following a tram' };
 
 // the key legend, bottom left: keys and mouse gestures as outlines, lit while in use
 export class Hud {
@@ -31,7 +32,7 @@ export class Hud {
     const box = this.box;
     box.id = 'hud';
     box.innerHTML = `<div class="who"></div>${this.touch ? ''
-      : `<div class="row"><div class="keys">${KEYS.map(([c, k, g]) => `<span class="cap" data-k="${c}">${k}<i>${g}</i></span>`).join('')}</div><div class="mouse"></div></div>`}`;
+      : `<div class="row"><div class="keys">${KEYS.map(([c, k, g]) => `<span class="cap" data-k="${c}">${k}${g && `<i>${g}</i>`}</span>`).join('')}</div><div class="mouse"></div></div>`}`;
     const lit = (k: string, on: boolean) => box.querySelectorAll(`[data-k="${k}"]`).forEach((n) => n.classList.toggle('on', on));
     addEventListener('keydown', (e) => { if (!(e.target as Element).closest?.('input')) lit(ALIAS[e.code] ?? e.code, true); });
     addEventListener('keyup', (e) => lit(ALIAS[e.code] ?? e.code, false));
@@ -47,7 +48,7 @@ export class Hud {
   }
 
   set(mode: Mode, ride: Ride | null) {
-    $('.who', this.box).textContent = mode === 'ride' && ride ? WHO[ride.label] ?? (/^tram \w/.test(ride.label) ? `Following ${ride.label}` : WHO[ride.kind]) : '';
+    $('.who', this.box).textContent = mode === 'ride' && ride && ride.label !== 'you' ? WHO[ride.label] ?? (/^tram \w/.test(ride.label) ? `Following ${ride.label}` : WHO[ride.kind]) : '';
     if (this.touch) return;
     $('.mouse', this.box).innerHTML = MOUSE[mode].map(([k, icon, word]) => `<figure data-k="${k}">${icon}<figcaption>${word}</figcaption></figure>`).join('');
   }
