@@ -63,7 +63,11 @@ Curated details are in `scripts/landmarks.py`:
 - the PKiN Millennium Clock, on the plain shaft at ~170 m
 - the Złote Tarasy glass canopy
 - the Marriott's dark glass
-- labels
+
+Labels (`scripts/labels.py`, `uv run python scripts/labels.py` refreshes them in `meta.json` from the cached build):
+- The curated landmarks in `scripts/landmarks.py`, including the groups in the Jazdów Finnish houses.
+- About 150 more places picked by hand from the Wikidata items located on the map (`scripts/notable.py`), ordered by how much people read about them: Polish and English Wikipedia page views over a year. Events, organisations, streets, lost buildings and rooms inside a labelled building are left out.
+- How far away a label shows comes from those page views: the Palace from anywhere, a church from ~2 km, a monument from a few hundred metres. Closer in, a label adds its English name or kind, then its facts and website.
 
 ## Rebuild the data
 
@@ -127,6 +131,10 @@ Data the model is built from:
   - **[iNaturalist](https://www.inaturalist.org/)** "Leaves" annotations, weekly counts, for the species the DWD does not record.
   - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each species' canopy in autumn and summer, for the autumn colours; the photos are listed in `scripts/foliage_photos.json`.
   - **[Open-Meteo](https://open-meteo.com/)** ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)): the historical archive (ERA5) for when snow can fall.
+- **Labels** (`scripts/notable.py`, `scripts/wikidata.py`, `scripts/labels.py`):
+  - **[Wikidata](https://www.wikidata.org/)** ([CC0](https://creativecommons.org/publicdomain/zero/1.0/)): the places on the map, their Polish and English names and official websites.
+  - **[Wikimedia pageviews](https://wikimedia.org/api/rest_v1/)** for Polish and English Wikipedia, Oct 2025 – Sep 2026, to rank them.
+  - The groups in the Jazdów Finnish houses from the [Wolny Jazdów](https://jazdow.pl) map (Feb 2026) and the estate's 80th-anniversary programme (Aug 2025); websites checked by hand.
 
 References used to check and curate details (these are not redistributed):
 - **[Wikimedia Commons](https://commons.wikimedia.org/)** photos of each landmark. They are compared side by side with renders: facades, colours, bridge structure.

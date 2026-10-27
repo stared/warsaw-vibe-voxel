@@ -68,6 +68,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 .label.left p { justify-content: flex-end; }
 .label p span { color: #b8b8b8; }
 .label.major b { font-size: 14.5px; }
+.label .txt > span, .label p { display: none; }
+.label.mid .txt > span, .label.pick .txt > span { display: block; }
+.label.near p, .label.pick p { display: flex; }
+.label p a { color: #cfe3ff; text-decoration: none; font-weight: 500; font-size: 10.5px; }
+.label p a:hover { text-decoration: underline; }
 
 #loading { position: fixed; inset: 0; background: linear-gradient(#c9d3dc, #e7e2d8 70%); z-index: 10; }
 #loading-text { position: fixed; left: 14px; top: 14px; color: #fff; font: 11px Inter, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }

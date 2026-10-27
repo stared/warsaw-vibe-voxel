@@ -11,9 +11,16 @@ from shapely.ops import unary_union
 
 from aoi import W, D
 from osm import OSM
+from wikidata import CACHE
+
 
 OUT = Path(__file__).resolve().parent.parent / "web/public/data/places.json"
 osm = OSM()
+wd = json.loads(CACHE.read_text()) if CACHE.exists() else {}
+PL_KIND = {"place of worship": "kościół church", "station": "dworzec stacja", "stop": "przystanek", "theatre": "teatr",
+           "museum": "muzeum", "gallery": "galeria", "library": "biblioteka", "university": "uczelnia uniwersytet",
+           "park": "ogród", "square": "plac", "street": "ulica", "cinema": "kino", "hotel": "hotel", "memorial": "pomnik",
+           "artwork": "rzeźba", "restaurant": "restauracja", "cafe": "kawiarnia", "school": "szkoła", "hospital": "szpital"}
 
 
 def inside(x, y):
@@ -43,9 +50,15 @@ RANK = {"square": 0, "Osiedle Jazdów": 1, "park": 1, "station": 2, "street": 3,
 best = {}
 
 
+def english(t):
+    e = wd.get(t.get("wikidata"), {})
+    return " ".join(dict.fromkeys(filter(None, [t.get("name:en"), e.get("en"), e.get("pl")])))
+
+
 def add(name, kind, geom, alt=""):
     if not kind:
         return
+    alt = " ".join(filter(None, [alt, PL_KIND.get(kind)]))
     p = geom.representative_point() if geom.geom_type != "Point" else geom
     if not inside(p.x, p.y):
         return
@@ -69,10 +82,10 @@ for name, lines in streets.items():
 
 for _, _, t, poly in osm.areas:
     if t.get("name"):
-        add(t["name"], kind_of(t), poly, t.get("name:en", ""))
+        add(t["name"], kind_of(t), poly, english(t))
 for _, t, pt in osm.nodes:
     if t.get("name"):
-        add(t["name"], kind_of(t), pt, t.get("name:en", ""))
+        add(t["name"], kind_of(t), pt, english(t))
 
 # the Finnish houses of Osiedle Jazdów (1945, ~27 left; Otwarty Jazdów: NGOs, culture and grassroots groups): every
 # one found by its address ("Jazdów 3/5") and by "domki fińskie", named after its OSM name or the groups inside it

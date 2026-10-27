@@ -16,6 +16,8 @@ export interface Facts {
   rebuilt?: number;
   by?: string;
   building?: boolean;
+  site?: string;
+  far?: number;
 }
 
 export interface Label extends Facts {

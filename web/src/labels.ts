@@ -13,11 +13,17 @@ interface Pin {
   occluded: boolean;
   w: number;
   h: number;
+  far: number;
+  level: number;
+  dims: [number, number][];
   shift: number;
 }
 export interface Placed extends Facts { x: number; y: number; z: number }
 
 const details = (f: Facts) => [f.height && `${f.height} m`, f.year, f.rebuilt && `rebuilt ${f.rebuilt}`, f.by, f.building && 'under construction'].filter(Boolean);
+const domain = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+const link = (u?: string) => u ? `<a href="${u}" target="_blank" rel="noopener">${domain(u)}</a>` : '';
+const levelAt = (d: number, far: number) => d < Math.max(250, Math.min(far * 0.3, 900)) ? 2 : d < far * 0.6 ? 1 : 0;
 
 const STEM = 20, TOP = 8;
 const overlap = (r: Rect, q: Rect) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0;
@@ -32,26 +38,27 @@ export class Labels {
   private frame = 0;
 
   constructor(labels: Label[], onClick: (l: Label) => void) {
-    labels.forEach((l, i) => {
-      const pin = this.add(`label${i < 6 ? ' major' : ''}`, l,
+    labels.forEach((l) => {
+      const pin = this.add(`label${(l.far ?? 0) >= 9000 ? ' major' : ''}`, l,
         new THREE.Vector3(l.x + 0.5, l.z + 1, l.y + 0.5), new THREE.Vector3(l.x + 0.5, (l.g ?? 0) + 2, l.y + 0.5), (l.R ?? 30) + 6);
       pin.txt.addEventListener('click', () => onClick(l));
       this.pins.push(pin);
     });
-    document.fonts?.ready.then(() => { for (const p of this.pins) p.w = 0; });
+    document.fonts?.ready.then(() => { for (const p of this.pins) p.dims = []; });
   }
 
   private add(cls: string, f: Facts, p: THREE.Vector3, base: THREE.Vector3, R: number): Pin {
-    const facts = details(f).map((d) => `<span>${d}</span>`).join('');
+    const facts = details(f).map((d) => `<span>${d}</span>`).join('') + link(f.site);
     const e = el('div', cls, `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${f.name}</b><span>${f.en ?? f.kind}</span>${facts ? `<p>${facts}</p>` : ''}</div>`, this.host);
-    return { el: e, txt: $('.txt', e), p, base, R, occluded: false, w: 0, h: 0, shift: 0 };
+    e.querySelector('a')?.addEventListener('click', (ev) => ev.stopPropagation());
+    return { el: e, txt: $('.txt', e), p, base, R, occluded: false, w: 0, h: 0, far: f.far ?? 1300, level: -1, dims: [], shift: 0 };
   }
 
   // a temporary label on a searched place
   pin(p: Placed | null) {
     if (this.picked) { this.picked.el.remove(); this.pins.splice(this.pins.indexOf(this.picked), 1); this.picked = null; }
     if (!p) return;
-    this.picked = this.add('label pick', p, new THREE.Vector3(p.x + 0.5, p.z + 1, p.y + 0.5), new THREE.Vector3(p.x + 0.5, p.z, p.y + 0.5), 40);
+    this.picked = this.add('label pick', { ...p, far: 1e9 }, new THREE.Vector3(p.x + 0.5, p.z + 1, p.y + 0.5), new THREE.Vector3(p.x + 0.5, p.z, p.y + 0.5), 40);
     this.pins.unshift(this.picked);
   }
 
@@ -63,11 +70,12 @@ export class Labels {
     const v = new THREE.Vector3();
     for (const L of this.pins) {
       v.copy(L.p).project(camera);
-      const inFront = v.z < 1;
+      const inFront = v.z < 1, d = camera.position.distanceTo(L.p);
       let x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
-      if (!L.w) { L.w = L.txt.offsetWidth || 160; L.h = L.txt.offsetHeight || 30; }
+      this.setLevel(L, levelAt(d, L.far));
+      [L.w, L.h] = L.dims[L.level];
       let vis = false, side: 'r' | 'l' | 's' = 'r', pinned = false;
-      if (!L.occluded && inFront && x > -20 && x < innerWidth + 20 && this.gate(L.p.x, L.p.z)) {
+      if (d < L.far && !L.occluded && inFront && x > -20 && x < innerWidth + 20 && this.gate(L.p.x, L.p.z)) {
         // the roof above the screen but the building in view: the label pinned to the top edge
         if (y < TOP + STEM + L.h && y > -innerHeight * 0.8) {
           v.copy(L.base).project(camera);
@@ -76,7 +84,7 @@ export class Labels {
             if (under(x)) y = Math.max(y, bar.bottom + 20 + L.h);
           }
         }
-        if (under(x) && y - STEM - L.h < bar.bottom + 8 && y > bar.top) { y = Math.max(y, bar.bottom + 20 + L.h); pinned = true; }
+        if (under(x) && y - STEM - L.h < bar.bottom + 12 && y > bar.top) { y = Math.max(y, bar.bottom + 20 + L.h); pinned = true; }
         if (y <= innerHeight + 4) {
           const st = pinned ? 4 : STEM, y0 = y - st - L.h, y1 = y + 4;
           const right = { x0: x - 4, x1: x + L.w, y0, y1 }, left = { x0: x - L.w, x1: x + 4, y0, y1 };
@@ -92,6 +100,14 @@ export class Labels {
       L.txt.style.left = side === 's' ? `${L.shift.toFixed(0)}px` : '';
       if (vis) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
+  }
+
+  private setLevel(L: Pin, level: number) {
+    if (L.level === level && L.dims[level]) return;
+    L.level = level;
+    L.el.classList.toggle('mid', level >= 1);
+    L.el.classList.toggle('near', level === 2);
+    L.dims[level] ??= [L.txt.offsetWidth || 160, L.txt.offsetHeight || 30];
   }
 
   // a few labels per frame: hidden by something other than the labelled building itself

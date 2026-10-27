@@ -1547,22 +1547,9 @@ labels, views = landmarks.details(vol, g, top, topi, bmask, feats, pal, C, osm, 
 np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
                     pal=np.array(pal.entries, np.int32))  # PKiN's block for facade work (r0=1080, c0=600)
 
-# label footprint radius (the viewer hides a label only when something *else* is in the way; a ray hitting the
-# labelled building itself doesn't count) -- computed here because the viewer streams and has no whole-city voxels
-abs_top = g + np.where(bmask, topi, 0)
-for l in labels:
-    r, c = int(l["y"]), int(l["x"])
-    gg = int(g[min(max(r, 0), D - 1), min(max(c, 0), W - 1)])
-    l["g"] = gg
-    thr = gg + max(6, (l["z"] - gg) * 0.4)
-    r0, r1, c0, c1 = max(r - 220, 0), min(r + 221, D), max(c - 220, 0), min(c + 221, W)
-    lab_, _ = ndimage.label(abs_top[r0:r1, c0:c1] >= thr)
-    k = lab_[r - r0, c - c0] if (0 <= r - r0 < lab_.shape[0] and 0 <= c - c0 < lab_.shape[1]) else 0
-    if k:
-        rr_, cc_ = np.nonzero(lab_ == k)
-        l["R"] = round(float(np.hypot(rr_ + r0 - r, cc_ + c0 - c).max()), 1)
-    else:
-        l["R"] = 0.0
+import labels as labels_mod
+labels = labels_mod.assemble(labels, osm, lambda r, c: int(g[r, c] + (topi[r, c] if bmask[r, c] else 0)))
+labels_mod.radii(labels, g, g + np.where(bmask, topi, 0))
 
 # ---------------------------------------------------------------- floating debris
 import debris

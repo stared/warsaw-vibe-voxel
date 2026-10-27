@@ -45,7 +45,7 @@ export class PlaceSearch {
     for (const it of items) {
       const k = fold(it.name), f = first.get(k);
       if (f) f.alts.push(it.alt ?? '', it.kind);
-      else first.set(k, { ...it, alts: [it.alt ?? ''] });
+      else first.set(k, { ...it, alts: [it.alt ?? '', it.kind] });
     }
     this.items = [...first.values()].map((it, i) => ({ ...it, key: fold(`${it.name} ${it.alts.join(' ')}`), order: i }));
   }

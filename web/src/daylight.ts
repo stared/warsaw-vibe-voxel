@@ -57,7 +57,7 @@ export class Daylight {
     sun.shadow.radius = lerp(3, 22, cloud);
     sun.shadow.normalBias = clamp(0.3 / Math.max(light.y, 0.05), 0.5, 3);
     const skyRel = sky / 0.075 * adapt;
-    hemi.color.setRGB(0.63, 0.77, 1).lerp(new THREE.Color(0x46557a).lerp(new THREE.Color(0x4a443c), deep), night);
+    hemi.color.setRGB(0.63, 0.77, 1).lerp(new THREE.Color(1, 0.82, 0.66), golden * 0.45).lerp(new THREE.Color(0x46557a).lerp(new THREE.Color(0x4a443c), deep), night);
     hemi.groundColor.copy(sun.color).multiplyScalar(0.4).lerp(new THREE.Color(0x4a3c2c), night);
     hemi.intensity = lerp(0.14 * skyRel, lerp(0.95, 0.5, deep), night);
     if (cloud > 0) {

@@ -20,10 +20,10 @@ LABELS = {
     "Warszawa Centralna": dict(en="Central Station", kind="railway station", year=1975, alt="train"),
     "Złote Tarasy": dict(kind="shopping centre", year=2007, alt="Golden Terraces mall"),
     "Muzeum Sztuki Nowoczesnej": dict(en="Museum of Modern Art", kind="museum", year=2024),
-    "Plac Centralny": dict(kind="square", year=2025),
+    "Plac Centralny": dict(kind="square", year=2025, far=1800),
     "TR Warszawa": dict(kind="theatre", building=True),
     "Rotunda PKO": dict(kind="bank", rebuilt=2019),
-    "Park Świętokrzyski": dict(kind="park"),
+    "Park Świętokrzyski": dict(kind="park", far=900),
     "Rondo 1": dict(kind="office tower", height=192, year=2006, anchor="top"),
     "Q22": dict(kind="office tower", height=195, year=2016, anchor="top"),
     "InterContinental": dict(kind="hotel", height=164, year=2004, anchor="top"),
@@ -31,16 +31,16 @@ LABELS = {
     "Novotel Warszawa Centrum": dict(name="Novotel", kind="hotel", height=111, year=1974, anchor="top"),
     "Cosmopolitan": dict(kind="residential tower", height=160, year=2013, by="Helmut Jahn", anchor="top"),
     "Spektrum Tower": dict(kind="office tower", height=128, year=2003, anchor="top"),
-    "Central Point": dict(kind="office building", year=2022, anchor="top"),
+    "Central Point": dict(kind="office building", year=2022, far=900, anchor="top"),
     "Ilmet": dict(kind="office tower", year=1997, anchor="top"),
-    "The Westin Warsaw": dict(name="The Westin", kind="hotel", year=2003, anchor="top"),
+    "The Westin Warsaw": dict(name="The Westin", kind="hotel", year=2003, far=900, anchor="top"),
     # the 3.9 x 3.1 km map: Powiśle, the Vistula, Praga, Ogród Saski, Śródmieście Południowe
     "PGE Narodowy": dict(en="National Stadium", kind="stadium", year=2011, alt="Stadion Narodowy football", anchor="top"),
-    "Centrum Nauki Kopernik": dict(en="Copernicus Science Centre", kind="science museum", year=2010, alt="CNK", anchor="top"),
-    "Most Świętokrzyski": dict(kind="cable-stayed bridge", year=2000, anchor="top"),
+    "Centrum Nauki Kopernik": dict(en="Copernicus Science Centre", kind="science museum", year=2010, far=1800, alt="CNK", anchor="top"),
+    "Most Świętokrzyski": dict(kind="cable-stayed bridge", year=2000, far=1800, anchor="top"),
     "Most Księcia Józefa Poniatowskiego": dict(name="Most Poniatowskiego", kind="bridge", year=1914, rebuilt=1946, alt="Poniatowski"),
     "Ogród Saski": dict(en="Saxon Garden", kind="park", year=1727),
-    "Odbudowa Pałacu Saskiego": dict(name="Pałac Saski", en="Saxon Palace", kind="palace", building=True),
+    "Odbudowa Pałacu Saskiego": dict(name="Pałac Saski", en="Saxon Palace", kind="palace", building=True, far=1800),
     "Teatr Wielki": dict(en="Grand Theatre", kind="opera house", alt="National Opera"),
     "Zachęta": dict(en="National Gallery of Art", kind="gallery", year=1900),
     "Gmach Główny PW": dict(name="Politechnika Warszawska", en="Warsaw University of Technology", kind="university", year=1901, alt="Gmach Główny PW Main Building"),
@@ -53,22 +53,43 @@ LABELS = {
 }
 # places without a single OSM polygon, at EPSG:2180 x, y (the river mid-stream by Most Świętokrzyski, the boulevard by Kopernik)
 EXTRA_LABELS = {
-    "Zielona Złota": dict(kind="street greening", year=2026, at=(637420, 487015)),
-    "Wisła": dict(en="Vistula", kind="river", at=(639034, 487782)),
-    "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", at=(638714, 487996)),
-    "Domki Fińskie": dict(en='Finnish houses', kind='wooden houses', year=1945, alt='Osiedle Jazdów', at=(638492, 485890)),
-    "Chata Numinosum": dict(kind='arts centre', alt='Jazdów 3/5', at=(638533, 485843)),
-    "Ladom": dict(kind='arts centre', alt='Jazdów 7/14', at=(638467, 486006)),
-    "Solatorium": dict(kind='arts centre', alt='Jazdów 3/9', at=(638500, 485853)),
-    "Rotacyjny Dom Kultury": dict(kind='arts centre', alt='Jazdów 3/18', at=(638469, 485815)),
-    "Ambasada Muzyki Tradycyjnej": dict(kind='arts centre', alt='Jazdów 3/20', at=(638457, 485849)),
-    "Zaczarowany Ogród": dict(kind='arts centre', alt='Jazdów 3/17', at=(638466, 485834)),
-    "Państwomiasto": dict(kind='community centre', alt='Jazdów 3/12', at=(638481, 485871)),
-    "Miejskie Pszczoły": dict(kind='community centre', alt='Jazdów 3/8', at=(638491, 485906)),
-    "Otwarta Pracownia": dict(kind='community centre', alt='Jazdów 3/6', at=(638535, 485821)),
-    "Towarzystwo Polska-Finlandia": dict(kind='community centre', alt='Jazdów 10/8', at=(638575, 485947)),
-    "Kolektyw3": dict(kind='office', alt='Koszykowa 54 IPC Business Centre', at=(637457, 485993)),
+    "Zielona Złota": dict(kind="street greening", year=2026, far=900, at=(637420, 487015)),
+    "Wisła": dict(en="Vistula", kind="river", far=9000, at=(639034, 487782)),
+    "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", far=1800, at=(638714, 487996)),
+    "Domki Fińskie": dict(en='Finnish houses', kind='wooden houses', year=1945, alt='Osiedle Jazdów Wolny Jazdów Otwarty Jazdów',
+                          site='https://jazdow.pl', far=900, at=(638492, 485890)),
+    "Kolektyw3": dict(kind='coworking, AI meetups', alt='Koszykowa 54 IPC Business Centre', site='https://kolektyw3.pl', far=400, at=(637457, 485993)),
 }
+
+# the groups in the Finnish houses, by address on Jazdów (Wolny Jazdów map, Feb 2026; 80th anniversary programme, Aug 2025)
+JAZDOW = {
+    "3/5": dict(name="Chata Numinosum", kind="folk dance, dance nights", alt="tańce ludowe potańcówki śpiew", site="https://chata.numinosum.pl"),
+    "3/6": dict(name="Otwarta Pracownia", kind="architecture students' studio", alt="Otwarta Pracownia Jazdów architektura wykłady", site="https://otwartapracownia.pl"),
+    "3/8": dict(name="Miejskie Pszczoły", en="Urban Bees", kind="urban beekeeping", alt="pszczelarstwo pasieka", site="https://www.panstwomiasto.pl/pasieka"),
+    "3/9": dict(name="Solatorium", kind="community garden", alt="ogród społecznościowy Motyka i Słońce ekologia", site="https://www.facebook.com/solatorium"),
+    "3/12": dict(name="państwomiasto", kind="urban farm, workshops", alt="Citystate miejska farma kurnik warsztaty PM na trawie", site="https://www.panstwomiasto.pl"),
+    "3/17": dict(name="Zaczarowany Ogród", en="Enchanted Garden", kind="art, concerts, open-air cinema", alt="sztuka koncerty kino plenerowe", site="https://www.facebook.com/ZaczarowanyOgr"),
+    "3/18": dict(name="Rotacyjny Dom Kultury", kind="a new project every season", alt="Rotating Culture House Dom Kultury Śródmieście", site="https://dks.art.pl/rotacyjny-dom-kultury2"),
+    "3/20": dict(name="Ambasada Muzyki Tradycyjnej", kind="folk music and dances", alt="Embassy of Traditional Music Dom Tańca muzyka tradycyjna potańcówki", site="https://domtanca.art.pl"),
+    "5a/1": dict(name="Fundacja Bullerbyn", kind="democratic school", alt="szkoła demokratyczna warsztaty dla dzieci", site="https://www.bullerbyn.pl"),
+    "5a/4": dict(name="Autonomiczna Przestrzeń Edukacyjna", kind="alternative education", alt="APE edukacja alternatywna"),
+    "7/14": dict(name="Ladom", kind="alternative music, improv", alt="Lado ABC koncerty impro", site="https://ladoabc.com"),
+    "8/1": dict(name="Odjazdów", kind="kids' nature workshops, boatbuilding", alt="Fundacja Odjazdów Fundacja Potwory szkutnictwo", site="https://www.facebook.com/Odjazdow"),
+    "8/2": dict(name="Domek Przygody", kind="outdoor education, kids' science", alt="OsiemPrzezDwa Pracownia Nauki i Przygody", site="https://naukaprzygoda.edu.pl"),
+    "10/5": dict(name="Sołectwo", kind="estate office, climate reading room", alt="Wolny Jazdów Otwarty Jazdów Czytelnia Klimatyczna", site="https://jazdow.pl"),
+    "10/8": dict(name="Towarzystwo Polska-Finlandia", en="Poland–Finland Society", kind="Finnish culture", alt="kultura fińska", site="https://www.facebook.com/puolasuomiseura"),
+}
+
+
+def jazdow_houses(osm):
+    from shapely.ops import unary_union
+    street = unary_union([l for _, t, l in osm.lines if t.get("name") == "Jazdów" and "highway" in t]).buffer(120)
+    out = []
+    for _, _, t, poly in osm.areas:
+        nr = t.get("addr:housenumber", "").lower()
+        if nr in JAZDOW and "building" in t and street.contains(poly.representative_point()):
+            out.append((dict(JAZDOW[nr], alt=f"{JAZDOW[nr]['alt']} Jazdów {nr} domek fiński Finnish house", far=220), poly))
+    return out
 
 
 def label(osm_name, facts, x, y, z):
