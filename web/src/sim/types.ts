@@ -14,7 +14,7 @@ export interface RoadData extends PathData {
 }
 export interface Road extends RoadData, Path { i: number; lists: Car[][] }
 
-export interface PedData extends PathData { a: number; b: number; w: number; x?: SignalRef }
+export interface PedData extends PathData { a: number; b: number; w: number; x?: SignalRef; side?: number }
 export interface PedEdge extends PedData, Path { i: number }
 
 export interface TramStop extends SignalRef { s: number }

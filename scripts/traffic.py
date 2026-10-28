@@ -13,6 +13,7 @@ from collections import defaultdict
 
 import numpy as np
 from pyproj import Transformer
+from scipy.ndimage import maximum_filter1d
 
 from aoi import D, RAW, W, to_grid
 
@@ -37,10 +38,51 @@ def underground(t):
             or t.get("location") == "underground" or (_num(t.get("level"), 0) or 0) < 0 or t.get("covered") == "yes")
 
 
-def build(g, nd_mean, note, surf=None, water=None):
+def fit(p, offs, vol, solid, W, D, step=0.5):
+    """a path's heights onto the voxels as drawn: every 0.5 m, across the offsets the bodies use, the free level over
+    the drawn surface nearest the path's own height (a deck, not the street under it); the highest across, then over
+    1 m along, so a body rises before a step instead of cutting into it. Returns the points (the path's corners and
+    where the height changes), metres lifted, and the longest run in metres where some offset has no free level (in a wall)."""
+    P = np.array(p, float)
+    seg = np.hypot(*np.diff(P[:, :2], axis=0).T)
+    cum = np.concatenate([[0], np.cumsum(seg)])
+    if cum[-1] < step:
+        return p, 0, 0
+    s = np.unique(np.concatenate([np.arange(0, cum[-1], step), cum]))
+    x, y, z0 = (np.interp(s, cum, P[:, k]) for k in range(3))
+    k = np.clip(np.searchsorted(cum, s, side="right") - 1, 0, len(P) - 2)
+    t = (P[k + 1, :2] - P[k, :2]) / np.maximum(seg[k], 1e-6)[:, None]
+    H = vol.shape[0]
+    zi = np.floor(z0 + 0.5).astype(int)
+    best = np.full(len(s), -99)
+    blocked = np.zeros(len(s), bool)
+    for o in offs:
+        c = np.clip((x - t[:, 1] * o).astype(int), 0, W - 1)
+        r = np.clip((y + t[:, 0] * o).astype(int), 0, D - 1)
+        cand = np.full(len(s), -99)
+        for dz in (0, 1, -1):  # the surface steps a metre at a time; the decks are in the path's height already
+            zz = np.clip(zi + dz, 1, H - 2)
+            free = solid[vol[zz - 1, r, c]] & ~solid[vol[zz, r, c]] & ~solid[vol[zz + 1, r, c]]
+            cand = np.where((cand == -99) & free, zz, cand)
+        blocked |= cand == -99
+        best = np.maximum(best, cand)
+    best = np.where(best == -99, zi, best)
+    zf = maximum_filter1d(best, 5)
+    run = longest = 0
+    for b in blocked:
+        run = run + 1 if b else 0
+        longest = max(longest, run)
+    corner = np.isin(s, cum)
+    change = np.r_[True, zf[1:] != zf[:-1]] | np.r_[zf[:-1] != zf[1:], True]
+    out = [[round(float(a), 1), round(float(b), 1), int(h)] for a, b, h, m in zip(x, y, zf, corner | change) if m]
+    return out, int((zf > z0 + 0.5).sum() * step), longest * step
+
+
+def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
     """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving.
     nd_mean: height of the walking/driving surface above the ground where it is a bridge deck (voxelize.py passes the
-    deck height: the lowest LiDAR return around, not the cars or cable stays the 2025 flight caught on it)."""
+    deck height: the lowest LiDAR return around, not the cars or cable stays the 2025 flight caught on it).
+    vol, solid: the finished volume and which palette ids bear weight; every path is then fitted to it (fit)."""
     data = json.load(open(f"{RAW}/osm.json"))
     # nodes of any bridge way (road, path, tram, rail): drawn on the deck, so agents there move at deck height
     bridge_nodes = {n for e in data["elements"] if e["type"] == "way" and e.get("tags", {}).get("bridge") not in (None, "no")
@@ -381,6 +423,32 @@ def build(g, nd_mean, note, surf=None, water=None):
                     piece.append(n)
     # identical paths from different refs share track: keep all (each ref runs its own service)
     note(f"traffic: {len(trams)} tram route pieces inside the AOI, lines {sorted({tr['ref'] for tr in trams}, key=lambda r: (len(r), r))}")
+
+    if vol is not None:
+        n_lift = 0
+        for e in roads:
+            lo, hi = e["o0"] - 0.8, e["o0"] + (e["lanes"] - 1) * 3.0 + 0.8
+            e["p"], lift, _ = fit(e["p"], np.linspace(lo, hi, max(2, int(hi - lo) + 1)), vol, solid, W, D)
+            n_lift += lift
+        for tr in trams:
+            tr["p"], lift, _ = fit(tr["p"], (-0.9, 0.0, 0.9), vol, solid, W, D)
+            n_lift += lift
+        keep = []
+        for e in peds:  # people keep 0.35-1.35 m to their right (both sides of the line), else all on its free side
+            for side, offs in ((None, (-1.35, -0.35, 0.35, 1.35)), (1, (0.35, 1.35)), (-1, (-1.35, -0.35)), (0, (0.0,))):
+                p, lift, blocked = fit(e["p"], offs, vol, solid, W, D)
+                if blocked <= 2:
+                    break
+            else:  # mapped through a wall: nobody walks there
+                continue
+            e["p"] = p
+            if side is not None:
+                e["side"] = side
+            n_lift += lift
+            keep.append(e)
+        note(f"traffic: paths fitted to the voxels ({n_lift} m lifted onto the drawn surface), "
+             f"{len(peds) - len(keep)} footpath edges through walls dropped")
+        peds = keep
 
     for c in ctrls:
         c["x"], c["y"] = round(c["x"], 1), round(c["y"], 1)

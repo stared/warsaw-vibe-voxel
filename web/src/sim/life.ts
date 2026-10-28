@@ -604,7 +604,7 @@ export class StreetLife {
       this.carPoint(c, s, A, off);
       this.carPoint(c, s - (c.len - 1.2), B, off);
       c.rh = Math.atan2(A.x - B.x, A.y - B.y);
-      c.rp = (c.rp ?? new THREE.Vector3()).set((A.x + B.x) / 2, Math.min(A.z, B.z), (A.y + B.y) / 2);
+      c.rp = (c.rp ?? new THREE.Vector3()).set((A.x + B.x) / 2, Math.max(A.z, B.z), (A.y + B.y) / 2);
       m.compose(c.rp, q.setFromAxisAngle(up, c.rh), sc.set(1, c.bus ? 1.75 : 1, c.bus ? c.len / 4.4 : 1));
       for (const mesh of [M.body, M.dark, M.head, M.tail]) mesh.setMatrixAt(i, m);
       M.body.setColorAt(i, c.col);
@@ -626,7 +626,7 @@ export class StreetLife {
         const s0 = tr.s - tr.ds * back - k * (TRAM.sec + TRAM.gap);
         at(p, s0, 0, A); at(p, s0 - TRAM.sec, 0, B);
         const h = Math.atan2(A.x - B.x, A.y - B.y);
-        pos.set((A.x + B.x) / 2, (A.z + B.z) / 2 + 0.05, (A.y + B.y) / 2);
+        pos.set((A.x + B.x) / 2, Math.max(A.z, B.z) + 0.05, (A.y + B.y) / 2);
         this.tramSections.push([tr, pos.x, pos.z, h, pos.y]);
         if (k === 0) { tr.rp = (tr.rp ?? new THREE.Vector3()).copy(pos); tr.rh = h; }
         if (n < MAX_TRAM_SECTIONS) { m.compose(pos, q.setFromAxisAngle(up, h), one); M.tram.setMatrixAt(n, m); M.tramWin.setMatrixAt(n, m); n++; }
@@ -650,7 +650,8 @@ export class StreetLife {
         at(e, p.s + ds * p.dir, 0, A);
         at(e, p.s + (ds + 0.5) * p.dir, 0, B);
         const l = Math.hypot(B.x - A.x, B.y - A.y) || 1, dx = (B.x - A.x) / l, dy = (B.y - A.y) / l;
-        const x = A.x - dy * p.lat, y = A.y + dx * p.lat, h = Math.atan2(dx, dy);
+        const lat = e.side === undefined ? p.lat : p.lat * e.side * p.dir;
+        const x = A.x - dy * lat, y = A.y + dx * lat, h = Math.atan2(dx, dy);
         if (!p.rp || Math.hypot(p.rp.x - x, p.rp.z - y) > 6) { p.rp = new THREE.Vector3(x, A.z, y); p.rh = h; }
         p.rp.lerp(pos.set(x, A.z, y), k);
         p.rh = (p.rh ?? h) + Math.atan2(Math.sin(h - (p.rh ?? h)), Math.cos(h - (p.rh ?? h))) * k;

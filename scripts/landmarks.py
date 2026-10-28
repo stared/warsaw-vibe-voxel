@@ -1890,9 +1890,9 @@ def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
             zt = zb + 1  # its top (road surface)
             above = col[zt:H - 12].copy()  # the road surface and what stands on it
             col[gz:] = 0
-            m = min(len(above), H - Zn)
-            col[Zn:Zn + m] = above[:m]
-            col[Zn - 2:Zn] = deck
+            m = min(len(above), H - Zn + 1)
+            col[Zn - 1:Zn - 1 + m] = above[:m]  # the surface voxel just under Zn, the level the trams and cars run at
+            col[Zn - 3:Zn - 1] = deck
             n += 1
         # arches and posts on four lines across the deck
         k = np.searchsorted(PONIATOWSKI_PIERS, c)
@@ -2508,11 +2508,12 @@ def lazienkowski(vol, g, pal, note):
             continue
         inband = w0 <= sv <= w1 and (lv < lmin + 4.5 or lv > lmax - 4.5)
         if inband:
-            col[zt - 7] = walk
-            if zt - 7 - int(g[r, c]) <= 3:  # the bank comes up under the walkway: it runs on the ground (to the ramps)
-                col[int(g[r, c]):zt - 7] = walk
+            zw = int(round(F["edges"](sv)[2])) - 7  # level across the walkway, whatever the deck cell above does
+            col[zw] = walk
+            if zw - int(g[r, c]) <= 3:  # the bank comes up under the walkway: it runs on the ground (to the ramps)
+                col[int(g[r, c]):zw] = walk
             if lv < lmin + 1 or lv > lmax - 1:
-                col[zt - 6] = rail
+                col[zw + 1] = rail
         else:
             col[max(int(g[r, c]), zt - 7):zt - 2] = girder
         n += 1

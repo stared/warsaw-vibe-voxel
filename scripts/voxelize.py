@@ -1283,14 +1283,14 @@ for line, hw, layer, _ in bridge_lines:
     prof.append(np.column_stack([P_, h_, np.full(n_, layer + 1)]))
 deck_abs = np.zeros((D, W), np.float32)
 if prof:
-    # across the deck the ways agree: no way stands more than 0.5 m above the lower quartile of its layer within 10 m
+    # across the deck the ways agree: one surface per layer, each point the median of its layer within 10 m (each way
+    # on its own rounded to a different metre from its neighbour: steps running along the deck between the lanes)
     allp = np.vstack(prof)
     for L_ in np.unique(allp[:, 3]):
         sel_ = allp[:, 3] == L_
         sub_ = allp[sel_]
         nb_ = cKDTree(sub_[:, :2]).query_ball_point(sub_[:, :2], 10.0)
-        q_ = np.array([np.percentile(sub_[i_, 2], 25) for i_ in nb_])
-        allp[sel_, 2] = np.minimum(sub_[:, 2], q_ + 0.5)
+        allp[sel_, 2] = [np.median(sub_[i_, 2]) for i_ in nb_]
     k0 = 0
     for i_, pw_ in enumerate(prof):
         h_ = allp[k0:k0 + len(pw_), 2]
@@ -1327,14 +1327,20 @@ if prof:
         deck |= m_ > 0
     note("bridge ends carried on to meet the ground:", len(ext_shapes))
     prof = np.vstack(prof)
-    rr, cc = np.nonzero(deck)
+    # where the ground climbs to the deck (an abutment, an embankment the DTM runs up under the deck) the LiDAR stands
+    # less than 2 m over it: still the deck, if the surface is at the deck's level (else pits down to the ground)
+    abut = (deck_col > 0) & ~bmask & ~deck & ndimage.binary_dilation(deck, iterations=15)
+    rr, cc = np.nonzero(deck | abut)
     for L_ in np.unique(deck_lay[rr, cc]):
         sel = deck_lay[rr, cc] == L_
         pts = prof if L_ == 0 or not (prof[:, 3] == L_).any() else prof[prof[:, 3] == L_]
-        _, k_ = cKDTree(pts[:, :2]).query(np.column_stack([cc[sel] + 0.5, rr[sel] + 0.5]))
-        deck_abs[rr[sel], cc[sel]] = pts[k_, 2]
+        d_, k_ = cKDTree(pts[:, :2]).query(np.column_stack([cc[sel] + 0.5, rr[sel] + 0.5]), k=min(12, len(pts)))
+        w_ = 1 / np.maximum(d_, 0.5) ** 2  # a smooth surface between the ways: any step is a contour across the deck
+        deck_abs[rr[sel], cc[sel]] = (pts[k_, 2] * w_).sum(1) / w_.sum(1)
 zt_ = np.round(deck_abs - BASE).astype(np.int32)
-deck &= zt_ >= g + 2
+if prof is not None and len(prof):
+    deck |= abut & (np.abs(dsm_mean - deck_abs) < 1.0)
+deck &= zt_ >= g + 1
 deck_h = np.where(deck, zt_ - g, 0).astype(np.float32)
 landmarks.DECK = np.where(deck, zt_, 0).astype(np.int16)  # the deck top, for the curated bridge structures
 # under a deck over the river nothing hangs but the bridge's own structure (landmarks.py): LiDAR columns caught at the
@@ -1623,7 +1629,9 @@ for _z in range(int(g.min()), int(_lim.max()) + 1):
     _v = vol[_z, _rb[_m], _cb[_m]]
     _top[np.nonzero(_m)[0][(_v != 0) & ~_skip[_v]]] = _z + 1
 deck_near[_rb, _cb] = _top - g[_rb, _cb]
-json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2)), open(OUT / "traffic.json", "w"), separators=(",", ":"))
+_solid = ~_skip
+_solid[0] = False
+json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2), vol=vol, solid=_solid), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel
