@@ -53,7 +53,7 @@ LABELS = {
 }
 # places without a single OSM polygon, at EPSG:2180 x, y (the river mid-stream by Most Świętokrzyski, the boulevard by Kopernik)
 EXTRA_LABELS = {
-    "Zielona Złota": dict(kind="street greening", year=2026, at=(637420, 487015)),
+    "Zielona Złota": dict(kind="street greening", year=2026, at=(637350, 487120)),  # between the two carriageways of Złota east of Marszałkowska
     "Wisła": dict(en="Vistula", kind="river", at=(639034, 487782)),
     "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", at=(638714, 487996)),
     "Domki Fińskie": dict(en='Finnish houses', kind='wooden houses', year=1945, alt='Osiedle Jazdów Wolny Jazdów Otwarty Jazdów',
@@ -605,7 +605,7 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
         facts = LABELS[n]
         if n.startswith("Most "):  # a bridge: on the middle of its carriageway, not on the area's highest cell
             from shapely.ops import linemerge as _lm
-            ln = _lm([l for oid_, t_, l in osm.lines if t_.get("name") in (n, facts.get("name")) and t_.get("highway")])
+            ln = _lm([l for oid_, t_, l in osm.lines if t_.get("name") in {n, facts.get("name")} - {None} and t_.get("highway")])
             ln = max(getattr(ln, "geoms", [ln]), key=lambda q: q.length) if not ln.is_empty else None
             if ln is not None:
                 p = ln.interpolate(0.5, normalized=True)

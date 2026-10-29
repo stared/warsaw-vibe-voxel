@@ -472,17 +472,43 @@ def anchor(pt, polys, tree):
     return polys[i][1], polys[i][0]
 
 
+def tagged(osm):
+    """the OSM objects carrying a Wikidata id: (tags, geometry) by qid"""
+    out = {}
+    for src in (osm.areas, osm.nodes, osm.lines):
+        for item in src:
+            t, g = item[-2], item[-1]
+            if t.get("wikidata"):
+                out.setdefault(t["wikidata"], []).append((t, g))
+    return out
+
+
 def notable(osm, curated_qids, top_at):
+    """Where the place is: the OSM object tagged with its Wikidata id (Wikidata's own point is often the whole
+    complex's -- every museum and theatre in PKiN on one spot -- or an old address; a statue snapped to the nearest
+    building landed on its roof); else Wikidata's point, on the building it falls in or next to."""
     wd = json.loads(NOTABLE.read_text())
     polys, tree = buildings(osm)
+    by_q = tagged(osm)
     out = []
     for qid, pick in PICKS.items():
         e = wd[qid]
         pt = Point(to_grid(*e["at"]))
-        if qid in curated_qids or not (0 <= pt.x < W and 0 <= pt.y < D):
+        own = [(t, g) for t, g in by_q.get(qid, []) if 0 <= g.centroid.x < W and 0 <= g.centroid.y < D]
+        if qid in curated_qids or not (own or (0 <= pt.x < W and 0 <= pt.y < D)):
             continue
-        poly, tags = anchor(pt, polys, tree)
-        p = poly.representative_point() if poly is not None and not poly.contains(pt) else pt
+        if own:
+            tags, g = min(own, key=lambda tg: tg[1].distance(pt))
+            if g.geom_type == "Point" or (g.geom_type == "LineString" and g.length > 0):
+                p = g if g.geom_type == "Point" else g.interpolate(0.5, normalized=True)
+            else:  # an area (a square, a park, a building): Wikidata's point if it lies in it, more central than any
+                p = pt if g.contains(pt) else g.representative_point()
+                roof = lambda q: any(polys[i][1].contains(q) for i in tree.query(q))
+                if "building" not in tags and roof(p) and not roof(pt) and g.distance(pt) < 300:
+                    p = pt  # an open place whose outline takes in the buildings on it (Plac Defilad and PKiN)
+        else:
+            poly, tags = anchor(pt, polys, tree)
+            p = poly.representative_point() if poly is not None and not poly.contains(pt) else pt
         r, c = int(p.y), int(p.x)
         name = pick.get("name") or IN_WARSAW.sub("", e["pl"])
         name = name[0].upper() + name[1:]
