@@ -23,11 +23,11 @@ export interface Placed extends Facts { x: number; y: number; z: number }
 const details = (f: Facts) => [f.en && f.kind, f.height && `${f.height} m`, f.year, f.rebuilt && `rebuilt ${f.rebuilt}`, f.by, f.building && 'under construction'].filter(Boolean);
 const levelAt = (d: number, far: number) => d < Math.max(250, Math.min(far * 0.3, 900)) ? 2 : 0;
 
-const STEM = 20, TOP = 8;
+const STEM = 20, TOP = 8, MAX = 12;
 const overlap = (r: Rect, q: Rect) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0;
 
 // Map pins: a dot on the roof, a hairline stem, the name above. Hidden when something else is in the way (a voxel
-// ray) or when a more important label is there.
+// ray) or when a more important label is there; the MAX most important ones in view, however far.
 export class Labels {
   gate: (x: number, z: number) => boolean = () => true;
   private readonly host = $('#labels');
@@ -68,6 +68,7 @@ export class Labels {
     const free = (r: Rect) => r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && r.y1 <= innerHeight - 4 && !placed.some((q) => overlap(r, q));
     const under = (x: number) => bar.width > 0 && x > bar.left - 8 && x - 4 < bar.right;
     const v = new THREE.Vector3();
+    let shown = 0;
     for (const L of this.pins) {
       v.copy(L.p).project(camera);
       const inFront = v.z < 1, d = camera.position.distanceTo(L.p);
@@ -75,7 +76,7 @@ export class Labels {
       this.setLevel(L, levelAt(d, L.far));
       [L.w, L.h] = L.dims[L.level];
       let vis = false, side: 'r' | 'l' | 's' = 'r', pinned = false;
-      if (d < L.far && !L.occluded && inFront && x > -20 && x < innerWidth + 20 && this.gate(L.p.x, L.p.z)) {
+      if (shown < MAX && !L.occluded && inFront && x > -20 && x < innerWidth + 20 && this.gate(L.p.x, L.p.z)) {
         // the roof above the screen but the building in view: the label pinned to the top edge
         if (y < TOP + STEM + L.h && y > -innerHeight * 0.8) {
           v.copy(L.base).project(camera);
@@ -94,6 +95,7 @@ export class Labels {
           else if (L.w < innerWidth - 8 && free(shifted)) { vis = true; side = 's'; placed.push(shifted); L.shift = sx - x; }
         }
       }
+      if (vis) shown++;
       L.el.classList.toggle('off', !vis);
       L.el.classList.toggle('left', side === 'l');
       L.el.classList.toggle('pinned', pinned);
