@@ -63,20 +63,20 @@ EXTRA_LABELS = {
 
 # the groups in the Finnish houses, by address on Jazdów (Wolny Jazdów map, Feb 2026; 80th anniversary programme, Aug 2025)
 JAZDOW = {
-    "3/5": dict(name="Chata Numinosum", en="Numinosum Hut", kind="folk dance, dance nights", alt="tańce ludowe potańcówki śpiew", site="https://chata.numinosum.pl"),
+    "3/5": dict(name="Chata Numinosum", en="Numinosum Cottage", kind="folk dance, dance nights", alt="tańce ludowe potańcówki śpiew", site="https://chata.numinosum.pl"),
     "3/6": dict(name="Otwarta Pracownia", en="Open Studio", kind="architecture students' studio", alt="Otwarta Pracownia Jazdów architektura wykłady", site="https://otwartapracownia.pl"),
     "3/8": dict(name="Miejskie Pszczoły", en="Urban Bees", kind="urban beekeeping", alt="pszczelarstwo pasieka", site="https://www.panstwomiasto.pl/pasieka"),
     "3/9": dict(name="Solatorium", kind="community garden", alt="ogród społecznościowy Motyka i Słońce ekologia", site="https://www.facebook.com/solatorium"),
-    "3/12": dict(name="Państwomiasto", en="Citystate", kind="urban farm, workshops", alt="miejska farma kurnik warsztaty PM na trawie", site="https://www.panstwomiasto.pl"),
+    "3/12": dict(name="Państwomiasto", en="City-State", kind="urban farm, workshops", alt="miejska farma kurnik warsztaty PM na trawie", site="https://www.panstwomiasto.pl"),
     "3/17": dict(name="Zaczarowany Ogród", en="Enchanted Garden", kind="art, concerts, open-air cinema", alt="sztuka koncerty kino plenerowe", site="https://www.facebook.com/ZaczarowanyOgr"),
-    "3/18": dict(name="Rotacyjny Dom Kultury", en="Rotating Culture House", kind="a new project every season", alt="Dom Kultury Śródmieście", site="https://dks.art.pl/rotacyjny-dom-kultury2"),
+    "3/18": dict(name="Rotacyjny Dom Kultury", en="Rotating Culture Centre", kind="a new project every season", alt="Dom Kultury Śródmieście", site="https://dks.art.pl/rotacyjny-dom-kultury2"),
     "3/20": dict(name="Ambasada Muzyki Tradycyjnej", en="Embassy of Traditional Music", kind="folk music and dances", alt="Dom Tańca muzyka tradycyjna potańcówki", site="https://domtanca.art.pl"),
     "5a/1": dict(name="Fundacja Bullerbyn", en="Bullerbyn Foundation", kind="democratic school", alt="szkoła demokratyczna warsztaty dla dzieci", site="https://www.bullerbyn.pl"),
     "5a/4": dict(name="Autonomiczna Przestrzeń Edukacyjna", en="Autonomous Education Space", kind="alternative education", alt="APE edukacja alternatywna"),
     "7/14": dict(name="Ladom", kind="alternative music, improv", alt="Lado ABC koncerty impro", site="https://ladoabc.com"),
     "8/1": dict(name="Odjazdów", kind="kids' nature workshops, boatbuilding", alt="Fundacja Odjazdów Fundacja Potwory szkutnictwo", site="https://www.facebook.com/Odjazdow"),
     "8/2": dict(name="Domek Przygody", en="Adventure House", kind="outdoor education, kids' science", alt="OsiemPrzezDwa Pracownia Nauki i Przygody", site="https://naukaprzygoda.edu.pl"),
-    "10/5": dict(name="Sołectwo", en="Village Office", kind="estate office, climate reading room", alt="Wolny Jazdów Otwarty Jazdów Czytelnia Klimatyczna", site="https://jazdow.pl"),
+    "10/5": dict(name="Sołectwo", en="Village Hall", kind="estate office, climate reading room", alt="Wolny Jazdów Otwarty Jazdów Czytelnia Klimatyczna", site="https://jazdow.pl"),
     "10/8": dict(name="Towarzystwo Polska-Finlandia", en="Poland–Finland Society", kind="Finnish culture", alt="kultura fińska", site="https://www.facebook.com/puolasuomiseura"),
 }
 

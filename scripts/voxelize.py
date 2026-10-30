@@ -536,9 +536,26 @@ cell_maxh = np.full((D, W), np.nan, np.float32)
 for f in sorted(render, key=lambda f: f["maxh"] or 0):
     if f["maxh"] is not None:
         cell_maxh[f["rr"], f["cc"]] = np.fmax(cell_maxh[f["rr"], f["cc"]], f["maxh"])
-over = bmask & (exg > 0.06) & np.isfinite(cell_maxh) & (top > cell_maxh + 3)
+# a crown that is not green (a copper beech over Jazdów 3/6) is still rough: the DSM's spread over 3 m is ~4 m in a
+# crown, under 1 m on a roof. Only over a small low house standing among crowns (a ring round it, away from other
+# buildings, tall and green or rough) whose raised cells are mostly rough: a mistagged tower is smooth on top
+_m = ndimage.uniform_filter(dsm, 6)
+rough = np.sqrt(np.maximum(ndimage.uniform_filter(dsm * dsm, 6) - _m * _m, 0)).reshape(D, 2, W, 2).max((1, 3))
+under_tree = np.zeros((D, W), bool)
+for f in render:
+    if f["part"] or f.get("has_parts") or f["maxh"] is None or f["maxh"] > 8 or f["area"] >= 400:
+        continue
+    r0, r1, c0, c1 = max(f["rr"].min() - 5, 0), min(f["rr"].max() + 6, D), max(f["cc"].min() - 5, 0), min(f["cc"].max() + 6, W)
+    own = np.zeros((r1 - r0, c1 - c0), bool)
+    own[f["rr"] - r0, f["cc"] - c0] = True
+    ring = ndimage.binary_dilation(own, iterations=4) & ~ndimage.binary_dilation(bmask[r0:r1, c0:c1] & ~own, iterations=3) & ~own
+    crown = (nd_max[r0:r1, c0:c1] > f["maxh"] + 3) & ((exg[r0:r1, c0:c1] > 0.06) | (rough[r0:r1, c0:c1] > 2.5))
+    raised = nd_max[f["rr"], f["cc"]] > f["maxh"] + 3
+    if ring.sum() > 10 and crown[ring].mean() > 0.25 and raised.any() and (rough[f["rr"], f["cc"]][raised] > 2.5).mean() > 0.6:
+        under_tree[f["rr"], f["cc"]] = True
+over = bmask & ((exg > 0.06) | under_tree) & np.isfinite(cell_maxh) & (top > cell_maxh + 3)
 top[over] = cell_maxh[over]
-note("roof cells under tree canopy clipped:", int(over.sum()))
+note("roof cells under tree canopy clipped:", int(over.sum()), "of them rough, not green:", int((over & ~(exg > 0.06)).sum()))
 
 # bottoms (overhangs: roofs/carports/stacked parts with no part below)
 bot_rel = np.full((D, W), 1e9, np.float32)
