@@ -51,8 +51,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 
 /* labels: map pins — dot on the roof, hairline stem, name with a dark halo; no boxes */
 #labels { position: fixed; inset: 0; pointer-events: none; user-select: none; -webkit-user-select: none; }
-.label { position: absolute; left: 0; top: 0; transition: opacity .25s; }
-.label.off, .label.off .txt { opacity: 0; pointer-events: none; }
+.label { position: absolute; left: 0; top: 0; transition: opacity .35s ease-out; }
+.label.off { opacity: 0; transition-duration: .5s; }
+.label.off .txt { pointer-events: none; }
 .label .dot { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.8); }
 .label .stem { position: absolute; left: -.5px; bottom: 3px; width: 1px; height: 17px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.5); }
 .label .txt { position: absolute; left: -1px; bottom: 20px; white-space: nowrap; color: #fff; pointer-events: auto; cursor: pointer;

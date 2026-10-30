@@ -17,17 +17,21 @@ interface Pin {
   level: number;
   dims: [number, number][];
   shift: number;
+  on: boolean;
+  side: 'r' | 'l' | 's';
+  since: number;
 }
 export interface Placed extends Facts { x: number; y: number; z: number }
 
 const details = (f: Facts) => [f.en && f.kind, f.height && `${f.height} m`, f.year, f.rebuilt && `rebuilt ${f.rebuilt}`, f.by, f.building && 'under construction'].filter(Boolean);
 const levelAt = (d: number, far: number) => d < Math.max(250, Math.min(far * 0.3, 900)) ? 2 : 0;
 
-const STEM = 20, TOP = 8, MAX = 12;
+const STEM = 20, TOP = 8, MAX = 12, SETTLE = 150;
 const overlap = (r: Rect, q: Rect) => r.x0 < q.x1 + 6 && r.x1 + 6 > q.x0 && r.y0 < q.y1 + 2 && r.y1 + 2 > q.y0;
 
 // Map pins: a dot on the roof, a hairline stem, the name above. Hidden when something else is in the way (a voxel
-// ray) or when a more important label is there; the MAX most important ones in view, however far.
+// ray) or when a more important label is there; the MAX most important ones in view, however far. The major ones
+// first, then the shown ones keep their place before newcomers are fitted, and a newcomer fades in only after holding a free spot for SETTLE ms.
 export class Labels {
   gate: (x: number, z: number) => boolean = () => true;
   private readonly host = $('#labels');
@@ -51,7 +55,7 @@ export class Labels {
   private add(cls: string, f: Facts, p: THREE.Vector3, base: THREE.Vector3, R: number): Pin {
     const facts = details(f).map((d) => `<span>${d}</span>`).join('');
     const e = el('div', cls, `<i class="dot"></i><i class="stem"></i><div class="txt"><b>${f.name}</b><span>${f.en ?? f.kind}</span>${facts ? `<p>${facts}</p>` : ''}</div>`, this.host);
-    return { el: e, txt: $('.txt', e), p, base, R, occluded: false, w: 0, h: 0, far: f.far ?? 1300, level: -1, dims: [], shift: 0 };
+    return { el: e, txt: $('.txt', e), p, base, R, occluded: false, w: 0, h: 0, far: f.far ?? 1300, level: -1, dims: [], shift: 0, on: false, side: 'r', since: -1 };
   }
 
   // a temporary label on a searched place
@@ -67,15 +71,16 @@ export class Labels {
     const placed: Rect[] = bar.width ? [{ x0: bar.left - 8, x1: bar.right, y0: bar.top, y1: bar.bottom + 8 }, ...obstacles] : [...obstacles];
     const free = (r: Rect) => r.x0 >= 4 && r.x1 <= innerWidth - 4 && r.y0 >= 4 && r.y1 <= innerHeight - 4 && !placed.some((q) => overlap(r, q));
     const under = (x: number) => bar.width > 0 && x > bar.left - 8 && x - 4 < bar.right;
-    const v = new THREE.Vector3();
+    const v = new THREE.Vector3(), now = performance.now();
     let shown = 0;
-    for (const L of this.pins) {
+    const rank = (p: Pin) => (p.far >= 9000 ? 0 : 2) + (p.on ? 0 : 1);
+    for (const L of this.pins.map((p, i) => [rank(p), i, p] as const).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((e) => e[2])) {
       v.copy(L.p).project(camera);
       const inFront = v.z < 1, d = camera.position.distanceTo(L.p);
       let x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
       this.setLevel(L, levelAt(d, L.far));
       [L.w, L.h] = L.dims[L.level];
-      let vis = false, side: 'r' | 'l' | 's' = 'r', pinned = false;
+      let fits = false, side = L.side, pinned = false;
       if (shown < MAX && !L.occluded && inFront && x > -20 && x < innerWidth + 20 && this.gate(L.p.x, L.p.z)) {
         // the roof above the screen but the building in view: the label pinned to the top edge
         if (y < TOP + STEM + L.h && y > -innerHeight * 0.8) {
@@ -88,19 +93,19 @@ export class Labels {
         if (under(x) && y - STEM - L.h < bar.bottom + 12 && y > bar.top) { y = Math.max(y, bar.bottom + 20 + L.h); pinned = true; }
         if (y <= innerHeight + 4) {
           const st = pinned ? 4 : STEM, y0 = y - st - L.h, y1 = y + 4;
-          const right = { x0: x - 4, x1: x + L.w, y0, y1 }, left = { x0: x - L.w, x1: x + 4, y0, y1 };
-          const sx = Math.min(Math.max(x - L.w / 2, 4), innerWidth - L.w - 4), shifted = { x0: sx, x1: sx + L.w, y0, y1 };
-          if (free(right)) { vis = true; placed.push(right); }
-          else if (free(left)) { vis = true; side = 'l'; placed.push(left); }
-          else if (L.w < innerWidth - 8 && free(shifted)) { vis = true; side = 's'; placed.push(shifted); L.shift = sx - x; }
+          const sx = Math.min(Math.max(x - L.w / 2, 4), innerWidth - L.w - 4);
+          const rects = { r: { x0: x - 4, x1: x + L.w, y0, y1 }, l: { x0: x - L.w, x1: x + 4, y0, y1 }, s: { x0: sx, x1: sx + L.w, y0, y1 } };
+          const order = (L.on ? [L.side, 'r', 'l', 's'] : ['r', 'l', 's']) as ('r' | 'l' | 's')[];
+          const pick = order.find((k) => (k !== 's' || L.w < innerWidth - 8) && free(rects[k]));
+          if (pick) { fits = true; side = pick; placed.push(rects[pick]); if (pick === 's') L.shift = sx - x; }
         }
       }
-      if (vis) shown++;
+      if (fits) { shown++; if (L.since < 0) L.since = now; } else L.since = -1;
+      const vis = fits && (L.on || now - L.since >= SETTLE);
+      if (vis) { L.side = side; L.el.classList.toggle('left', side === 'l'); L.el.classList.toggle('pinned', pinned); L.txt.style.left = side === 's' ? `${L.shift.toFixed(0)}px` : ''; }
+      L.on = vis;
       L.el.classList.toggle('off', !vis);
-      L.el.classList.toggle('left', side === 'l');
-      L.el.classList.toggle('pinned', pinned);
-      L.txt.style.left = side === 's' ? `${L.shift.toFixed(0)}px` : '';
-      if (vis) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      if (inFront) L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
   }
 
