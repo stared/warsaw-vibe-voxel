@@ -304,7 +304,7 @@ renderer.setAnimationLoop((now) => {
   nav.update(dt);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   const above = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3;
-  post.setHeight(above, tiltShift);
+  post.setHeight(above, tiltShift, camera.position.distanceTo(controls.target));
   const viewDist = camera.position.distanceTo(controls.target);
   daylight.setFogFrom(viewDist);
   const t = (performance.now() - t0) / 1000;
