@@ -12,6 +12,7 @@ interface SliderSpec {
   marks: Record<string, number>;
   near: number;
   log: boolean;
+  shift?: number; // a log scale of v + shift, for a range reaching zero or below
   show: (v: number) => string;
   onInput: (v: number) => void;
   onChange?: (v: number) => void;
@@ -24,10 +25,10 @@ class Slider {
   private readonly fromPos: (x: number) => number;
 
   constructor(host: HTMLElement, private readonly spec: SliderSpec) {
-    const { min, max, step, log } = spec;
-    this.toPos = log ? Math.log : (v) => v;
-    this.fromPos = log ? (x) => Math.round(Math.exp(x) / step) * step : (x) => x;
-    const range = log ? `min="${Math.log(min)}" max="${Math.log(max)}" step="0.001"` : `min="${min}" max="${max}" step="${step}"`;
+    const { min, max, step, log, shift = 0 } = spec;
+    this.toPos = log ? (v) => Math.log(v + shift) : (v) => v;
+    this.fromPos = log ? (x) => Math.round((Math.exp(x) - shift) / step) * step : (x) => x;
+    const range = log ? `min="${this.toPos(min)}" max="${this.toPos(max)}" step="0.001"` : `min="${min}" max="${max}" step="${step}"`;
     const row = el('label', 'row', `<span class="val"></span><span class="track"><input type="range" ${range}></span>`, host);
     this.input = $<HTMLInputElement>('input', row);
     this.val = $('.val', row);
@@ -82,7 +83,7 @@ export class Bar {
     this.time = new Slider(this.el, { min: 4, max: 23.5, step: 1 / 60, marks: {}, near: 1 / 3, log: false, show: hhmm, onInput: onHour });
     this.sky = choices('sky', 'Weather', weathers, this.el);
     this.sky.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest('button'); if (b) onWeather(b.dataset.v!); });
-    this.river = new Slider(this.el, { min: 90, max: 1150, step: 1, marks: river, near: 20, log: true, show: (cm) => `Vistula ${cm} cm`, onInput: onRiver });
+    this.river = new Slider(this.el, { min: Math.min(...Object.values(river)), max: 1150, step: 1, marks: river, near: 20, log: true, shift: 460, show: (cm) => `Vistula ${cm} cm`, onInput: onRiver });
     this.river.input.disabled = true;
   }
 

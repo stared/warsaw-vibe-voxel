@@ -30,7 +30,7 @@ declare global {
 }
 
 // Warszawa-Bulwary gauge, cm (scale since 1 Nov 2025)
-const RIVER = { 'record low': 104, typical: 185, '2010 flood': 879, '1844 flood': 963 };
+const RIVER = { 'tiny creek': -355, 'record low': 104, typical: 185, '2010 flood': 879, '1844 flood': 963 }; // below the record, the estimated bed (scripts/flood.py)
 
 const TODAY = dayOfYear(new Date());
 const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };

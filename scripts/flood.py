@@ -59,7 +59,24 @@ rng = np.random.default_rng(7)
 bars = ndimage.gaussian_filter(rng.standard_normal((D // 8 + 1, W // 8 + 1)), 3)
 bars = np.kron(bars / bars.std(), np.ones((8, 8)))[:D, :W]
 depth = np.minimum(0.45 + 0.03 * d_any + 0.45 * bars, 1.2 + 0.1 * d_west)
-depth = np.clip(np.where(river, depth, 0), 0, 25.5)
+# the thalweg: one continuous deepest line down the river, wandering gently between the banks, so that as the level
+# drops below the record the river narrows to a creek along it instead of breaking into pools
+cen = np.full(D, np.nan)
+half = np.zeros(D)
+for r in range(D):
+    cs = np.nonzero(river[r])[0]
+    if len(cs) > 20:
+        cen[r] = cs[np.argmax(d_any[r, cs])]
+        half[r] = d_any[r, cs].max()
+ok_r = np.isfinite(cen)
+cen = np.interp(np.arange(D), np.nonzero(ok_r)[0], cen[ok_r])
+half = np.interp(np.arange(D), np.nonzero(ok_r)[0], half[ok_r])
+cen = ndimage.gaussian_filter1d(cen, 40) + 0.35 * ndimage.gaussian_filter1d(half, 40) * np.sin(np.arange(D) * 2 * np.pi / 520)
+channel = 5.6 - 0.12 * np.abs(cols - cen[:, None])
+bed = river | ndimage.binary_closing(river, structure=np.ones((61, 1), bool))  # under the bridge decks too
+depth = np.where(bed & ~river, np.maximum(0.45 + 0.03 * ndimage.distance_transform_edt(bed), 1.0), depth)
+depth = np.maximum(depth, channel)
+depth = np.clip(np.where(bed, depth, 0), 0, 25.5)
 dd = np.round(depth * 10).astype(np.uint8)
 print("bed depth percentiles (m)", np.percentile(depth[river], [5, 25, 50, 75, 95]).round(2))
 
