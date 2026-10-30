@@ -38,7 +38,7 @@ class Slider {
       spec.onInput(v);
     });
     this.input.addEventListener('change', () => spec.onChange?.(this.fromPos(+this.input.value)));
-    this.input.addEventListener('keydown', (e) => e.stopPropagation());
+    this.input.addEventListener('keydown', (e) => { if (/^(Arrow|Page|Home|End)/.test(e.key)) e.stopPropagation(); }); // the walk keys still walk
   }
 
   set(v: number) {

@@ -53,6 +53,7 @@ export class Nav {
   private skyView: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null;
   private orbitFov = 0;
   private possessed: unknown = null;
+  private jumpAsked = false;
   private walkPending = false;
   private zoomT = 0;
   private landT = 0;
@@ -87,10 +88,13 @@ export class Nav {
 
   private bindKeys() {
     addEventListener('keydown', (e) => {
-      if ((e.target as Element).closest?.('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+      if ((e.target as Element).closest?.('input:not([type=range]), textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
       this.shift = e.shiftKey;
       if (e.code === 'Escape') { if (this.mode !== 'orbit') this.flyUp(); return; }
-      if (e.code === 'Space' && this.mode === 'walk') { if (this.vy === 0) this.vy = 5.2; e.preventDefault(); return; }
+      if (e.code === 'Space' && (this.mode === 'walk' || this.ride?.kind === 'person')) { // following someone: become them, then jump
+        if (this.mode === 'walk') { if (this.vy === 0) this.vy = 5.2; } else this.jumpAsked = true;
+        e.preventDefault(); return;
+      }
       const k = KEYMAP[e.code];
       if (!k) return;
       this.keys.add(k);
@@ -509,7 +513,7 @@ export class Nav {
 
   private updateRide(dt: number) {
     const R = this.ride!, life = this.life;
-    if (R.kind === 'person' && (this.keys.size || this.possessed === R.obj)) this.possess(dt);
+    if (R.kind === 'person' && (this.keys.size || this.jumpAsked || this.possessed === R.obj)) this.possess(dt);
     const pose = life?.pose(R.kind, R.obj);
     if (!pose) { // it left the map: the nearest one of the same kind, else on foot
       const next = life?.nearest(R.kind, { x: this.camera.position.x, z: this.camera.position.z }, R.obj);
@@ -537,6 +541,7 @@ export class Nav {
       this.walkPos.set(p.x, p.y + EYE, p.z);
       this.feet = p.y; this.vy = 0; this.yaw = p.h;
     }
+    if (this.jumpAsked) { if (this.vy === 0) this.vy = 5.2; this.jumpAsked = false; }
     const C = o.ctl!, P = this.walkPos, tp = this.axis('tu', 'td'), go = this.axis('f', 'b');
     this.yaw -= this.axis('tr', 'tl') * (this.shift ? 2.6 : 1.8) * dt;
     if (tp) R.dpitch = clamp(R.dpitch + tp * dt, -1.2, 1.2);

@@ -472,6 +472,68 @@ def anchor(pt, polys, tree):
     return polys[i][1], polys[i][0]
 
 
+def standalone(tags):
+    """a point that is the thing itself (a statue, a station, a fountain), not a door into a building"""
+    return any(k in tags for k in ("historic", "memorial", "artwork_type", "railway", "public_transport", "highway", "place",
+                                   "leisure", "natural", "man_made")) or tags.get("tourism") in ("artwork", "viewpoint") \
+        or tags.get("amenity") in ("fountain", "clock")
+
+
+def roof_height(labels, osm, top_at):
+    """a curated label anchored at the top stands at the highest point of its whole outline: the LiDAR's highest
+    point can be one the model rebuilt lower (PGE Narodowy's spire over the pitch, the roof ring at 78 m)"""
+    from rasterio.features import rasterize
+    from affine import Affine
+    tops = {f.get("name", n): n for n, f in landmarks.LABELS.items() if f.get("anchor") == "top" and not n.startswith("Most ")}
+    for l in labels:
+        n = tops.get(l["name"])
+        geoms = [geom for _, _, t, geom in osm.areas if n and t.get("name") == n]
+        if not geoms:
+            continue
+        gm = max(geoms, key=lambda q: q.area)
+        c0, r0, c1, r1 = (int(v) for v in gm.bounds)
+        c0, r0, c1, r1 = max(c0, 0), max(r0, 0), min(c1, W - 1), min(r1, D - 1)
+        m = rasterize([(gm, 1)], out_shape=(r1 - r0 + 1, c1 - c0 + 1), transform=Affine.translation(c0, r0)).astype(bool)
+        l["z"] = max(l["z"], max(top_at(r0 + r, c0 + c) for r, c in zip(*np.nonzero(m))))
+
+
+def cells(gm):
+    from rasterio.features import rasterize
+    from affine import Affine
+    c0, r0, c1, r1 = (int(v) for v in gm.bounds)
+    c0, r0, c1, r1 = max(c0, 0), max(r0, 0), min(c1, W - 1), min(r1, D - 1)
+    if c1 < c0 or r1 < r0:
+        return np.zeros(0, int), np.zeros(0, int)
+    m = rasterize([(gm, 1)], out_shape=(r1 - r0 + 1, c1 - c0 + 1), transform=Affine.translation(c0, r0))
+    rr, cc = np.nonzero(m)
+    return rr + r0, cc + c0
+
+
+def settle(p, poly, top_at, own=False):
+    """a label on a building: on its own tower if one rises 20 m over the spot within 50 m (PZU Tower's podium), and
+    out of an open courtyard (or off the pavement at the door) onto the nearest roof"""
+    rr, cc = cells(poly)
+    if not len(rr):
+        return p
+    t = np.array([top_at(r, c) for r, c in zip(rr, cc)])
+    t0 = top_at(int(p.y), int(p.x))
+    k = int(np.argmax(t))
+    if own and t[k] - t0 >= 20 and np.hypot(cc[k] - p.x, rr[k] - p.y) < 50 and (t >= t0 + 15).mean() > 0.15:
+        return Point(cc[k] + 0.5, rr[k] + 0.5)
+    r0, c0 = int(p.y), int(p.x)
+    win = [(r, c) for r in range(max(r0 - 30, 0), min(r0 + 31, D), 3) for c in range(max(c0 - 30, 0), min(c0 + 31, W), 3)]
+    if t0 > min(top_at(r, c) for r, c in win) + 5:  # on a roof already, however low
+        return p
+    near = [(r, c) for r in range(max(r0 - 15, 0), min(r0 + 16, D)) for c in range(max(c0 - 15, 0), min(c0 + 16, W))]
+    for rs, cs in ((rr, cc), (np.array([q[0] for q in near]), np.array([q[1] for q in near]))):  # in the outline, else around
+        tt = t if rs is rr else np.array([top_at(r, c) for r, c in near])
+        roof = tt >= t0 + 6
+        if roof.any():
+            k = int(np.argmin(np.where(roof, np.hypot(cs - p.x, rs - p.y), np.inf)))
+            return Point(cs[k] + 0.5, rs[k] + 0.5)
+    return p
+
+
 def tagged(osm):
     """the OSM objects carrying a Wikidata id: (tags, geometry) by qid"""
     out = {}
@@ -501,14 +563,22 @@ def notable(osm, curated_qids, top_at):
             tags, g = min(own, key=lambda tg: tg[1].distance(pt))
             if g.geom_type == "Point" or (g.geom_type == "LineString" and g.length > 0):
                 p = g if g.geom_type == "Point" else g.interpolate(0.5, normalized=True)
+                if g.geom_type == "Point" and not standalone(tags):  # a hotel's or museum's point is often its door
+                    poly, _ = anchor(p, polys, tree)
+                    if poly is not None:
+                        p = settle(p, poly, top_at)
             else:  # an area (a square, a park, a building): Wikidata's point if it lies in it, more central than any
                 p = pt if g.contains(pt) else g.representative_point()
                 roof = lambda q: any(polys[i][1].contains(q) for i in tree.query(q))
                 if "building" not in tags and roof(p) and not roof(pt) and g.distance(pt) < 300:
                     p = pt  # an open place whose outline takes in the buildings on it (Plac Defilad and PKiN)
+                if "building" in tags and not standalone(tags):
+                    p = settle(p, g, top_at, own=True)
         else:
             poly, tags = anchor(pt, polys, tree)
             p = poly.representative_point() if poly is not None and not poly.contains(pt) else pt
+            if not any(w in pick["kind"] for w in ("monument", "statue", "memorial", "artwork", "square", "park", "fountain", "garden")):
+                p = settle(p, poly if poly is not None else pt.buffer(2), top_at)
         r, c = int(p.y), int(p.x)
         name = pick.get("name") or IN_WARSAW.sub("", e["pl"])
         name = name[0].upper() + name[1:]
@@ -567,6 +637,7 @@ def assemble(curated, osm, top_at):
         curated.append(dict(facts, x=int(p.x), y=int(p.y), z=top_at(int(p.y), int(p.x))))
     wd = json.loads(NOTABLE.read_text())
     qids, views, sites = curated_wikidata(osm, wd)
+    roof_height(curated, osm, top_at)
     return finish(curated + notable(osm, qids, top_at), views, sites)
 
 
