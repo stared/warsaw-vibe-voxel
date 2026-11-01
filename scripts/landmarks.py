@@ -1527,6 +1527,7 @@ def pkin_fronts(vol, g0, pal, stone, note):
     roof = pal((186, 179, 165), 12)
     z = lambda h: g0 + h
     n = 0
+    towers = [(b, vol[:, b[0]:b[1] + 1, b[2]:b[3] + 1].copy()) for b in PK_TOWERS]  # the blocks' clearing overlaps them
     for sgn, r_front in ((1, 1163), (-1, 1294)):
         R = lambda d: r_front + sgn * d  # d: metres behind the projection's face (d < 0: in front of it)
         rows = lambda d0, d1: slice(min(R(d0), R(d1)), max(R(d0), R(d1)) + 1)
@@ -1566,6 +1567,9 @@ def pkin_fronts(vol, g0, pal, stone, note):
                     vol[z(h0):z(h0 + 2), R(d):R(d) + sgn * 2:sgn, cc_] = 0
                     vol[z(h0):z(h0 + 2), R(d):R(d) + sgn * 2:sgn, cc_ + step] = win
                     n += 1
+    for (r0, r1, c0, c1), saved in towers:
+        blk = vol[:, r0:r1 + 1, c0:c1 + 1]
+        blk[saved != 0] = saved[saved != 0]
     note(f"PKiN front blocks rebuilt: {n} windows")
 
 
