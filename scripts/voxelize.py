@@ -670,6 +670,44 @@ def flatten_roofs(top):
 
 
 flatten_roofs(top)
+
+
+def core_roofs(top):
+    """The Old Town's tiled roofs as the ortho shows them: clean slopes from the street and the courtyard up to a
+    ridge. The 1 m LiDAR made them noisy terraces (every dormer, chimney and sample). Per house in the historic core
+    whose roof is pitched (3 m or more between its eaves and its top): height = eave + slope x distance to the nearest
+    open cell (street or courtyard; through party walls, as a terrace of houses is roofed), fitted to the LiDAR on the
+    cells within 8 m of the open side, capped at the house's ridge (95th percentile)."""
+    core = np.zeros((D, W), bool)
+    core[cells_of(CORE_GEOM)] = True
+    dist = ndimage.distance_transform_edt(bmask)
+    n_h = 0
+    for f in render:
+        rr, cc = f["rr"], f["cc"]
+        if len(rr) < 20 or not core[rr, cc].mean() > 0.5 or (f.get("minh") or 0) > 2:
+            continue
+        v, d = top[rr, cc].astype(float), dist[rr, cc]
+        if np.percentile(v, 95) - np.percentile(v, 10) < 3:
+            continue
+        m = (d <= 8) & (v > 3)
+        if m.sum() < 8:
+            continue
+        for _ in range(3):  # least squares, dropping dormers and chimneys (2 m+ off the slope) each round
+            A = np.c_[np.ones(m.sum()), d[m]]
+            (e, k), *_ = np.linalg.lstsq(A, v[m], rcond=None)
+            m &= np.abs(v - (e + k * d)) < 2
+            if m.sum() < 8:
+                break
+        if not (0.4 <= k <= 2.5) or m.sum() < 8:
+            continue
+        ridge = np.percentile(v, 95)
+        top[rr, cc] = np.minimum(e + k * d, ridge)
+        n_h += 1
+    note("historic core: pitched roofs fitted:", n_h)
+
+
+CORE_GEOM = landmarks.historic_core()
+core_roofs(top)
 topi = np.where(bmask, np.round(top), 0).astype(np.int32)
 boti = np.round(bot_rel).astype(np.int32)
 bmask &= topi >= 2
@@ -678,7 +716,7 @@ bmask &= topi >= 2
 # colours/materials per feature
 SACRED = {"church", "cathedral", "chapel", "basilica", "synagogue", "mosque", "temple", "shrine"}
 M_CLASSIC, M_TENEMENT = 20, 22
-CORE = landmarks.historic_core()
+CORE = CORE_GEOM
 # the Old Town's plasters where OSM gives no colour (photos of the Rynek and the streets off it: ochre, terracotta,
 # salmon, ivory, cream, an odd sage; the Rynek photos: warm, rarely cool)
 CORE_WALLS = ["#d9a441", "#b55a3f", "#d98f6e", "#efe3c4", "#c98a5a", "#e6d3a3", "#e8c78f", "#b9775a", "#dcb47c",
@@ -749,6 +787,10 @@ def roof_style(f):
     tiles = (tag(f, "roof:material") or "") in ("roof_tiles", "tile", "tiles") or CORE.contains(f["geom"].representative_point())
     # and carries blue sky reflections -- but not a tiled roof's red, which went pink (the Old Town: Rynek photos)
     red = tiles and col[0] > col[2] + 25  # the ortho's sunlit tiles read orange; in photos they are a brick red-brown
+    if red and CORE.contains(f["geom"].representative_point()):
+        # one of three tile shades: the house's ortho median mixed in dormers and skylights (pink and orange roofs
+        # side by side where the ortho shows one red-brown)
+        return pal(soften(hex_rgb(["#a4533b", "#9a4b35", "#ad5d41"][stable_hash(f["id"]) % 3]), 0.05), M_ROOF, q=12)
     col = tuple(np.clip((col.mean() + (col - col.mean()) * (0.85 if red else 0.6)) * (0.9 if red else 1.0), 0, 255))
     return pal(soften(col, 0.1), M_ROOF, q=12)
 
