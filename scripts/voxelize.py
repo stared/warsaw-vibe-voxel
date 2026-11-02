@@ -112,7 +112,7 @@ def stable_hash(*a):
 pal = Palette()
 C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "paving": pal("#c6c2b8"), "paving2": pal("#b5b4af"), "asphalt": pal("#5f636b"), "asphalt_l": pal("#6e7178"),
-    "sett": pal("#8f8981"), "concrete": pal("#bdbab2"), "cycle": pal("#a8453e"), "gravel": pal("#d8ccb5"),
+    "sett": pal("#8f8981"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
     "grass": pal("#86b45a", M_GRASS), "grass2": pal("#79a852", M_GRASS), "garden": pal("#73a34e", M_GRASS),
     "scrub": pal("#5f8f45", M_LEAF), "flower": pal("#d98fb3", M_GRASS), "flower2": pal("#e8c25e", M_GRASS),
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
@@ -1430,6 +1430,10 @@ _way = (deck_col > 0) & (deck_col != C["deck"])
 _dw, (_iw, _jw) = ndimage.distance_transform_edt(~_way, return_indices=True)
 _fill = deck & (deck_col == C["deck"]) & (deck_col[_iw, _jw] == C["ballast"]) & (_dw <= 4)
 deck_col[_fill] = C["ballast"]
+# the lane markings of the roads on the bridges (they were painted on the ground under the deck)
+_lm_deck = deck & (lm > 0) & (deck_col == C["asphalt"])
+deck_col[_lm_deck] = C["mark"]
+note("lane marking cells on decks:", int(_lm_deck.sum()))
 _rl = np.zeros((D, W), np.uint16)
 burn(_rl, bridge_rails + rails, all_touched=True)  # (the ground track's too: the deck runs on over the abutments)
 _on = deck & (_rl > 0) & (deck_col == C["ballast"])
@@ -1464,6 +1468,7 @@ from shapely.ops import linemerge as _lm
 _sw = _lm([l for oid, t, l in osm.lines if t.get("name") == "Most Świętokrzyski" and t.get("highway") in ROADS])
 _sw = max(getattr(_sw, "geoms", [_sw]), key=lambda l: l.length) if not _sw.is_empty else None
 n_cab = 0
+stay = pal("#c9cdd0")  # matte grey-white: the shiny metal read as glare from afar
 if _sw is not None and n_pyl:
     lab_, _ = ndimage.label(pyl)
     blobs = [(i_, sl) for i_, sl in enumerate(ndimage.find_objects(lab_), 1) if sl is not None]
@@ -1520,10 +1525,27 @@ if _sw is not None and n_pyl:
                     if not (0 <= er < D and 0 <= ec < W):
                         continue
                     ez = g[er, ec] + (deck_h[er, ec] if deck_h[er, ec] > 0 else 12) + 1
-                    # a ~15 cm steel cable: drawn by the viewer as a thin line (meta.cables), not voxels -- at 1 m a
-                    # stay was a staircase of cubes, and the twelve of a plane, a metre or two apart near the pylon,
-                    # merged into solid stepped walls
-                    landmarks.CABLES.append([round(px + 0.5, 2), round(za, 2), round(py + 0.5, 2), round(ex, 2), round(ez - 0.5, 2), round(ey, 2), 0.12])
+                    # one voxel per step along the major axis: a thin straight line, not a rope of double voxels; where
+                    # a step moves along two or three axes at once, the voxels in between too, so the stay is one
+                    # face-connected chain from pylon to deck (corner-touching voxels hold nothing up)
+                    n = int(max(abs(ex - px), abs(ey - py), abs(ez - za))) + 1
+                    prev = None
+                    for j in range(n + 1):
+                        f_ = j / n
+                        x_, y_, z_ = px + (ex - px) * f_, py + (ey - py) * f_, za + (ez - za) * f_
+                        cur = [int(y_), int(x_), int(z_)]
+                        pts_ = [cur]
+                        if prev is not None:
+                            p_ = list(prev)
+                            pts_ = []
+                            for ax in (2, 0, 1):  # down first, then across
+                                if p_[ax] != cur[ax]:
+                                    p_[ax] = cur[ax]
+                                    pts_.append(tuple(p_))
+                        for r_, c_, zz_ in pts_:
+                            if 0 <= r_ < D and 0 <= c_ < W and 0 <= zz_ < vol.shape[0] and vol[zz_, r_, c_] == 0:
+                                vol[zz_, r_, c_] = stay
+                        prev = cur
                     n_cab += 1
 note("Most Świętokrzyski stays:", n_cab)
 # lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they
@@ -1661,7 +1683,7 @@ for ln in sorted(tram_lines, key=lambda l: -l.length):
         path.append([round(p.x, 1), round(p.y, 1), int(g[r, c])])
     trams.append(path)
 note("tram paths:", len(trams), "total km", round(sum(len(p) for p in trams) * 2 / 1000, 2))
-meta = dict(W=W, D=D, H=Hm, base=BASE, tiles=tile_info, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets, cables=landmarks.CABLES,
+meta = dict(W=W, D=D, H=Hm, base=BASE, tiles=tile_info, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets,
             palette=[list(e) for e in pal.entries], lamps=lamps, floods=floods, labels=labels, views=views,
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))

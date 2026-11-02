@@ -2243,7 +2243,6 @@ def pkin_east(vol, g0, pal, stone, note):
 
 
 # ---------------------------------------------------------------- the Vistula bridges' structure under the decks
-CABLES = []  # thin steel cables for the viewer to draw as lines: [x0, z0, y0, x1, z1, y1, radius] (three.js axes)
 DECK = None  # (D, W) top of the bridge decks (first free voxel over the road surface), set by voxelize.py / patch.py
 
 

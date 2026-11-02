@@ -46,7 +46,6 @@ export interface Meta {
   lamps: [number, number, number][];
   floods?: [number, number, number][];
   jets?: [number, number, number][];
-  cables?: number[][];
   labels: Label[];
   views: Record<string, View>;
   sources: { osm: string };
