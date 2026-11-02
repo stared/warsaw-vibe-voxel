@@ -1413,6 +1413,17 @@ for _z in range(int(g.min()), int(zt_.max()) + 6):
     _v = vol[_z, _rw[_m], _cw[_m]]
     _under = _z < zt_[_rw[_m], _cw[_m]] - 2
     vol[_z, _rw[_m], _cw[_m]] = np.where((_under & _wet[_m]) | _leafy[_v], 0, _v)  # (a crown poking through the deck too)
+# and beside a deck over the water (3 m): the LiDAR's returns off the deck's edge, green in the ortho, stood as crowns
+# hanging from the edge down to the river (Most Śląsko-Dąbrowski); no tree grows in the river there
+_rim = ndimage.binary_dilation(deck, iterations=3) & ~deck & water_
+_rr, _cr = np.nonzero(_rim)
+n_rim = 0
+for _z in range(int(g.min()), int(zt_.max()) + 6):
+    _v = vol[_z, _rr, _cr]
+    _k = _leafy[_v]
+    vol[_z, _rr[_k], _cr[_k]] = 0
+    n_rim += int(_k.sum())
+note("leaves off the water beside the decks:", n_rim)
 # a railway bridge carries its track across: the rails on the ballast, and ballast (not the grey road deck) between
 # tracks and to the deck edges -- the rail bridge read as a road with a step where the track left the embankment
 _way = (deck_col > 0) & (deck_col != C["deck"])
