@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { Path, PathData } from './path';
+import type { TrainPathData } from './trains';
 
 export interface SignalRef { ctrl: number; axis: number }
 export interface Controller { x: number; y: number; off: number }
@@ -28,6 +29,7 @@ export interface TrafficData {
   ctrls: { x: number; y: number }[];
   heads?: [number, number, number, number, number, number][];
   trams?: TramPathData[];
+  trains?: TrainPathData[];
   restr?: [number, number, number, string][];
 }
 

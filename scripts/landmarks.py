@@ -51,10 +51,10 @@ LABELS = {
     "Stadion Miejski Legii Warszawa": dict(name="Stadion Legii", en="Legia Warsaw Stadium", kind="stadium", year=2011),
     "Plac Konstytucji": dict(kind="square", year=1952, alt="MDM"),
 }
-# places without a single OSM polygon, at EPSG:2180 x, y (the river mid-stream by Most Świętokrzyski, the boulevard by Kopernik)
+# places without a single OSM polygon, at EPSG:2180 x, y (the boulevard by Kopernik), or the river
 EXTRA_LABELS = {
     "Zielona Złota": dict(kind="street greening", year=2026, at=(637350, 487120)),  # between the two carriageways of Złota east of Marszałkowska
-    "Wisła": dict(en="Vistula", kind="river", at=(639034, 487782)),
+    "Wisła": dict(en="Vistula", kind="river", at="river"),  # mid-stream, as far from every bridge as the map allows
     "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", at=(638714, 487996)),
     "Domki Fińskie": dict(en='Finnish houses', kind='wooden houses', year=1945, alt='Osiedle Jazdów Wolny Jazdów Otwarty Jazdów',
                           site='https://jazdow.pl', at=(638492, 485890)),
@@ -499,7 +499,7 @@ def details_geometry(vol, g, feats, pal, note):
     bridges(vol, g, pal, note)
     pge_spire(vol, g, pal, note)
     aviation_masts(vol, g, pal, note)
-    zlota44_crown(vol, g, pal, note)
+    zlota44(vol, g, feats, pal, note)
     msn(vol, g, feats, pal, note)
     saski_site(vol, g, pal, note)
     sejm(vol, g, feats, pal, note)
@@ -628,10 +628,27 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
     labels = [found[n] for n in LABELS if n in found] + override_labels(feats, g, top_at)
     from aoi import to_grid
     for n, facts in EXTRA_LABELS.items():
-        c, r = (int(v) for v in to_grid(*facts["at"]))
+        c, r = river_spot(vol, g, C) if facts["at"] == "river" else (int(v) for v in to_grid(*facts["at"]))
         labels.append(label(n, facts, c, r, top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
     return labels, make_views(found, osm, g, top_at, note, bmask, vol, leaf_ids)
+
+
+def river_spot(vol, g, C):
+    """The river's label: on open water at least 40 m from either bank, as far as possible from every bridge deck and
+    from the map's edge -- in the middle of the longest stretch between two bridges, never on one."""
+    D, W = g.shape
+    rr, cc = np.mgrid[0:D, 0:W]
+    water = np.take_along_axis(vol, (g - 1)[None].astype(np.intp), 0)[0] == C["water"]
+    lab, n = ndimage.label(water)
+    water = lab == np.argmax(np.bincount(lab.ravel())[1:]) + 1
+    open_ = ndimage.distance_transform_edt(water) >= 40
+    deck = DECK > 0 if DECK is not None else np.zeros((D, W), bool)
+    far = ndimage.distance_transform_edt(~deck) if deck.any() else np.full((D, W), 1e9)
+    edge = np.minimum.reduce([rr, cc, D - 1 - rr, W - 1 - cc])
+    score = np.where(open_, np.minimum(far, edge), -1)
+    r, c = np.unravel_index(np.argmax(score), score.shape)
+    return int(c), int(r)
 
 
 def make_views(found, osm, g, top_at, note, bmask, vol=None, leaf_ids=()):
@@ -1993,33 +2010,63 @@ def teatr_wielki_wings(vol, g, pal, note, depth=17, H=18):
     note(f"Teatr Wielki wings rebuilt: {len(TW_WINGS)}")
 
 
-def zlota44_crown(vol, g, pal, note, box=(1175, 1225, 450, 500)):
-    """Złota 44's crown (Commons 2017-2019): the glass skin runs up past the 180 m roof as a screen whose top slopes
-    from the north-west corner to the 192 m peak at the south-east one, the sail's slanted silhouette; the LiDAR saw
-    the flat roof inside it (and the screen only at the peak)."""
-    r0, r1, c0, c1 = box
-    sub = vol[:, r0:r1, c0:c1]
-    occ = sub != 0
-    Hh = occ.shape[0]
-    T = np.where(occ.any(0), Hh - 1 - np.argmax(occ[::-1], axis=0), 0) - g[r0:r1, c0:c1]
-    tw = T >= 150
-    edge = tw & ~ndimage.binary_erosion(tw)
-    rr, cc = np.nonzero(tw)
-    p = (rr - rr.min()) / max(1, rr.max() - rr.min()) * 0.5 + (cc - cc.min()) / max(1, cc.max() - cc.min()) * 0.5
-    pmap = np.zeros(tw.shape); pmap[rr, cc] = p
-    glass = pal(_hex("#c4ced4"), M_GLASS)
+# Złota 44 (Daniel Libeskind, 2017) as OSM maps it in parts (the LiDAR sees only its top, so the voxels were a prism
+# of the widest floor, flat at 180 m): the 180 m body; the "sail", a glass fin on the east whose top slopes 58 m, to
+# the 192 m peak (skillion, roof:direction 295); the wing that swells out of the east and south faces between 8-36 m
+# and 99 m (skillion wedges: nothing at their low edge, 63-91 m of glass at the high one); the two podiums
+# (OSM ids, heights in m: min, max, roof height, direction the roof falls to)
+ZLOTA44_PARTS = {239175870: (0, 180, 0, None), 982221142: (95, 192, 58, 295), 982221143: (8, 99, 91, 161),
+                 982221144: (36, 99, 63, 78), 982799287: (36, 99, 63, 78)}
+ZLOTA44_PODIUMS = (239175869, 979893146)
+ZLOTA44_SAIL = 982221142
+
+
+def zlota44(vol, g, feats, pal, note):
+    """Commons 2015-2019 (from the street, Złote Tarasy and the PKiN terrace): silver-white glass, a white floor
+    line every storey (3.4 m: a voxel in three), the sail and the wing in the same skin."""
+    from aoi import EU, EV
+    by = {f["id"]: f for f in feats}
+    if not all(k in by for k in ZLOTA44_PARTS):
+        note("Złota 44: parts missing in OSM, left as built"); return
+    glass, line = pal(_hex("#c7d2d7"), M_GLASS), pal(_hex("#eff1f2"), 0)
+    tower = np.zeros(g.shape, bool)
+    for k in ZLOTA44_PARTS:
+        tower[by[k]["rr"], by[k]["cc"]] = True
+    rr, cc = np.nonzero(tower)
+    g0 = int(np.median(g[rr, cc]))
+    pod = {}
+    for k in ZLOTA44_PODIUMS:
+        if k in by:
+            for r, c in zip(by[k]["rr"], by[k]["cc"]):
+                pod[(r, c)] = max(pod.get((r, c), 0), int(round(by[k]["maxh"] or 0)))
+    top = {}
+    for k, (lo, hi, rh, dirn) in ZLOTA44_PARTS.items():
+        f = by[k]
+        if dirn is None:
+            h = np.full(len(f["rr"]), float(hi))
+        else:  # the roof falls towards the bearing: highest on the far side from it
+            b = math.radians(dirn)
+            v = np.array([math.sin(b), math.cos(b)])
+            di, dj = v @ EU, v @ EV
+            t = (f["cc"] + 0.5) * di + (f["rr"] + 0.5) * dj
+            t = (t - t.min()) / max(t.max() - t.min(), 1e-6)  # 0 at the high edge, 1 at the low one
+            h = hi - rh * t
+        for r, c, hh in zip(f["rr"], f["cc"], h):  # the sail is the face where it stands: its own top, over the body's
+            lo_, hi_ = top.get((r, c), (999, 0))
+            top[(r, c)] = (min(lo_, lo), hh if k == ZLOTA44_SAIL else max(hi_, hh))
     n = 0
-    for r, c in zip(*np.nonzero(edge)):
-        gz = int(g[r + r0, c + c0])
-        h = int(round(178 + 14 * pmap[r, c]))
-        t = gz + int(T[r, c])
-        if h + gz > t:
-            sub[t + 1:gz + h + 1, r, c] = glass
-            n += 1
-    note(f"Złota 44 crown: {n} screen columns")
+    for (r, c), (lo, hi) in top.items():
+        col = vol[:, r, c]
+        base = pod.get((r, c), 0)
+        col[g0 + max(base, 1):g0 + 200] = 0
+        z0, z1 = g0 + max(int(lo), base), g0 + int(round(hi))
+        for z in range(z0, z1):
+            col[z] = line if (z - g0) % 3 == 0 else glass
+        n += max(0, z1 - z0)
+    note(f"Złota 44 rebuilt from its OSM parts: {len(top)} columns, {n} voxels, peak {max(h for _, h in top.values()):.0f} m")
 
 
-def msn(vol, g, feats, pal, note, r0=1104, r1=1208, c0=961, c1=1001):
+def msn(vol, g, feats, pal, note, r0=2384, r1=2488, c0=961, c1=1001):
     """Muzeum Sztuki Nowoczesnej (Thomas Phifer, 2024; Commons 2024-2025 from Marszałkowska and Plac Defilad): a
     white box, but not blank: a ground-floor colonnade 3 m deep under the whole east front (slender piers every
     6 m), long ribbon windows on the first floor, and two deep cut-outs higher up on the east front near its ends
@@ -2196,6 +2243,7 @@ def pkin_east(vol, g0, pal, stone, note):
 
 
 # ---------------------------------------------------------------- the Vistula bridges' structure under the decks
+CABLES = []  # thin steel cables for the viewer to draw as lines: [x0, z0, y0, x1, z1, y1, radius] (three.js axes)
 DECK = None  # (D, W) top of the bridge decks (first free voxel over the road surface), set by voxelize.py / patch.py
 
 

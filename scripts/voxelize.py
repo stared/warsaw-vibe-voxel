@@ -141,7 +141,24 @@ dsm_mean = d4.mean((1, 3))
 dtm_s = ndimage.uniform_filter(dtm, 3)
 SLAB = 3
 BASE = math.floor(dtm.min()) - SLAB
-g = np.round(dtm_s - BASE).astype(np.int32)  # ground occupies z in [0, g)
+
+
+def ground_walls(dtm, dtm_s):
+    """The terrain smoothed over 3 m, except at its walls: a box filter made every retaining wall (an underpass, a
+    trench, a ramp's sides, a building pit, a deck's abutment) a 3 m ramp, and rounding cut the ramp into ragged 1-2 m
+    stairs that zigzagged along the wall -- rubble along every sunken road. Where the terrain drops 3 m or more within
+    a cell's neighbours, the cell takes the upper or the lower level around it (5 x 5, of the 3 x 3 median): the upper
+    where the terrain smoothed over ~3 m stands above the middle of the two -- one clean contour along the wall (each
+    cell deciding on its own sample flickered between the levels along a diagonal wall). Gentle slopes (embankments,
+    the escarpment) stay smooth."""
+    med = ndimage.median_filter(dtm, 3)
+    lo, hi = ndimage.minimum_filter(med, 5), ndimage.maximum_filter(med, 5)
+    wall = (ndimage.maximum_filter(dtm, 3) - ndimage.minimum_filter(dtm, 3) >= 3) & (hi - lo >= 3)
+    note("ground: wall cells snapped to their level:", int(wall.sum()))
+    return np.where(wall, np.where(ndimage.gaussian_filter(dtm, 1.5) >= (lo + hi) / 2, hi, lo), dtm_s)
+
+
+g = np.round(ground_walls(dtm, dtm_s) - BASE).astype(np.int32)  # ground occupies z in [0, g)
 nd_max = dsm_max - dtm
 nd_mean = dsm_mean - dtm
 
@@ -272,6 +289,7 @@ def on_bridge(t):
 
 
 foot_shapes, road_shapes, bridge_shapes = [], [], []  # bridge ways are painted on the deck, not on the river below
+bridge_rails = []  # (line, colour) the rails of tracks on bridges, drawn on the deck like those on the ground
 bridge_lines = []  # (line, half width, layer) of every way on a bridge: the deck's height profile is taken along them
 bridge_roads = []  # (line, width) of carriageways on bridges, for the inferred deck lamps
 for oid, t, line in osm.lines:
@@ -336,6 +354,11 @@ for oid, t, line in osm.lines_with("railway"):
     if on_bridge(t):
         bridge_shapes.append((line.buffer(1.4 if tram else 1.9, cap_style="flat"), C["trambed" if tram else "ballast"], int(parse_len(t.get("layer")) or 1)))
         bridge_lines.append((line, 1.4 if tram else 1.9, int(parse_len(t.get("layer")) or 1), C["trambed" if tram else "ballast"]))
+        for off in (-0.72, 0.72):
+            try:
+                bridge_rails.append((line.offset_curve(off), C["rail"]))
+            except Exception:
+                pass
         continue
     rail_beds.append((line.buffer(1.4 if tram else 1.9, cap_style="flat"), C["trambed" if tram else "ballast"]))
     for off in (-0.72, 0.72):
@@ -459,17 +482,21 @@ note("building features:", len(feats), "parts:", sum(f["part"] for f in feats))
 outlines = [f for f in feats if not f["part"]]
 parts = [f for f in feats if f["part"]]
 otree = STRtree([f["geom"] for f in outlines])
+PART_PARENTS = json.load(open(Path(__file__).with_name("part_parents.json")))["parents"]
 for p in parts:  # parts inherit colours/material/name from their outline
     rp = p["geom"].representative_point()
-    for i in otree.query(rp, predicate="within"):
-        o = outlines[i]
+    # inside several outlines (a block relation, the same outline mapped twice): the one it had when the landmarks
+    # were curated (part_parents.json), else the smallest -- never the spatial index's order, which changes with the map
+    hits = sorted((outlines[i] for i in otree.query(rp, predicate="within")), key=lambda o: (round(o["area"], 1), -o["id"]))
+    for o in hits:
         o["has_parts"] = True
-        p.setdefault("parent", o)
+    if hits:
+        p["parent"] = next((o for o in hits if o["id"] == PART_PARENTS.get(str(p["id"]))), hits[0])
 for p in parts:
     if "parent" not in p:
         cands = [outlines[i] for i in otree.query(p["geom"], predicate="intersects")]
         if cands:
-            p["parent"] = max(cands, key=lambda o: o["geom"].intersection(p["geom"]).area)
+            p["parent"] = max(cands, key=lambda o: (round(o["geom"].intersection(p["geom"]).area, 1), -o["id"]))
             p["parent"]["has_parts"] = True
 for o in outlines:
     # outline with parts not rendered (OSM simple-3D convention) if parts cover most of it
@@ -775,6 +802,17 @@ for zz in range(H):
     vol[zz][m] = C["soil"]
 rr, cc = np.nonzero(np.ones((D, W), bool))
 vol[g[rr, cc] - 1, rr, cc] = gcol[rr, cc]
+# a paved cell 2 m or more above a neighbour stands on a retaining wall (an underpass, a trench, a ramp's side, a
+# station's cut): its exposed face concrete, not the brown soil of a garden's bank
+_nb_lo = ndimage.minimum_filter(g, footprint=np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+_mat = np.array([e[3] for e in pal.entries] + [0] * 256)
+_wall = (g - _nb_lo >= 2) & ~np.isin(_mat[gcol], [M_GRASS, M_LEAF, M_SOIL, M_WATER])
+n_rw = 0
+for zz in range(int(_nb_lo[_wall].min()) if _wall.any() else 0, int(g.max())):
+    m = _wall & (zz >= _nb_lo) & (zz < g - 1)
+    vol[zz][m] = C["concrete"]
+    n_rw += int(m.sum())
+note("retaining walls (paved ground 2 m+ over a neighbour): concrete voxels", n_rw)
 
 # buildings: base fill with the tallest covering feature's wall, then parts paint their own [minh, maxh)
 basewall = np.zeros((D, W), np.uint16)
@@ -1300,14 +1338,17 @@ for line, hw, layer, _ in bridge_lines:
     prof.append(np.column_stack([P_, h_, np.full(n_, layer + 1)]))
 deck_abs = np.zeros((D, W), np.float32)
 if prof:
-    # across the deck the ways agree: one surface per layer, each point the median of its layer within 10 m (each way
-    # on its own rounded to a different metre from its neighbour: steps running along the deck between the lanes)
+    # across the deck the ways agree: one surface per layer, each point the low end (10th percentile) of its layer
+    # within 10 m. Each way on its own rounded to a different metre from its neighbour (steps along the deck between
+    # the lanes); and where they disagree, the higher ones stand under something -- Most Świętokrzyski's stays lean
+    # over the outer lanes for 150 m each side of the pylon, so their profile climbed smoothly to the pylon (no spike
+    # for the running median to knock down), and with the median of the lanes the deck rose 23 m in mounds round it
     allp = np.vstack(prof)
     for L_ in np.unique(allp[:, 3]):
         sel_ = allp[:, 3] == L_
         sub_ = allp[sel_]
         nb_ = cKDTree(sub_[:, :2]).query_ball_point(sub_[:, :2], 10.0)
-        allp[sel_, 2] = [np.median(sub_[i_, 2]) for i_ in nb_]
+        allp[sel_, 2] = [np.percentile(sub_[i_, 2], 10) for i_ in nb_]
     k0 = 0
     for i_, pw_ in enumerate(prof):
         h_ = allp[k0:k0 + len(pw_), 2]
@@ -1372,6 +1413,17 @@ for _z in range(int(g.min()), int(zt_.max()) + 6):
     _v = vol[_z, _rw[_m], _cw[_m]]
     _under = _z < zt_[_rw[_m], _cw[_m]] - 2
     vol[_z, _rw[_m], _cw[_m]] = np.where((_under & _wet[_m]) | _leafy[_v], 0, _v)  # (a crown poking through the deck too)
+# a railway bridge carries its track across: the rails on the ballast, and ballast (not the grey road deck) between
+# tracks and to the deck edges -- the rail bridge read as a road with a step where the track left the embankment
+_way = (deck_col > 0) & (deck_col != C["deck"])
+_dw, (_iw, _jw) = ndimage.distance_transform_edt(~_way, return_indices=True)
+_fill = deck & (deck_col == C["deck"]) & (deck_col[_iw, _jw] == C["ballast"]) & (_dw <= 4)
+deck_col[_fill] = C["ballast"]
+_rl = np.zeros((D, W), np.uint16)
+burn(_rl, bridge_rails + rails, all_touched=True)  # (the ground track's too: the deck runs on over the abutments)
+_on = deck & (_rl > 0) & (deck_col == C["ballast"])
+deck_col[_on] = _rl[_on]
+note("rail decks: ballast fill", int(_fill.sum()), "rail cells", int(_on.sum()))
 rr, cc = np.nonzero(deck)
 if len(rr):
     zt_ = zt_[rr, cc]
@@ -1401,7 +1453,6 @@ from shapely.ops import linemerge as _lm
 _sw = _lm([l for oid, t, l in osm.lines if t.get("name") == "Most Świętokrzyski" and t.get("highway") in ROADS])
 _sw = max(getattr(_sw, "geoms", [_sw]), key=lambda l: l.length) if not _sw.is_empty else None
 n_cab = 0
-stay = pal("#c9cdd0")  # matte grey-white: the shiny metal read as glare from afar
 if _sw is not None and n_pyl:
     lab_, _ = ndimage.label(pyl)
     blobs = [(i_, sl) for i_, sl in enumerate(ndimage.find_objects(lab_), 1) if sl is not None]
@@ -1428,10 +1479,8 @@ if _sw is not None and n_pyl:
         gz_ = int(g[pr, pc])
         dz_ = gz_ + int(deck_h[pr, pc] if deck_h[pr, pc] > 0 else 12)
         rr0, rr1, cc0, cc1 = pr - 30, pr + 31, pc - 30, pc + 31
-        blk = vol[dz_ + 1:, rr0:rr1, cc0:cc1]
+        blk = vol[gz_:, rr0:rr1, cc0:cc1]  # the LiDAR blob, all of it: the A-frame below replaces it
         blk[blk == C["fence"]] = 0
-        sub = vol[gz_:dz_ - 2, rr0:rr1, cc0:cc1]
-        sub[sub == C["fence"]] = 0
         pylc = pal("#d6d8d6", M_CONCRETE)
         zmeet = dz_ + 50
         for zz in range(gz_, int(ptop) + 1):
@@ -1460,27 +1509,10 @@ if _sw is not None and n_pyl:
                     if not (0 <= er < D and 0 <= ec < W):
                         continue
                     ez = g[er, ec] + (deck_h[er, ec] if deck_h[er, ec] > 0 else 12) + 1
-                    # one voxel per step along the major axis: a thin straight line, not a rope of double voxels; where
-                    # a step moves along two or three axes at once, the voxels in between too, so the stay is one
-                    # face-connected chain from pylon to deck (corner-touching voxels hold nothing up)
-                    n = int(max(abs(ex - px), abs(ey - py), abs(ez - za))) + 1
-                    prev = None
-                    for j in range(n + 1):
-                        f_ = j / n
-                        x_, y_, z_ = px + (ex - px) * f_, py + (ey - py) * f_, za + (ez - za) * f_
-                        cur = [int(y_), int(x_), int(z_)]
-                        pts_ = [cur]
-                        if prev is not None:
-                            p_ = list(prev)
-                            pts_ = []
-                            for ax in (2, 0, 1):  # down first, then across
-                                if p_[ax] != cur[ax]:
-                                    p_[ax] = cur[ax]
-                                    pts_.append(tuple(p_))
-                        for r_, c_, zz_ in pts_:
-                            if 0 <= r_ < D and 0 <= c_ < W and 0 <= zz_ < vol.shape[0] and vol[zz_, r_, c_] == 0:
-                                vol[zz_, r_, c_] = stay
-                        prev = cur
+                    # a ~15 cm steel cable: drawn by the viewer as a thin line (meta.cables), not voxels -- at 1 m a
+                    # stay was a staircase of cubes, and the twelve of a plane, a metre or two apart near the pylon,
+                    # merged into solid stepped walls
+                    landmarks.CABLES.append([round(px + 0.5, 2), round(za, 2), round(py + 0.5, 2), round(ex, 2), round(ez - 0.5, 2), round(ey, 2), 0.12])
                     n_cab += 1
 note("Most Świętokrzyski stays:", n_cab)
 # lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they
@@ -1618,7 +1650,7 @@ for ln in sorted(tram_lines, key=lambda l: -l.length):
         path.append([round(p.x, 1), round(p.y, 1), int(g[r, c])])
     trams.append(path)
 note("tram paths:", len(trams), "total km", round(sum(len(p) for p in trams) * 2 / 1000, 2))
-meta = dict(W=W, D=D, H=Hm, base=BASE, tiles=tile_info, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets,
+meta = dict(W=W, D=D, H=Hm, base=BASE, tiles=tile_info, center=[CX, CY], theta_deg=math.degrees(THETA), crs="EPSG:2180", trams=trams, jets=jets, cables=landmarks.CABLES,
             palette=[list(e) for e in pal.entries], lamps=lamps, floods=floods, labels=labels, views=views,
             sources=dict(osm=osm.timestamp, lidar="GUGiK NMPT/NMT 2025 (GK-FOTO.6201.5.2025)",
                          ortho="GUGiK ortofotomapa 2025, 5 cm"))

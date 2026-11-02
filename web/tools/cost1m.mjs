@@ -17,11 +17,13 @@ const res = await page.evaluate(async () => {
     for (let tx = 0; tx < d.nx; tx++) {
       const n = S.nodes.get(S.key(1, tx, ty));
       const dataB = n.data ? n.data.counts.byteLength + n.data.ground.byteLength + n.data.runs.byteLength + n.data.off.byteLength : 0;
-      rows.push({ tx, ty, tris: n.tris || 0, bytes: (n.bytes || 0) - dataB, dataB });
+      const geo = n.mesh?.geometry, tris = geo ? geo.drawRange.count / 3 : 0;
+      const bytes = geo ? Object.values(geo.attributes).reduce((a, at) => a + at.array.byteLength, 0) : 0;
+      rows.push({ tx, ty, tris, bytes, dataB });
       S.free(n);
     }
   }
-  return { rows, timing: S.timing };
+  return { rows, timing: S.timing || [] };
 });
 fs.writeFileSync(out, JSON.stringify(res));
 const R = res.rows, sum = (k) => R.reduce((a, r) => a + r[k], 0);
