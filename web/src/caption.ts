@@ -20,6 +20,6 @@ export class Caption {
     if (this.finished) return;
     this.show(stage, total, total);
     this.finished = true;
-    setTimeout(() => this.box.classList.add('off'), 1500);
+    setTimeout(() => this.box.classList.add('off'), 400);
   }
 }

@@ -101,7 +101,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 @media (max-width: 600px) { #hud { left: 8px; bottom: 8px; } }
 .noui #hud { display: none; }
 .caption { position: fixed; left: 14px; top: 14px; z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 5px;
-  width: 340px; max-width: calc(100vw - 16px); color: #fff; font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); transition: opacity .6s; }
+  width: 340px; max-width: calc(100vw - 16px); color: #fff; font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); transition: opacity .8s; }
 .caption.off { opacity: 0; }
 .caption .txt { display: flex; justify-content: space-between; white-space: nowrap; }
 .caption .bar { position: relative; height: 2px; border-radius: 1px; background: rgba(255,255,255,.3); box-shadow: 0 0 2px rgba(0,0,0,.6); }
@@ -109,3 +109,4 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 @media (max-width: 600px) { .caption { left: 8px; right: 8px; top: 8px; width: auto; max-width: none; } }
 #bar, #labels, #hud { transition: opacity .6s; }
 .loading #bar, .loading #labels, .loading #hud { opacity: 0; pointer-events: none; }
+body:not(.loading) #bar { transition: opacity .12s 1.2s; }
