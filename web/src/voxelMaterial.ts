@@ -289,7 +289,7 @@ const SURFACE = `
     float r = sin(cell.x * 0.9 + uTime * 1.3) * sin(cell.z * 1.1 - uTime) * 0.5 + 0.5;
     col = mix(vec3(0.012, 0.085, 0.15), vec3(0.03, 0.2, 0.26), r * r) * (0.94 + 0.12 * h); gRough = 0.04; gMetal = 0.3;
     vec3 V = normalize(cameraPosition - vVox);
-    float fres = pow(1.0 - max(dot(vN, V), 0.0), 4.0);
+    float fres = 1.0 - clamp(dot(vN, V), 0.0, 1.0); fres *= fres; fres *= fres;
     col = mix(col, uHorizon * 0.8, clamp(0.08 + 0.55 * fres, 0.0, 0.55));
     if (vN.y > 0.5 && hash12(cell.xz * 0.37 + floor(uTime * 1.7 + h * 9.0)) < 0.006) col += vec3(0.35, 0.4, 0.38) * (1.0 - uNight) * (1.0 - uNight);
     if (uDrop > 0.0) { // low water: where the estimated bed is shallower than the drop, a sandbank

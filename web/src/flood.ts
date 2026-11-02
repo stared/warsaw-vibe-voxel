@@ -67,7 +67,8 @@ export class Flood {
           float land = step(4.5, spill); // silt over land the river doesn't usually cover
           diffuseColor.rgb = mix(mix(vec3(0.012, 0.085, 0.15), vec3(0.03, 0.2, 0.26), r * r), vec3(0.16, 0.13, 0.07), land * 0.3);
           vec3 V = normalize(cameraPosition - vW);
-          diffuseColor.rgb = mix(diffuseColor.rgb, uHorizon * 0.8, clamp(0.08 + 0.55 * pow(1.0 - max(V.y, 0.0), 4.0), 0.0, 0.55));`);
+          float g = 1.0 - clamp(V.y, 0.0, 1.0); g *= g;
+          diffuseColor.rgb = mix(diffuseColor.rgb, uHorizon * 0.8, clamp(0.08 + 0.55 * g * g, 0.0, 0.55));`);
     };
     return mat;
   }
