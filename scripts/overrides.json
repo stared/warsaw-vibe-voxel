@@ -262,6 +262,85 @@
       },
       "_note": "dark glass oculus in the middle (ortho); OSM #4B785C green read as a green dot"
     },
+    "404052334": {
+      "wall": {
+        "colour": "#9b4a36",
+        "material": "classic"
+      },
+      "roof": {
+        "colour": "#5f8b7e",
+        "material": "roof"
+      },
+      "_note": "Archikatedra: red brick, the west gable's white blind panels aside; weathered green copper roof (Commons 2009-2016, 2025 ortho); OSM #af8473 / #a6c6c3 rendered pink-brown and near white"
+    },
+    "250177780": {
+      "wall": {
+        "colour": "#eeeae1",
+        "material": "classic"
+      },
+      "roof": {
+        "colour": "#5d8a73",
+        "material": "roof"
+      },
+      "_note": "Kościół św. Kazimierza: white walls, green copper dome (Commons 2008-2017 from Rynek Nowego Miasta); no OSM colour"
+    },
+    "80428517": {
+      "wall": {
+        "colour": "#8f4231",
+        "material": "classic"
+      },
+      "roof": {
+        "colour": "#55605b",
+        "material": "roof"
+      },
+      "_note": "Katedra św. Floriana: red brick, dark slate-green spires and roofs (Commons); no OSM colour"
+    },
+    "196756143": {
+      "wall": {
+        "colour": "#d68b72",
+        "material": "classic"
+      },
+      "_note": "Kościół Jezuitów: salmon-red facade with white decoration (Commons 2010-2016 from Świętojańska); no OSM colour"
+    },
+    "30064563": {
+      "wall": {
+        "colour": "#ece7dc",
+        "material": "classic"
+      },
+      "_note": "Kościół św. Jacka: white plaster (Commons 2012-2019 from Freta); no OSM colour"
+    },
+    "135770016": {
+      "wall": {
+        "colour": "#e2c470",
+        "material": "classic"
+      },
+      "_note": "Katedra Polowa: yellow plaster with white trim (Commons 2014-2019 from Długa); no OSM colour"
+    },
+    "1567703393": {
+      "wall": {
+        "colour": "#e8d6a6",
+        "material": "tenement"
+      },
+      "roof": {
+        "colour": "#6d9a83",
+        "material": "roof"
+      },
+      "_note": "Pałac Pod Blachą: cream-yellow walls, the green copper roof it is named after (Commons 2008-2016); no OSM colour"
+    },
+    "238869552": {
+      "wall": {
+        "colour": "#5b7fa6",
+        "material": "glass"
+      },
+      "_note": "Błękitny Wieżowiec: blue glass (Commons); no OSM colour"
+    },
+    "Zamek Królewski": {
+      "wall": {
+        "colour": "#c2654f",
+        "material": "tenement"
+      },
+      "_note": "brick-red plaster with light stone trim (Commons 2009-2019 from Plac Zamkowy); OSM #e1968f rendered pink"
+    },
     "Złota 44": {
       "wall": {
         "colour": "#c4ced4",

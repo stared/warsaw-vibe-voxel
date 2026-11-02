@@ -18,25 +18,26 @@ import landmarks
 import tiles
 
 BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
-    "pkin": (1080, 1380, 600, 900),
-    "zacheta": (525, 675, 1310, 1410),
-    "pw": (2400, 2545, 495, 640),
-    "buw": (460, 595, 2290, 2460),
-    "koszyki": (2280, 2400, 645, 760),
-    "rotunda": (1485, 1535, 1070, 1120),
-    "kopernik": (620, 790, 2515, 2650),
-    "poniatowski": (1570, 1640, 2905, 3420),
-    "teatr": (0, 200, 1330, 1600),
-    "z44": (1170, 1230, 445, 505),
-    "msn": (1095, 1215, 950, 1010),
-    "powisle": (735, 860, 2410, 2535),
-    "saski": (250, 445, 1370, 1510),
-    "sejm": (2340, 2460, 1870, 2010),
-    "astoria": (1180, 1320, 1195, 1350),
-    "rail": (1080, 1330, 2790, 3350),
-    "laz": (2860, 2935, 2930, 3580),
-    "swk": (720, 920, 2680, 3220),
-    "kladka": (25, 245, 2355, 2835),
+    "pkin": (2360, 2660, 600, 900),
+    "zacheta": (1805, 1955, 1310, 1410),
+    "pw": (3680, 3825, 495, 640),
+    "buw": (1740, 1875, 2290, 2460),
+    "koszyki": (3560, 3680, 645, 760),
+    "rotunda": (2765, 2815, 1070, 1120),
+    "kopernik": (1900, 2070, 2515, 2650),
+    "poniatowski": (2850, 2920, 2905, 3420),
+    "teatr": (1280, 1480, 1330, 1600),
+    "z44": (2450, 2510, 445, 505),
+    "sd": (950, 1140, 2160, 2700),
+    "msn": (2375, 2495, 950, 1010),
+    "powisle": (2015, 2140, 2410, 2535),
+    "saski": (1530, 1725, 1370, 1510),
+    "sejm": (3620, 3740, 1870, 2010),
+    "astoria": (2460, 2600, 1195, 1350),
+    "rail": (2360, 2610, 2790, 3350),
+    "laz": (4140, 4215, 2930, 3580),
+    "swk": (2000, 2200, 2680, 3220),
+    "kladka": (1305, 1525, 2355, 2835),
 }
 OUT = Path("web/public/data")
 t0 = time.time()
@@ -70,6 +71,10 @@ landmarks.DECK = st.get("deck")
 landmarks.PIERS = st.get("piers", [])
 note("loaded", vol.shape)
 landmarks.details_geometry(vol, g, st["feats"], pal, note)
+from osm import OSM
+_osm = OSM()
+landmarks.sigismund_column(vol, g, st["feats"], _osm, pal, note)
+landmarks.syrenka(vol, g, _osm, pal, note)
 keep = np.array(ids.pop("debris_keep"), dtype=vol.dtype)
 for b in boxes:
     debris.drop_debris(vol, g, keep, note, box=b)
@@ -83,6 +88,6 @@ if os.environ.get("DUMP"):  # DUMP=r0,r1,c0,c1: the patched volume over that box
     r0_, r1_, c0_, c1_ = (int(v) for v in os.environ["DUMP"].split(","))
     np.savez_compressed("data/debug/dump_box.npz", vol=vol[:, r0_:r1_, c0_:c1_], g=g[r0_:r1_, c0_:c1_],
                         pal=np.array(pal.entries, np.int32), origin=np.array([r0_, c0_]))
-np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 1080:1380, 600:900], g=g[1080:1380, 600:900],
+np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 2360:2660, 600:900], g=g[2360:2660, 600:900],
                     pal=np.array(pal.entries, np.int32))
 note("done; palette", len(pal.entries))

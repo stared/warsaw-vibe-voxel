@@ -424,6 +424,76 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
     # identical paths from different refs share track: keep all (each ref runs its own service)
     note(f"traffic: {len(trams)} tram route pieces inside the AOI, lines {sorted({tr['ref'] for tr in trams}, key=lambda r: (len(r), r))}")
 
+    # ---------------- trains: the route=train relations (one per direction), on the open-air track only -- a piece
+    # ends where the line goes into a tunnel (the cross-city line under Śródmieście) or leaves the map. Routes on the
+    # same track share one path; each keeps the stations it stops at (its stop members on the path)
+    tunnel_nodes = set()
+    for e in data["elements"]:
+        tg = e.get("tags", {})
+        if e["type"] == "way" and tg.get("railway") == "rail":
+            for nid, p_ in zip(e["nodes"], e.get("geometry") or []):
+                if p_ and nid not in nodes:
+                    x, y = _T.transform(p_["lon"], p_["lat"])
+                    i, j = to_grid(x, y)
+                    nodes[nid] = (float(i), float(j))
+            if tg.get("tunnel") not in (None, "no") or tg.get("covered") == "yes":
+                tunnel_nodes.update(e["nodes"][1:-1])
+    by_track = {}
+    for rel in data["elements"]:
+        t = rel.get("tags", {})
+        if rel["type"] != "relation" or t.get("route") != "train":
+            continue
+        seq = []
+        for m in rel.get("members", []):
+            if m["type"] != "way" or m.get("role") not in ("", "forward", "backward"):
+                continue
+            w = way_by_id.get(m["ref"])
+            if not w or w.get("tags", {}).get("railway") != "rail":
+                continue
+            ns = [n for n in w["nodes"] if n in nodes]
+            if len(ns) < 2:
+                continue
+            if m.get("role") == "backward":
+                ns = ns[::-1]
+            if seq and seq[-1] is not None:
+                if seq[-1] == ns[-1]:
+                    ns = ns[::-1]
+                elif seq[-1] != ns[0] and seq[-1] not in (ns[0], ns[-1]):
+                    seq.append(None)
+                seq.extend(ns[1:] if seq[-1] == ns[0] else ns)
+            else:
+                seq.extend(ns)
+        stops = {m["ref"] for m in rel.get("members", []) if m["type"] == "node" and str(m.get("role", "")).startswith("stop")}
+        piece = []
+        for n in seq + [None]:
+            if n is None or n in tunnel_nodes or not inside(n):
+                if len(piece) >= 2:
+                    key = tuple(piece)
+                    tr = by_track.setdefault(key, dict(nodes=piece, svc=[]))
+                    tr["svc"].append(dict(ref=t.get("ref") or t.get("name", "?"), op=t.get("operator", ""),
+                                          stops=[k for k, n_ in enumerate(piece) if n_ in stops]))
+                piece = []
+            elif not piece or piece[-1] != n:
+                piece.append(n)
+    trains = []
+    for tr in by_track.values():
+        pp = pts_of(tr["nodes"], False)
+        if length(pp) < 150:
+            continue
+        # a stop's arc length along the path (the node's own point: pts_of keeps every node, in order)
+        cum, k_of, k = [0.0], {}, 0
+        for a, b in zip(pp, pp[1:]):
+            cum.append(cum[-1] + math.dist(a[:2], b[:2]))
+        for i_, n in enumerate(tr["nodes"]):
+            x, y = nodes[n]
+            while k < len(pp) and (abs(pp[k][0] - round(x, 1)) > 0.05 or abs(pp[k][1] - round(y, 1)) > 0.05):
+                k += 1
+            k_of[i_] = min(k, len(pp) - 1)
+        svc = [dict(ref=v["ref"], op=v["op"], stops=sorted({round(cum[k_of[i_]], 1) for i_ in v["stops"]})) for v in tr["svc"]]
+        trains.append(dict(p=pp, L=round(length(pp), 1), svc=svc))
+    note(f"traffic: {len(trains)} train tracks inside the AOI ({sum(len(t['svc']) for t in trains)} route pieces, "
+         f"{round(sum(t['L'] for t in trains) / 1000, 1)} km), operators {sorted({v['op'] for t in trains for v in t['svc']})}")
+
     if vol is not None:
         n_lift = 0
         for e in roads:
@@ -432,6 +502,15 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
             n_lift += lift
         for tr in trams:
             tr["p"], lift, _ = fit(tr["p"], (-0.9, 0.0, 0.9), vol, solid, W, D)
+            n_lift += lift
+        for tr in trains:
+            p_, lift, _ = fit(tr["p"], (-1.2, 0.0, 1.2), vol, solid, W, D)
+            if len(p_) != len(tr["p"]):  # the stops are arc lengths: they hold as long as the path's corners do
+                L_ = length(p_)
+                for v in tr["svc"]:
+                    v["stops"] = [round(s_ * L_ / tr["L"], 1) for s_ in v["stops"]]
+                tr["L"] = round(L_, 1)
+            tr["p"] = p_
             n_lift += lift
         keep = []
         for e in peds:  # people keep 0.35-1.35 m to their right (both sides of the line), else all on its free side
@@ -458,4 +537,4 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
     note(f"traffic: {len(roads)} directed road edges ({round(sum(e['L'] * e['lanes'] for e in roads) / 1000, 1)} lane-km), "
          f"{len(ctrls)} signal controllers, {nsig} signalled approaches; {len(peds)} footpath edges "
          f"({round(sum(e['L'] for e in peds) / 1000, 1)} km), {ncross} signalled crossings")
-    return dict(roads=roads, rnodes=rnodes, ctrls=ctrls, heads=heads, peds=peds, pnodes=pn, trams=trams, restr=restr)
+    return dict(roads=roads, rnodes=rnodes, ctrls=ctrls, heads=heads, peds=peds, pnodes=pn, trams=trams, trains=trains, restr=restr)

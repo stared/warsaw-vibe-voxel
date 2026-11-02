@@ -14,11 +14,12 @@ import numpy as np
 
 CX, CY = 636965.62, 486975.12  # PKiN spire (OSM way 240119160), EPSG:2180
 THETA = math.radians(21.5)
-# 3950 x 3000 m: from the Rondo ONZ towers east across the Vistula to PGE Narodowy, north to Ogród Saski,
-# south past Trasa Łazienkowska (Al. Armii Ludowej down to Politechnika, Most Łazienkowski). The original 1500 m square around PKiN is the block
-# i in [0, 1500), j in [480, 1980) -- same cells, shifted 480 rows (whole metres, so nothing is resampled).
-W, D = 3950, 3150
-I0, J0 = 750, 1230  # grid position of the PKiN spire
+# 3950 x 4430 m: from the Rondo ONZ towers east across the Vistula to PGE Narodowy, north past the Old Town and the
+# New Town (Plac Zamkowy, the Rynek, the Barbican, Rynek Nowego Miasta and a street or two beyond), south past Trasa
+# Łazienkowska (Al. Armii Ludowej down to Politechnika, Most Łazienkowski). The Old Town strip added 1280 rows on the
+# north: the earlier map is j in [1280, 4430), the same cells.
+W, D = 3950, 4430
+I0, J0 = 750, 2510  # grid position of the PKiN spire
 RAW = "data/raw"
 
 EU = np.array([math.cos(THETA), math.sin(THETA)])   # grid +i in world

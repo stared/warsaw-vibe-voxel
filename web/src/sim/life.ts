@@ -5,6 +5,7 @@ import { findCrossings } from './crossings';
 import { drawDancers, DANCE } from './dance';
 import { LifeMeshes, MAX_CARS, MAX_PEOPLE, MAX_TRAM_SECTIONS, setCount } from './meshes';
 import { at, cellKey, landingLane, prepPath, pt, Turn, turnOf, type Pt } from './path';
+import { Trains } from './trains';
 import type { Agent, Car, Controller, Kind, PedEdge, Person, Pose, Rideable, Road, TrafficData, Tram, TramPath, TramStop } from './types';
 
 // Live streets on the real OSM networks (scripts/traffic.py): fixed-time signals; cars with the Intelligent Driver
@@ -47,6 +48,7 @@ export class StreetLife {
   readonly peds: PedEdge[];
   readonly cars: Car[] = [];
   readonly trams: Tram[] = [];
+  readonly trains: Trains;
   people: Person[] = [];
   private t = 0;
   private hour = 12;
@@ -94,6 +96,8 @@ export class StreetLife {
     for (const p of this.tramPaths)
       for (let s = hash(p.i + 3) * 500 + 60; s < p.L - 40; s += 450 + hash(s) * 300) if (this.tramClear(p, s)) this.trams.push(this.newTram(p, s));
     this.M = new LifeMeshes(scene, this.heads, TRAM.sec);
+    this.trains = new Trains(data.trains ?? []);
+    this.M.group.add(this.trains.group);
   }
 
   get group() { return this.M.group; }
@@ -111,6 +115,7 @@ export class StreetLife {
     };
     this.acc += dt;
     while (this.acc >= STEP) { this.step(STEP, density); this.acc -= STEP; }
+    this.trains.update(dt, hh);
     this.render(dt, night, this.acc);
   }
 
@@ -589,6 +594,7 @@ export class StreetLife {
     const back = 1 - lead / STEP;
     this.drawCars(back, night);
     this.drawTrams(back, night);
+    this.trains.render(0, night);
     const n = this.drawPeople(dt, lead);
     const nd = drawDancers(this.M, n, MAX_PEOPLE, this.t, this.hour, this.world?.groundAt(DANCE.x, DANCE.y) ?? 0);
     setCount(n + nd, this.M.legs, this.M.torso);

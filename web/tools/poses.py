@@ -42,7 +42,7 @@ for name, cat in CATS.items():
         hf = 2 * math.atan(36 / (2 * f)) if ar >= 1 else 2 * math.atan(24 / (2 * f))  # long side 36 mm
         vf = math.degrees(2 * math.atan(math.tan(hf / 2) / ar)) if ar >= 1 else math.degrees(2 * math.atan(36 / (2 * f)))
         # GPS error put many cameras inside a wall: step back, away from the landmark, to the first open cell
-        if not (abs(i - 750) < 36 and abs(j - 1230) < 36):
+        if not (abs(i - 750) < 36 and abs(j - 2510) < 36):
             ux, uz = (i - L["x"]) / max(dist, 1), (j - L["y"]) / max(dist, 1)
             for step in range(0, 60):
                 ci, cj = int(i + ux * step), int(j + uz * step)
@@ -50,9 +50,9 @@ for name, cat in CATS.items():
                     i, j = i + ux * step, j + uz * step
                     break
         y0 = float(g[min(D - 1, int(j)), min(W - 1, int(i))]) + 1.6
-        if abs(i - 750) < 36 and abs(j - 1230) < 36:  # GPS inside PKiN's tower: the 30th-floor terrace, 114 m
+        if abs(i - 750) < 36 and abs(j - 2510) < 36:  # GPS inside PKiN's tower: the 30th-floor terrace, 114 m
             y0 += 114
-            i, j = i + (i - 750) * 0.4, j + (j - 1230) * 0.4  # at the terrace parapet, not inside the shaft
+            i, j = i + (i - 750) * 0.4, j + (j - 2510) * 0.4  # at the terrace parapet, not inside the shaft
         pitch = max(-30.0 if y0 > 100 else 0.0, min(28.0, math.degrees(math.atan((L["g"] + (L["z"] - L["g"]) * 0.5 - y0) / dist))))
         hr = 17.0
         if c["date"]:

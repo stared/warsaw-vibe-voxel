@@ -28,12 +28,14 @@ IN_WARSAW = re.compile(r",?\s+(in|w)\s+(Warsaw|Warszawie)\b.*$|,\s*Warsaw$|\s*\(
 # metres for a small monument; the Jazdów houses (~220 m) come with their own
 FAR_TIERS = {
     9000: "Pałac Kultury i Nauki, Varso Tower, PGE Narodowy, Wisła, Pałac Prezydencki, Uniwersytet Warszawski, Sejm, "
-          "Warszawa Centralna, Teatr Wielki",
+          "Warszawa Centralna, Teatr Wielki, Zamek Królewski, Rynek Starego Miasta",
     5000: "Kościół św. Krzyża, Muzeum Narodowe, Grób Nieznanego Żołnierza, Plac Piłsudskiego, Ogród Saski, Pałac Saski, "
           "Złota 44, Złote Tarasy, Centrum Nauki Kopernik, Politechnika Warszawska, Most Poniatowskiego, "
           "Most Świętokrzyski, Zachęta, Muzeum Sztuki Nowoczesnej, Hotel Bristol, Hotel Europejski, Plac Trzech Krzyży, "
           "Zamek Ujazdowski, BUW, Bulwary Wiślane, Muzeum Fryderyka Chopina, Filharmonia Narodowa, Synagoga Nożyków, "
-          "Hala Koszyki, Elektrownia Powiśle, Plac Zbawiciela, Plac Konstytucji",
+          "Hala Koszyki, Elektrownia Powiśle, Plac Zbawiciela, Plac Konstytucji, Kolumna Zygmunta, Plac Zamkowy, "
+          "Archikatedra św. Jana, Barbakan, Rynek Nowego Miasta, Kościół św. Anny, Most Śląsko-Dąbrowski, "
+          "Katedra św. Floriana, POLIN, Pałac Krasińskich, Błękitny Wieżowiec",
     1800: "Q22, Rondo 1, InterContinental, Marriott, Cosmopolitan, Warszawskie Centrum Finansowe, Oxford Tower, "
           "Spektrum Tower, Skysawa, Hotel Warszawa, Novotel, Torwar, Teatr Narodowy, Palma, PAST-a, Rotunda PKO, "
           "Uniwersytet Muzyczny Fryderyka Chopina, Pałac Lubomirskich, Syrenka, Warszawa Śródmieście, Plac Defilad, "
@@ -42,7 +44,10 @@ FAR_TIERS = {
           "Teatr Polski, Teatr Ateneum, Teatr Roma, Studio Buffo, TR Warszawa, Kładka pieszo-rowerowa, Most Łazienkowski, "
           "Most Średnicowy, Park Ujazdowski, Mauzoleum Walki i Męczeństwa, Muzeum Getta Warszawskiego, Ambasada USA, "
           "Plac Grzybowski, Plac Powstańców Warszawy, Dom Partii, Smyk, Ściana Wschodnia, Port Praski, Pałac Błękitny, "
-          "Pałac Potockich, Teatr Żydowski, Muzeum Etnograficzne",
+          "Pałac Potockich, Teatr Żydowski, Muzeum Etnograficzne, Kościół Jezuitów, Kościół św. Kazimierza, "
+          "Kościół Nawiedzenia NMP, Kościół św. Jacka, Pałac Pod Blachą, Katedra Polowa, Arsenał, Pałac Mostowskich, "
+          "Multimedialny Park Fontann, Arkady Kubickiego, Pomnik Powstania Warszawskiego, Sobór Marii Magdaleny, "
+          "Pałac Jabłonowskich, Plac Bankowy, Warszawa Wileńska, Syrenka Staromiejska",
     900: "Centrum (metro), Świętokrzyska (metro), Nowy Świat-Uniwersytet (metro), Politechnika (metro), "
          "Rondo ONZ (metro), Centrum Nauki Kopernik (metro), Stadion Narodowy (metro), Plac Konstytucji (metro), "
          "Warszawa Powiśle, "
@@ -53,7 +58,9 @@ FAR_TIERS = {
          "Pomnik Adama Mickiewicza, Pomnik Józefa Piłsudskiego, Pomnik Józefa Poniatowskiego, Pałac Staszica, Neon Muzeum, "
          " Teatr Kwadrat, Teatr Capitol, Teatr Polonia, "
          "Teatr Sabat, Teatr IMKA, Kino Atlantic, Fotoplastikon, Biblioteka Krasińskich, Pałac Zamoyskich, "
-         "Pałac Tyszkiewiczów, Brama Uniwersytecka, Stadion Agrykola, Hotel MDM, Dom Chłopa, Widok Towers",
+         "Pałac Tyszkiewiczów, Brama Uniwersytecka, Stadion Agrykola, Hotel MDM, Dom Chłopa, Widok Towers, "
+         "Mały Powstaniec, Sąd Najwyższy, Pomnik Bohaterów Getta, Bazar Różyckiego, Teatr Kamienica, "
+         "Żydowski Instytut Historyczny, Kościół Narodzenia NMP, Pawiak, AGAD, Collegium Nobilium, Pomnik Nike",
     400: "Pałac Sobańskich, Pałac Przezdzieckich, Pomnik Ofiar Tragedii Smoleńskiej, Riviera, Warszawa Śródmieście WKD, "
          "Pawilon Cepelii, Pomnik Kościuszkowców, Elizeum, Hotel Nobu, Willa Pniewskiego, Muzeum Techniki, "
          "Auditorium Maximum, Muzeum Ewolucji, Plac Na Rozdrożu, Gmach Giełdy i Banku Polskiego, Pomnik Lecha Kaczyńskiego, "
@@ -62,7 +69,7 @@ FAR_TIERS = {
          "Pomnik Tadeusza Kościuszki, Teatr Lalka, Muzeum Azji i Pacyfiku, Kamienica pod Gigantami, Hotel Grand, "
          "Zebra Tower, Kinoteka, Kościół Res Sacra Miser, Centrum Pieniądza NBP, Galeria Foksal, Hotel Sheraton, "
          "Kościół Świętej Trójcy na Solcu, Planetarium Niebo Kopernika, Pałac Karasia, Pałac Uruskich, Salonik Chopinów, "
-         "Muzeum Ziemi, Astoria, Kolektyw3",
+         "Muzeum Ziemi, Astoria, Kolektyw3, Miła 18",
 }
 FAR = {n.strip(): far for far, names in FAR_TIERS.items() for n in names.split(",")}
 
@@ -89,6 +96,24 @@ PICKS = {
     "Q1340262": P(kind="music university"),
     "Q1627287": P(kind="square"),
     "Q47501099": P(name="Syrenka", en="Warsaw Mermaid", kind="monument"),
+    "Q25413410": P(name="Syrenka Staromiejska", en="Old Town Mermaid", kind="monument", alt="Syrenka Pomnik Syreny mermaid"),
+    "Q555792": P(name="Mały Powstaniec", en="Little Insurgent", kind="monument"),
+    "Q450966": P(name="Pomnik Powstania Warszawskiego", en="Warsaw Uprising Monument", kind="monument"),
+    "Q9268861": P(name="Sąd Najwyższy", en="Supreme Court", kind="court"),
+    "Q429007": P(name="Pomnik Bohaterów Getta", en="Monument to the Ghetto Heroes", kind="monument"),
+    "Q4099231": P(name="Miła 18", en="Anielewicz bunker", kind="memorial"),
+    "Q4706409": P(name="Pomnik Nike", en="Monument to the Heroes of Warsaw", kind="monument", alt="Pomnik Bohaterów Warszawy"),
+    "Q651018": P(name="Sobór Marii Magdaleny", en="Orthodox Cathedral of St Mary Magdalene", kind="cathedral"),
+    "Q11687601": P(name="Bazar Różyckiego", kind="market"),
+    "Q2772800": P(name="Warszawa Wileńska", kind="railway station, shopping centre"),
+    "Q1630149": P(name="Pałac Jabłonowskich", en="Jabłonowski Palace", kind="palace"),
+    "Q1017591": P(name="Plac Bankowy", en="Bank Square", kind="square"),
+    "Q7209884": P(name="AGAD", en="Central Archives of Historical Records", kind="archives"),
+    "Q1109274": P(name="Collegium Nobilium", kind="theatre school"),
+    "Q9356046": P(name="Teatr Kamienica", kind="theatre"),
+    "Q1574347": P(name="Żydowski Instytut Historyczny", en="Jewish Historical Institute", kind="institute"),
+    "Q11745545": P(name="Kościół Narodzenia NMP", en="Church of the Nativity", kind="church"),
+    "Q6940986": P(name="Pawiak", en="Pawiak Prison museum", kind="museum"),
     "Q1683191": P(kind="monument"),
     "Q2320937": P(kind="railway station"),
     "Q1756534": P(kind="castle, contemporary art centre", alt="CSW Centrum Sztuki Współczesnej", site="https://u-jazdowski.pl"),

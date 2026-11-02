@@ -5,7 +5,7 @@ import { dataTexture } from './util';
 
 // material ids, as in scripts/voxelize.py
 export const MAT = { SOLID: 0, WALL: 1, GLASS: 2, LEAF: 3, WATER: 4, LAMP: 5, METAL: 6, PKIN: 7, GRASS: 8, MARK: 9, SOIL: 10, CAR: 11,
-  ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19, CLASSIC: 20, WINDOW: 21 } as const;
+  ROOF: 12, CONCRETE: 13, CLOCK: 14, BRONZE: 15, SIGN: 16, JET: 17, SIGNBAND: 18, RIBBON: 19, CLASSIC: 20, WINDOW: 21, TENEMENT: 22 } as const;
 
 type U<T> = { value: T };
 export interface VoxelUniforms {
@@ -255,6 +255,20 @@ const SURFACE = `
         else gEmissive = windowLight(cell, zone, floor(lvl / 4.0)) * 1.2 * uNight;
       }
     } else { gRough = 0.3; gMetal = 0.4; }
+  } else if (m == ${MAT.TENEMENT}) {
+    gRough = 0.85;
+    if (vert) {
+      bool ground = lvl < 4.0, inBay = mod(u, 3.0) < 1.0;
+      float fl = mod(lvl, 4.0);
+      bool win = inBay && (ground ? lvl > 0.5 && lvl < 3.0 : fl > 0.5 && fl < 2.5);
+      if (win) {
+        col = mix(base * 0.42, vec3(0.10, 0.13, 0.17), 0.55) + 0.025 * h;
+        gRough = 0.12; gMetal = 0.6;
+        vec2 room = vec2(floor(u / 6.0) + wpos * 17.31 + vN.x * 3.1, floor(lvl / 4.0) + vN.z * 5.7);
+        if (ground) { if (hash12(vec2(floor(u / 6.0), wpos * 3.7)) < 0.7) gEmissive = vec3(1.0, 0.8, 0.55) * 1.4 * uNight; }
+        else gEmissive = windowLight(cell, room, floor(lvl / 4.0)) * uNight;
+      }
+    }
   } else if (m == ${MAT.CLASSIC}) {
     gRough = 0.8;
     if (vert && lvl < 7.5) col *= mod(lvl, 2.0) < 1.0 ? 0.9 : 1.0;

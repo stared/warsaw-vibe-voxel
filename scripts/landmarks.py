@@ -50,11 +50,34 @@ LABELS = {
     "Elektrownia Powiśle": dict(kind="power station turned shopping centre", rebuilt=2020),
     "Stadion Miejski Legii Warszawa": dict(name="Stadion Legii", en="Legia Warsaw Stadium", kind="stadium", year=2011),
     "Plac Konstytucji": dict(kind="square", year=1952, alt="MDM"),
+    "Zamek Królewski": dict(en="Royal Castle", kind="royal castle, museum", rebuilt=1984, alt="Royal Castle museum", anchor="top"),
+    "Kolumna Zygmunta": dict(en="Sigismund's Column", kind="column", year=1644, rebuilt=1949, alt="Zygmunt Sigismund III Vasa", anchor="top"),
+    "Plac Zamkowy": dict(en="Castle Square", kind="square"),
+    "Archikatedra pw. Świętego Jana Chrzciciela": dict(name="Archikatedra św. Jana", en="St John's Archcathedral", kind="cathedral", rebuilt=1956),
+    "Sanktuarium Matki Bożej Łaskawej": dict(name="Kościół Jezuitów", en="Jesuit Church", kind="church"),
+    "Rynek Starego Miasta": dict(en="Old Town Market Square", kind="square", alt="Stare Miasto Old Town Rynek"),
+    "Barbakan": dict(en="Barbican", kind="city gate", year=1540, rebuilt=1954),
+    "Rynek Nowego Miasta": dict(en="New Town Market Square", kind="square", alt="Nowe Miasto New Town"),
+    "Kościół pw. św. Kazimierza": dict(name="Kościół św. Kazimierza", en="St Casimir's Church", kind="church", alt="Sakramentki"),
+    "Kościół parafialny pw. Nawiedzenia Najświętszej Maryi Panny": dict(name="Kościół Nawiedzenia NMP", en="Church of the Visitation", kind="church"),
+    "Kościół pw. Świętego Jacka": dict(name="Kościół św. Jacka", en="St Hyacinth's Church", kind="church", alt="Dominikanie"),
+    "Kościół pw. Świętej Anny": dict(name="Kościół św. Anny", en="St Anne's Church", kind="church"),
+    "Pałac Pod Blachą": dict(en="Copper-Roof Palace", kind="palace"),
+    "Arkady Kubickiego": dict(en="Kubicki Arcades", kind="arcades"),
+    "Multimedialny Park Fontann": dict(en="Multimedia Fountain Park", kind="fountains"),
+    "Pałac Krasińskich": dict(en="Krasiński Palace", kind="palace, National Library"),
+    "Katedra polowa Wojska Polskiego Najświętszej Maryi Panny Królowej Polski": dict(name="Katedra Polowa", en="Field Cathedral of the Polish Army", kind="cathedral"),
+    "Arsenał": dict(en="Arsenal", kind="museum, former arsenal"),
+    "Pałac Mostowskich": dict(en="Mostowski Palace", kind="palace"),
+    "Błękitny Wieżowiec": dict(en="Blue Tower", kind="office tower", year=1991, anchor="top"),
+    "Muzeum Historii Żydów Polskich Polin": dict(name="POLIN", en="Museum of the History of Polish Jews", kind="museum", year=2013, alt="Muzeum Historii Żydów Polskich"),
+    "Most Śląsko-Dąbrowski": dict(kind="bridge", year=1949),
+    "Bazylika Katedralna Świętego Michała Archanioła i Świętego Floriana Męczennika": dict(name="Katedra św. Floriana", en="St Florian's Cathedral", kind="cathedral", year=1904, rebuilt=1972, anchor="top"),
 }
-# places without a single OSM polygon, at EPSG:2180 x, y (the river mid-stream by Most Świętokrzyski, the boulevard by Kopernik)
+# places without a single OSM polygon, at EPSG:2180 x, y (the boulevard by Kopernik), or the river
 EXTRA_LABELS = {
     "Zielona Złota": dict(kind="street greening", year=2026, at=(637350, 487120)),  # between the two carriageways of Złota east of Marszałkowska
-    "Wisła": dict(en="Vistula", kind="river", at=(639034, 487782)),
+    "Wisła": dict(en="Vistula", kind="river", at="river"),  # mid-stream, as far from every bridge as the map allows
     "Bulwary Wiślane": dict(en="Vistula Boulevards", kind="riverside promenade", at=(638714, 487996)),
     "Domki Fińskie": dict(en='Finnish houses', kind='wooden houses', year=1945, alt='Osiedle Jazdów Wolny Jazdów Otwarty Jazdów',
                           site='https://jazdow.pl', at=(638492, 485890)),
@@ -120,8 +143,22 @@ def adjust_heights(top, feats, note):
 
 
 MAT_IDS = {"solid": 0, "wall": 1, "glass": 2, "metal": 6, "pkin": 7, "grass": 8, "roof": 12, "concrete": 13,
-           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19, "classic": 20, "window": 21}
-VARSO = Point(244, 1414)  # Varso Tower spire, grid
+           "bronze_grid": 15, "sign": 16, "sign_band": 18, "ribbon": 19, "classic": 20, "window": 21, "tenement": 22}
+VARSO = Point(244, 2694)  # Varso Tower spire, grid
+# the Old Town and the New Town (the walled town from the Barbican to the castle, Freta and Rynek Nowego Miasta to
+# Przyrynek), traced on the 2025 ortho, EPSG:2180: their houses are rebuilt tenements -- plastered in many colours,
+# tiled roofs, windows a storey apart -- not the city's blocks
+HISTORIC_CORE = [(636902, 489443), (637120, 489530), (637246, 489224), (637424, 489112), (637527, 488948),
+                 (637620, 488738), (637336, 488626), (637244, 488697), (637163, 488826), (637107, 488976),
+                 (637118, 489072), (637042, 489101)]
+
+
+def historic_core():
+    from shapely.geometry import Polygon
+    from aoi import to_grid
+    return Polygon([tuple(float(v) for v in to_grid(x, y)) for x, y in HISTORIC_CORE])
+
+
 OVERRIDES = json.load(open(Path(__file__).with_name("overrides.json")))["buildings"]
 
 
@@ -499,7 +536,8 @@ def details_geometry(vol, g, feats, pal, note):
     bridges(vol, g, pal, note)
     pge_spire(vol, g, pal, note)
     aviation_masts(vol, g, pal, note)
-    zlota44_crown(vol, g, pal, note)
+    zlota44(vol, g, feats, pal, note)
+    castle_tower(vol, g, feats, pal, note)
     msn(vol, g, feats, pal, note)
     saski_site(vol, g, pal, note)
     sejm(vol, g, feats, pal, note)
@@ -512,21 +550,21 @@ def classic_buildings(vol, g, feats, pal, note):
         # the east front's pediment (ridge 21-22 m in the LiDAR) over the portico, its gable roof running 14 m back
         classic_rebuild(vol, g, pal, z["geom"], eave=17, slope=0.25, wall_hex="#e0d2b0", roof_hex="#7f9a8a",
                         glass_hex="#c9d3d6", glass_above=22, rows=[(1, 1), (3, 4), (9, 4)], bay=4.5,
-                        gables=[(555, 573, 1383, 1398, "c", 23)], attic=2, cap=23, pure_hip=True, note=note,
+                        gables=[(1835, 1853, 1383, 1398, "c", 23)], attic=2, cap=23, pure_hip=True, note=note,
                         name="Zachęta")
         # the east front's portico (Commons 2008): FOUR columns in a 2 m recess under the pediment, the door behind
         stone = pal(_hex("#e8dcc2"), 0)
         dark = pal((40, 34, 30), MAT_IDS["window"])
-        for r in range(557, 572):
+        for r in range(1837, 1852):
             gz = int(g[r, 1385])
             row = np.nonzero(vol[gz + 6, r, 1370:1405])[0]
             if not len(row):
                 continue
             fc = 1370 + row[-1]
             vol[gz + 1:gz + 12, r, fc - 1:fc + 1] = 0
-            if r in (558, 562, 566, 570):
+            if r in (1838, 1842, 1846, 1850):
                 vol[gz + 1:gz + 12, r, fc] = stone
-            if 563 <= r <= 565:
+            if 1843 <= r <= 1845:
                 vol[gz + 1:gz + 6, r, fc - 2] = dark
     holy_trinity(vol, g, feats, pal, note)
     hk = _feat(feats, "Hala Koszyki")
@@ -540,8 +578,8 @@ def classic_buildings(vol, g, feats, pal, note):
         # folded roof plates, a zigzag of 20 peaks 3 m over the 11 m roof edge (it was dark green glass, flat)
         recolour_walls(vol, g, rot["geom"], pal, "#8ea4ae", M_GLASS, note, "Rotunda")
         roofc = pal(_hex("#c3c6c8"), 6)
-        cy, cx = 1509.5, 1093.0
-        for r in range(1488, 1532):
+        cy, cx = 2789.5, 1093.0
+        for r in range(2768, 2812):
             for c in range(1072, 1116):
                 d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
                 if not 15.0 <= d <= 17.6:
@@ -577,20 +615,22 @@ def classic_buildings(vol, g, feats, pal, note):
                         bay=4.2, attic=1, note=note, name="Gmach Główny PW")
         # over the curved front: the attic and the sculpture group (Commons 2019)
         wall = pal(_hex("#e8d5d0"), MAT_IDS["classic"]); bronze = pal((96, 98, 90), 6)
-        for r in range(2524, 2536):
+        for r in range(3804, 3816):
             for c in range(583, 599):
                 gz = int(g[r, c]); col = vol[:, r, c]
                 if col[gz + 22] == 0:
                     continue
                 col[gz + 23:gz + 26] = wall
-                if 2528 <= r <= 2532 and 587 <= c <= 594:
+                if 3808 <= r <= 3812 and 587 <= c <= 594:
                     col[gz + 26:gz + 28] = wall
-                    if 589 <= c <= 592 and 2529 <= r <= 2531:
+                    if 589 <= c <= 592 and 3809 <= r <= 3811:
                         col[gz + 28:gz + 32] = bronze
 
 
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
     details_geometry(vol, g, feats, pal, note)
+    sigismund_column(vol, g, feats, osm, pal, note)
+    syrenka(vol, g, osm, pal, note)
     H = vol.shape[0]
 
     def top_at(r, c):
@@ -628,10 +668,27 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
     labels = [found[n] for n in LABELS if n in found] + override_labels(feats, g, top_at)
     from aoi import to_grid
     for n, facts in EXTRA_LABELS.items():
-        c, r = (int(v) for v in to_grid(*facts["at"]))
+        c, r = river_spot(vol, g, C) if facts["at"] == "river" else (int(v) for v in to_grid(*facts["at"]))
         labels.append(label(n, facts, c, r, top_at(r, c)))
     note("labels:", [l["name"] for l in labels])
     return labels, make_views(found, osm, g, top_at, note, bmask, vol, leaf_ids)
+
+
+def river_spot(vol, g, C):
+    """The river's label: on open water at least 40 m from either bank, as far as possible from every bridge deck and
+    from the map's edge -- in the middle of the longest stretch between two bridges, never on one."""
+    D, W = g.shape
+    rr, cc = np.mgrid[0:D, 0:W]
+    water = np.take_along_axis(vol, (g - 1)[None].astype(np.intp), 0)[0] == C["water"]
+    lab, n = ndimage.label(water)
+    water = lab == np.argmax(np.bincount(lab.ravel())[1:]) + 1
+    open_ = ndimage.distance_transform_edt(water) >= 40
+    deck = DECK > 0 if DECK is not None else np.zeros((D, W), bool)
+    far = ndimage.distance_transform_edt(~deck) if deck.any() else np.full((D, W), 1e9)
+    edge = np.minimum.reduce([rr, cc, D - 1 - rr, W - 1 - cc])
+    score = np.where(open_, np.minimum(far, edge), -1)
+    r, c = np.unravel_index(np.argmax(score), score.shape)
+    return int(c), int(r)
 
 
 def make_views(found, osm, g, top_at, note, bmask, vol=None, leaf_ids=()):
@@ -754,8 +811,8 @@ LINE_WINDOWS = [
     # Teatr Wielki: four attic windows, two each side of the quadriga (9.3 and 6.2 m left of the middle, 5.9 and 9.0 m
     # right), 24-27 m; the wings two rows, 9-10 and 12-13 m, one between each pair of arcade columns; the flanking
     # sections of the centre block two ground-floor windows each
-    ((1435, 52.0), (1444, 50.5), [2.5, 6.5], [(2, 3), (13, 3)], 2),
-    ((1477, 44.5), (1484, 46.0), [2.0, 5.5], [(2, 3), (13, 3)], 2),
+    ((1435, 1332.0), (1444, 1330.5), [2.5, 6.5], [(2, 3), (13, 3)], 2),
+    ((1477, 1324.5), (1484, 1326.0), [2.0, 5.5], [(2, 3), (13, 3)], 2),
 ]
 
 
@@ -767,7 +824,7 @@ def teatr_wielki_centre(vol, g, pal, note):
     22 m in front of three doors, solid rusticated piers at the ends; behind the columns five bays of stacked
     windows (11-13 and 14-16 m); the main block to 22 m; the attic (26 m wide, to 28.6 m) with FOUR windows, two
     each side of the quadriga, under the pediment and its gable roof (apex 34 m) running 29 m back."""
-    x0, y0, x1, y1 = 1444.7, 41.9, 1475.7, 37.7  # the column line: LiDAR front edge rows 37-42
+    x0, y0, x1, y1 = 1444.7, 1321.9, 1475.7, 1317.7  # the column line: LiDAR front edge rows 1317-1322
     L = math.hypot(x1 - x0, y1 - y0)
     ux, uy = (x1 - x0) / L, (y1 - y0) / L
     nx, ny = -uy, ux  # into the building (towards larger rows)
@@ -1065,7 +1122,7 @@ def pkin_regularize(vol, g, pk, minx, miny, maxx, maxy, g0, pal, note, L=7, Lo=3
     # 2019): a ring colonnade 3 m deep, open to 10 m, columns every 3 m round the arc, under a 14 m cornice with a band
     # of small square windows (one every 4 m at 11 m); then plain drums stepping back: 18 m out to r 36.5, 23 m to
     # r 26.5, 26 m inside with a 27 m cap to r 10. The rounded LiDAR left a staircase of rings.
-    kcy, kcx = 1230, 662
+    kcy, kcx = 2510, 662
     roof_c = pal(tuple(pal.entries[stone][:3]), 12)
     win_k = pal((58, 70, 68), MAT_IDS["window"])
     tiers = [(10, 27), (23, 26), (26.5, 23), (36.5, 18), (39.5, 14)]
@@ -1283,7 +1340,7 @@ def pkin_low_windows(vol, win, g0, note, bay=6.3, lo=26):
     windows (4.4-7.8 m and 8.6-11 m) and a single window on the top storey (12.8-14.6 m). Every straight wall run on the outline of the low blocks
     gets as many bays as fit, centred, at least 3 m from its ends. The tower, the front blocks, Sala Kongresowa
     (round: its colonnade) and the porches are left alone."""
-    box = vol[:, 1080:1380, 600:900]
+    box = vol[:, 2360:2660, 600:900]
     occ = box != 0
     H = occ.shape[0]
     top = np.where(occ.any(0), H - 1 - np.argmax(occ[::-1], axis=0), 0) - g0
@@ -1313,9 +1370,9 @@ def pkin_low_windows(vol, win, g0, note, bay=6.3, lo=26):
                         span = (k - 1) * bay
                         cs = [-span / 2 + i * bay for i in range(k)]
                         if axis == 0:
-                            fc = [(0, q + 1080, nrm, u + 600 + L / 2)]
+                            fc = [(0, q + 2360, nrm, u + 600 + L / 2)]
                         else:
-                            fc = [(1, q + 600, nrm, u + 1080 + L / 2)]
+                            fc = [(1, q + 600, nrm, u + 2360 + L / 2)]
                         ht = int(np.median(top[q, u:u1] if axis == 0 else top[u:u1, q]))
                         rows = [(g0 + 4, 4), (g0 + 9, 2), (g0 + 13, 2)]
                         if ht >= 21:
@@ -1347,10 +1404,10 @@ def pkin_pinnacles(vol, pk, z_top, minx, miny, maxx, maxy, note):
     note(f"PKiN pinnacles: {len(rr)}")
 
 
-PK_R0, PK_C0, PK_L = 1190, 710, 78  # the tower's local frame: rows 1190-1267, cols 710-787 (centre 1228.5, 748.5)
-PK_SHAFT_LO = (1207, 1250, 727, 770)  # 44 m square below the 56 m ledge (LiDAR)
-PK_SHAFT = (1209, 1248, 729, 768)     # 40 m square above it
-PK_TOWERS = [(1193, 1212, 716, 735), (1193, 1212, 762, 781), (1245, 1264, 716, 735), (1245, 1264, 762, 781)]
+PK_R0, PK_C0, PK_L = 2470, 710, 78  # the tower's local frame: rows 2470-2547, cols 710-787 (centre 2508.5, 748.5)
+PK_SHAFT_LO = (2487, 2530, 727, 770)  # 44 m square below the 56 m ledge (LiDAR)
+PK_SHAFT = (2489, 2528, 729, 768)     # 40 m square above it
+PK_TOWERS = [(2473, 2492, 716, 735), (2473, 2492, 762, 781), (2525, 2544, 716, 735), (2525, 2544, 762, 781)]
 
 
 def pkin_tower(vol, g0, pal, stone, note):
@@ -1421,7 +1478,7 @@ def pkin_tower(vol, g0, pal, stone, note):
     fill(PK_SHAFT, 132, 132, roof)
     # the stages above, widths from the aerial photo (2017, from Złota 44: the arcade stage 0.43 of the shaft's
     # width, the clock storey 0.30; the LiDAR blobs are 2-3 m fatter on every side), heights from the LiDAR
-    st2b = (1217, 1240, 737, 760); st2 = (1220, 1237, 740, 757); clk = (1223, 1234, 743, 754)
+    st2b = (2497, 2520, 737, 760); st2 = (2500, 2517, 740, 757); clk = (2503, 2514, 743, 754)
     fill(st2b, 133, 138); top(st2b, 138)
     fill(st2, 139, 164); top(st2, 164)
     fill(clk, 165, 181); top(clk, 181)
@@ -1528,7 +1585,7 @@ def pkin_fronts(vol, g0, pal, stone, note):
     z = lambda h: g0 + h
     n = 0
     towers = [(b, vol[:, b[0]:b[1] + 1, b[2]:b[3] + 1].copy()) for b in PK_TOWERS]  # the blocks' clearing overlaps them
-    for sgn, r_front in ((1, 1163), (-1, 1294)):
+    for sgn, r_front in ((1, 2443), (-1, 2574)):
         R = lambda d: r_front + sgn * d  # d: metres behind the projection's face (d < 0: in front of it)
         rows = lambda d0, d1: slice(min(R(d0), R(d1)), max(R(d0), R(d1)) + 1)
         vol[z(0):z(40), rows(-7, 43), 731:767] = 0
@@ -1576,7 +1633,7 @@ def pkin_fronts(vol, g0, pal, stone, note):
 # the four pavilions' porticos (Teatr Dramatyczny's, Commons 2019 from the fountain; the others alike): (centre
 # column, wall row, outward row step); LiDAR: a 22 m porch 4-5 m deep with a 14 m front part 3 m further out, roofs
 # at 12-13 m
-PKIN_PAVILION_PORTICOS = [(681.5, 1103, -1), (815.5, 1103, -1), (682.5, 1355, 1), (817.5, 1355, 1)]
+PKIN_PAVILION_PORTICOS = [(681.5, 2383, -1), (815.5, 2383, -1), (682.5, 2635, 1), (817.5, 2635, 1)]
 
 
 def pkin_pavilion_porticos(vol, g0, pal, stone, note):
@@ -1605,7 +1662,7 @@ def pkin_pavilion_porticos(vol, g0, pal, stone, note):
     note(f"PKiN pavilion porticos: {len(PKIN_PAVILION_PORTICOS)}")
 
 
-def pkin_balustrades(vol, g0, stone, note, box=(1080, 1380, 600, 900)):
+def pkin_balustrades(vol, g0, stone, note, box=(2360, 2660, 600, 900)):
     """The low blocks' attics end in a stone balustrade with a vase every few metres (Commons 2011, the east pavilion
     from Plac Defilad; 2019 Teatr Dramatyczny): on every roof edge of the low blocks (12-32 m) that drops 3 m or more,
     a 1 m parapet, and a 1 m vase on it every 3 m. Not on the tower, the front blocks or Sala Kongresowa."""
@@ -1619,8 +1676,8 @@ def pkin_balustrades(vol, g0, stone, note, box=(1080, 1380, 600, 900)):
                             for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1))])
     edge = (rel >= 12) & (rel <= 32) & (top - nb >= 3)
     rr, cc = np.mgrid[r0:r1, c0:c1]
-    kong = np.hypot(rr + 0.5 - 1230, cc + 0.5 - 662) < 42
-    tower = (rr >= 1155) & (rr <= 1302) & (cc >= 727) & (cc <= 771)
+    kong = np.hypot(rr + 0.5 - 2510, cc + 0.5 - 662) < 42
+    tower = (rr >= 2435) & (rr <= 2582) & (cc >= 727) & (cc <= 771)
     edge &= ~kong & ~tower
     n = 0
     for r, c in zip(*np.nonzero(edge)):
@@ -1771,7 +1828,7 @@ def holy_trinity(vol, g, feats, pal, note):
     D, W = g.shape
     rr, cc = _cells_geom(f["geom"].buffer(2), D, W)
     white, green = pal(_hex("#e9e4d8"), MAT_IDS["classic"]), pal(_hex("#6f9c86"), 12)
-    cy, cx = 637.5, 1347.0
+    cy, cx = 1917.5, 1347.0
     n = 0
     for r, c in zip(rr, cc):
         gz = int(g[r, c])
@@ -1847,7 +1904,7 @@ PONIATOWSKI_PIERS = [2940, 3007, 3081, 3166, 3245, 3307, 3376]
 PONIATOWSKI_ENDS = (2914, 3410)
 
 
-def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
+def poniatowski(vol, g, pal, note, r0=2860, r1=2912):
     """Most Poniatowskiego (deck arch, 1914, rebuilt 1946; Commons photos from the banks and under the deck): the
     LiDAR gave a 2 m slab whose height wobbled 13-19 m from cell to cell with two lanes at different heights and no
     piers, a ragged ceiling hanging over the river. Rebuilt: the deck at a smooth level (the LiDAR profile, smoothed
@@ -1930,7 +1987,7 @@ def poniatowski(vol, g, pal, note, r0=1580, r1=1632):
 
 
 # Teatr Wielki's wings on Plac Teatralny (front lines from the LiDAR edges; pav: which end has the corner pavilion)
-TW_WINGS = [dict(p0=(1380, 83.5), p1=(1432, 66.5), pav=0), dict(p0=(1484, 51.5), p1=(1544, 37.0), pav=1)]  # the balcony edge (LiDAR 7-8 m)
+TW_WINGS = [dict(p0=(1380, 1363.5), p1=(1432, 1346.5), pav=0), dict(p0=(1484, 1331.5), p1=(1544, 1317.0), pav=1)]  # the balcony edge (LiDAR 7-8 m)
 
 
 def teatr_wielki_wings(vol, g, pal, note, depth=17, H=18):
@@ -1993,33 +2050,149 @@ def teatr_wielki_wings(vol, g, pal, note, depth=17, H=18):
     note(f"Teatr Wielki wings rebuilt: {len(TW_WINGS)}")
 
 
-def zlota44_crown(vol, g, pal, note, box=(1175, 1225, 450, 500)):
-    """Złota 44's crown (Commons 2017-2019): the glass skin runs up past the 180 m roof as a screen whose top slopes
-    from the north-west corner to the 192 m peak at the south-east one, the sail's slanted silhouette; the LiDAR saw
-    the flat roof inside it (and the screen only at the peak)."""
-    r0, r1, c0, c1 = box
-    sub = vol[:, r0:r1, c0:c1]
-    occ = sub != 0
-    Hh = occ.shape[0]
-    T = np.where(occ.any(0), Hh - 1 - np.argmax(occ[::-1], axis=0), 0) - g[r0:r1, c0:c1]
-    tw = T >= 150
-    edge = tw & ~ndimage.binary_erosion(tw)
-    rr, cc = np.nonzero(tw)
-    p = (rr - rr.min()) / max(1, rr.max() - rr.min()) * 0.5 + (cc - cc.min()) / max(1, cc.max() - cc.min()) * 0.5
-    pmap = np.zeros(tw.shape); pmap[rr, cc] = p
-    glass = pal(_hex("#c4ced4"), M_GLASS)
+def sigismund_column(vol, g, feats, osm, pal, note):
+    """Kolumna Zygmunta (1644, re-erected 1949; pl.wikipedia: 22 m with the 2.75 m statue; Commons 2001-2019 from the
+    square): granite steps, a light stone pedestal about a quarter of the height with the bronze plaques, a slender grey
+    granite shaft, a bronze Corinthian capital, the bronze king raising the cross. The LiDAR left a 2 x 2 dark block."""
+    pt = next((gm for i, typ, t, gm in osm.areas if t.get("wikidata") == "Q958585"), None)
+    if pt is None:
+        note("Sigismund's Column: not in OSM"); return
+    c0, r0 = (int(v) for v in pt.centroid.coords[0])
+    g0 = int(np.median(g[r0 - 4:r0 + 5, c0 - 4:c0 + 5]))
+    step, stone = pal(_hex("#a9a49b"), 0), pal(_hex("#cfc8bb"), 0)
+    granite, bronze, gold = pal(_hex("#8e8b85"), 0), pal(_hex("#4c4a3c"), MAT_IDS["metal"]), pal(_hex("#c9a646"), MAT_IDS["metal"])
+    vol[g0:g0 + 30, r0 - 4:r0 + 5, c0 - 4:c0 + 5] = 0
+    vol[g0, r0 - 3:r0 + 4, c0 - 3:c0 + 4] = step
+    vol[g0 + 1, r0 - 2:r0 + 3, c0 - 2:c0 + 3] = step
+    vol[g0 + 2:g0 + 7, r0 - 1:r0 + 2, c0 - 1:c0 + 2] = stone  # the pedestal
+    vol[g0 + 7, r0 - 1:r0 + 2, c0 - 1:c0 + 2] = stone
+    vol[g0 + 8:g0 + 18, r0, c0] = granite                     # the shaft
+    vol[g0 + 18, r0, c0] = bronze                             # the capital
+    vol[g0 + 19, r0, c0] = stone                              # the statue's plinth
+    vol[g0 + 20:g0 + 22, r0, c0] = bronze                     # the king
+    vol[g0 + 22, r0, c0] = gold                               # the cross, raised
+    vol[g0 + 21, r0, c0 + 1] = gold
+    note(f"Sigismund's Column rebuilt at ({r0}, {c0}), 22 m")
+
+
+def syrenka(vol, g, osm, pal, note):
+    """The Old Town Mermaid in the middle of the Rynek's round basin (OSM amenity=fountain 778976855; Konstanty Hegel
+    1855, a copy since 2008; Commons 2010-2019): a granite pedestal ~2 m over the water, the dark bronze figure ~2.5 m
+    with her sword raised."""
+    geom = next((gm for i, typ, t, gm in osm.areas if i == 778976855), None)
+    if geom is None:
+        note("Syrenka: no basin in OSM"); return
+    c0, r0 = (int(v) for v in geom.centroid.coords[0])
+    z0 = int(g[r0, c0])
+    granite, bronze = pal(_hex("#7d7a74"), 0), pal(_hex("#4d5a4a"), MAT_IDS["metal"])
+    vol[z0:z0 + 2, r0, c0] = granite
+    vol[z0 + 2:z0 + 4, r0, c0] = bronze
+    vol[z0 + 4, r0, c0] = bronze  # the raised arm and sword
+    note(f"Syrenka on the Rynek at ({r0}, {c0})")
+
+
+CASTLE_TOWER = 249083894  # Wieża Zegarowa, the clock tower's OSM part (19 m in OSM; 60 m: research_oldtown.md)
+
+
+def castle_tower(vol, g, feats, pal, note):
+    """The Royal Castle's clock tower (Commons 2009-2019 from Plac Zamkowy; 60 m, en.wikipedia): a square shaft in the
+    castle's brick-red plaster with light quoins to the cornice at 40 m (the LiDAR's flat top there), a dark dial
+    with gilded hands on each face under it, then the green copper helmet -- a bulb, an open lantern, a smaller bulb,
+    the spire with a gilded ball. The flat-roof pass had cut the LiDAR's helmet down to the cornice."""
+    f = next((f for f in feats if f["id"] == CASTLE_TOWER), None)
+    if f is None:
+        note("castle tower: not in OSM"); return
+    rr, cc = f["rr"], f["cc"]
+    g0 = int(np.median(g[rr, cc]))
+    wall = pal(_hex("#c2654f"), MAT_IDS["tenement"])
+    quoin, stone = pal(_hex("#e4d9c6"), 0), pal(_hex("#ddd2bf"), 0)
+    dial, gold = pal(_hex("#26303a"), MAT_IDS["window"]), pal(_hex("#c9a646"), MAT_IDS["metal"])
+    copper = pal(_hex("#5d8a74"), 12)
+    rc, ccen = float(rr.mean()) + 0.5, float(cc.mean()) + 0.5
+    r0, r1, c0, c1 = rr.min(), rr.max(), cc.min(), cc.max()
+    vol[g0 + 39:g0 + 75, r0 - 4:r1 + 5, c0 - 4:c1 + 5] = 0
+    corner = (np.isin(rr, (r0, r1)) & np.isin(cc, (c0, c1))) | (np.isin(rr, (r0, r1)) & np.isin(cc, (c0 + 1, c1 - 1))) | \
+             (np.isin(cc, (c0, c1)) & np.isin(rr, (r0 + 1, r1 - 1)))
+    for r, c, q in zip(rr, cc, corner):
+        vol[g0:g0 + 39, r, c] = quoin if q else wall  # the whole shaft (OSM's own pink on its lower part)
+    ring = ndimage.binary_dilation(np.pad(np.ones((r1 - r0 + 1, c1 - c0 + 1), bool), 1), iterations=1)
+    for i, j in zip(*np.nonzero(ring)):
+        vol[g0 + 39, r0 - 2 + i, c0 - 2 + j] = stone  # the cornice, 1 m proud
+    mr, mc = int(rc), int(ccen)
+    for z in range(g0 + 31, g0 + 34):  # the dials, 3 m, 31-34 m up, one on each face
+        for a in (-1, 0, 1):
+            vol[z, r0, mc + a] = vol[z, r1, mc + a] = vol[z, mr + a, c0] = vol[z, mr + a, c1] = dial
+    vol[g0 + 32, r0, mc] = vol[g0 + 32, r1, mc] = vol[g0 + 32, mr, c0] = vol[g0 + 32, mr, c1] = gold
+    for z, rad in ((40, 4.6), (41, 4.4), (42, 4.0), (43, 3.4), (44, 2.6), (45, 1.6), (46, 1.6), (47, 1.6), (48, 1.6),
+                   (49, 2.1), (50, 1.5), (51, 0.9), (52, 0.5), (53, 0.5), (54, 0.5), (55, 0.5), (57, 0.5), (58, 0.5)):
+        for r in range(int(rc - 5), int(rc + 6)):
+            for c in range(int(ccen - 5), int(ccen + 6)):
+                d = math.hypot(r + 0.5 - rc, c + 0.5 - ccen)
+                if d <= rad + 0.35:
+                    lantern_open = 45 <= z <= 47 and 0.8 < d and (r + c) % 2 == 0
+                    vol[g0 + z, r, c] = 0 if lantern_open else copper
+    vol[g0 + 56, mr, mc] = gold   # the ball
+    vol[g0 + 59, mr, mc] = gold   # the finial
+    note(f"castle clock tower rebuilt: shaft to 39 m, helmet to 60 m over ({mr}, {mc})")
+
+
+# Złota 44 (Daniel Libeskind, 2017) as OSM maps it in parts (the LiDAR sees only its top, so the voxels were a prism
+# of the widest floor, flat at 180 m): the 180 m body; the "sail", a glass fin on the east whose top slopes 58 m, to
+# the 192 m peak (skillion, roof:direction 295); the wing that swells out of the east and south faces between 8-36 m
+# and 99 m (skillion wedges: nothing at their low edge, 63-91 m of glass at the high one); the two podiums
+# (OSM ids, heights in m: min, max, roof height, direction the roof falls to)
+ZLOTA44_PARTS = {239175870: (0, 180, 0, None), 982221142: (95, 192, 58, 295), 982221143: (8, 99, 91, 161),
+                 982221144: (36, 99, 63, 78), 982799287: (36, 99, 63, 78)}
+ZLOTA44_PODIUMS = (239175869, 979893146)
+ZLOTA44_SAIL = 982221142
+
+
+def zlota44(vol, g, feats, pal, note):
+    """Commons 2015-2019 (from the street, Złote Tarasy and the PKiN terrace): silver-white glass, a white floor
+    line every storey (3.4 m: a voxel in three), the sail and the wing in the same skin."""
+    from aoi import EU, EV
+    by = {f["id"]: f for f in feats}
+    if not all(k in by for k in ZLOTA44_PARTS):
+        note("Złota 44: parts missing in OSM, left as built"); return
+    glass, line = pal(_hex("#c7d2d7"), M_GLASS), pal(_hex("#eff1f2"), 0)
+    tower = np.zeros(g.shape, bool)
+    for k in ZLOTA44_PARTS:
+        tower[by[k]["rr"], by[k]["cc"]] = True
+    rr, cc = np.nonzero(tower)
+    g0 = int(np.median(g[rr, cc]))
+    pod = {}
+    for k in ZLOTA44_PODIUMS:
+        if k in by:
+            for r, c in zip(by[k]["rr"], by[k]["cc"]):
+                pod[(r, c)] = max(pod.get((r, c), 0), int(round(by[k]["maxh"] or 0)))
+    top = {}
+    for k, (lo, hi, rh, dirn) in ZLOTA44_PARTS.items():
+        f = by[k]
+        if dirn is None:
+            h = np.full(len(f["rr"]), float(hi))
+        else:  # the roof falls towards the bearing: highest on the far side from it
+            b = math.radians(dirn)
+            v = np.array([math.sin(b), math.cos(b)])
+            di, dj = v @ EU, v @ EV
+            t = (f["cc"] + 0.5) * di + (f["rr"] + 0.5) * dj
+            t = (t - t.min()) / max(t.max() - t.min(), 1e-6)  # 0 at the high edge, 1 at the low one
+            h = hi - rh * t
+        for r, c, hh in zip(f["rr"], f["cc"], h):  # the sail is the face where it stands: its own top, over the body's
+            lo_, hi_ = top.get((r, c), (999, 0))
+            top[(r, c)] = (min(lo_, lo), hh if k == ZLOTA44_SAIL else max(hi_, hh))
     n = 0
-    for r, c in zip(*np.nonzero(edge)):
-        gz = int(g[r + r0, c + c0])
-        h = int(round(178 + 14 * pmap[r, c]))
-        t = gz + int(T[r, c])
-        if h + gz > t:
-            sub[t + 1:gz + h + 1, r, c] = glass
-            n += 1
-    note(f"Złota 44 crown: {n} screen columns")
+    for (r, c), (lo, hi) in top.items():
+        col = vol[:, r, c]
+        base = pod.get((r, c), 0)
+        col[g0 + max(base, 1):g0 + 200] = 0
+        z0, z1 = g0 + max(int(lo), base), g0 + int(round(hi))
+        for z in range(z0, z1):
+            col[z] = line if (z - g0) % 3 == 0 else glass
+        n += max(0, z1 - z0)
+    note(f"Złota 44 rebuilt from its OSM parts: {len(top)} columns, {n} voxels, peak {max(h for _, h in top.values()):.0f} m")
 
 
-def msn(vol, g, feats, pal, note, r0=1104, r1=1208, c0=961, c1=1001):
+def msn(vol, g, feats, pal, note, r0=2384, r1=2488, c0=961, c1=1001):
     """Muzeum Sztuki Nowoczesnej (Thomas Phifer, 2024; Commons 2024-2025 from Marszałkowska and Plac Defilad): a
     white box, but not blank: a ground-floor colonnade 3 m deep under the whole east front (slender piers every
     6 m), long ribbon windows on the first floor, and two deep cut-outs higher up on the east front near its ends
@@ -2056,8 +2229,8 @@ def msn(vol, g, feats, pal, note, r0=1104, r1=1208, c0=961, c1=1001):
 
 # Plac Piłsudskiego, the Saxon Palace rebuild site (2025 ortho): two white exhibition tents over the excavation
 # and the excavated foundations themselves; no OSM buildings there, so the build left bare ground
-SASKI_TENTS = [(355, 377, 1422, 1478), (402, 432, 1415, 1470)]
-SASKI_DIG = (252, 440, 1378, 1505)
+SASKI_TENTS = [(1635, 1657, 1422, 1478), (1682, 1712, 1415, 1470)]
+SASKI_DIG = (1532, 1720, 1378, 1505)
 
 
 def saski_site(vol, g, pal, note):
@@ -2141,7 +2314,7 @@ def sejm(vol, g, feats, pal, note):
         if t <= 17 and int(math.atan2(r - cy, c - cx) * d) % 3 == 0:
             col[gz + 4:gz + 12] = win
     # the tower block beside the hall: peach, as the photos show
-    for r in range(2397, 2410):
+    for r in range(3677, 3690):
         for c in range(1884, 1900):
             gz = int(g[r, c]); col = vol[gz:gz + 25, r, c]
             col[(col != 0) & (np.arange(25) < 20)] = peach
@@ -2150,7 +2323,7 @@ def sejm(vol, g, feats, pal, note):
 
 def pkin_east(vol, g0, pal, stone, note):
     """The main entrance on Plac Defilad (east; Commons photos from the steps and the square): between the corner
-    towers a 25 m block (rows 1213-1244 up to col 795) with a heavy cornice and the coat-of-arms attic, three tall
+    towers a 25 m block (rows 2493-2524 up to col 795) with a heavy cornice and the coat-of-arms attic, three tall
     windows over the portico; in front (cols 796-801) the portico: EIGHT 2 m columns 3.7 m apart, 13 m tall, under a
     4 m entablature bearing the red 'PAŁAC KULTURY I NAUKI' letters, its roof at 18 m; doors behind. The LiDAR made
     the portico a block that the old carve turned into giant fins."""
@@ -2159,24 +2332,24 @@ def pkin_east(vol, g0, pal, stone, note):
     dark = pal((40, 40, 38), MAT_IDS["window"])
     win = pal((64, 84, 84), MAT_IDS["window"])
     red = pal((176, 40, 40), MAT_IDS["sign"])
-    R0, R1 = 1213, 1244
+    R0, R1 = 2493, 2524
     vol[z(1):z(40), R0:R1 + 1, 771:808] = 0
     vol[z(0):z(17), R0:R1 + 1, 771:796] = stone
     vol[z(17):z(19), R0:R1 + 1, 771:797] = stone  # cornice over the entrance
     vol[z(19), R0:R1 + 1, 771:796] = roof
-    vol[z(19):z(22), 1225:1233, 771:774] = stone  # the arms group against the shaft
-    vol[z(22):z(24), 1227:1231, 771:773] = stone
+    vol[z(19):z(22), 2505:2513, 771:774] = stone  # the arms group against the shaft
+    vol[z(22):z(24), 2507:2511, 771:773] = stone
     # the shaft's east face down to the entrance roof: its window bands as above (pkin_tower starts them at 30 m)
     glass = pal((64, 84, 84), MAT_IDS["window"]); spand = pal((120, 110, 94), M_PKIN)
-    vol[z(20):z(30), 1207:1251, 770] = stone
-    vol[z(20):z(30), 1219:1239, 770] = 0  # the middle 1 m back
+    vol[z(20):z(30), 2487:2531, 770] = stone
+    vol[z(20):z(30), 2499:2519, 770] = 0  # the middle 1 m back
     for h in range(20, 30):
         v = glass if (h - 58) % 4 in (0, 1) else spand
         for o in (-8, -4, 0, 4, 8):
-            r = int(round(1228.5 + o - 0.5))
+            r = int(round(2508.5 + o - 0.5))
             vol[z(h), r:r + 2, 769] = v
         for o in (-15, 15):
-            r = int(round(1228.5 + o - 0.5))
+            r = int(round(2508.5 + o - 0.5))
             vol[z(h), r:r + 2, 770] = v
     # portico
     vol[z(13):z(16), R0 + 1:R1, 796:802] = stone
@@ -2196,6 +2369,7 @@ def pkin_east(vol, g0, pal, stone, note):
 
 
 # ---------------------------------------------------------------- the Vistula bridges' structure under the decks
+CABLES = []  # thin steel cables for the viewer to draw as lines: [x0, z0, y0, x1, z1, y1, radius] (three.js axes)
 DECK = None  # (D, W) top of the bridge decks (first free voxel over the road surface), set by voxelize.py / patch.py
 
 
@@ -2258,10 +2432,41 @@ def _pier(vol, g, F, s0, along, lat0, lat1, ztop, mat, round_ends=0.0, step=0.5)
                 vol[z0:min(ztop, H), r, c] = mat
 
 
+# Most Śląsko-Dąbrowski (1949, on the piers of the 1864 Kierbedź bridge: six spans of ~75 m; Commons 2023 from the
+# banks and under the deck): the axis from the OSM way (east -> west end), the river piers at those stations
+SLASKO_DABROWSKI = dict(p0=(2675.0, 979.0), p1=(2178.5, 1112.7), piers=[105, 180, 255, 330, 405])
+
+
+def slasko_dabrowski(vol, g, pal, note):
+    """Steel plate girders under the deck with a red fascia along both edges, grey girders between; massive stone
+    piers with rounded cutwaters (the 1864 ones). The LiDAR deck stood on nothing."""
+    F = _deck_frame(SLASKO_DABROWSKI["p0"], SLASKO_DABROWSKI["p1"], 15)
+    if not len(F["s"]):
+        return
+    red = pal(_hex("#9d3b31"), MAT_IDS["metal"])
+    steel = pal(_hex("#7d858a"), MAT_IDS["metal"])
+    stone = pal(_hex("#8f877c"), 0)
+    n = 0
+    for r, c, sv, lv, zt in zip(F["rr"], F["cc"], F["s"], F["l"], F["z"]):
+        if int(g[r, c]) >= zt - 6:
+            continue
+        lmin, lmax, _ = F["edges"](sv)
+        edge = lv < lmin + 1.2 or lv > lmax - 1.2
+        inner = ((lv - lmin) % 4.5) < 1.0
+        if edge or inner:
+            vol[zt - 5:zt - 2, r, c] = red if edge else steel
+            n += 1
+    for s0 in SLASKO_DABROWSKI["piers"]:
+        lmin, lmax, zt = F["edges"](s0)
+        _pier(vol, g, F, s0, 5, lmin - 1, lmax + 1, int(round(zt)) - 5, stone, round_ends=3)
+    note(f"Most Śląsko-Dąbrowski: girders under {n} deck cells, {len(SLASKO_DABROWSKI['piers'])} piers")
+
+
 def bridges(vol, g, pal, note):
     if DECK is None:
         note("bridges: no deck raster, skipped")
         return
+    slasko_dabrowski(vol, g, pal, note)
     srednicowy(vol, g, pal, note)
     lazienkowski(vol, g, pal, note)
     swietokrzyski_piers(vol, g, pal, note)
@@ -2322,8 +2527,8 @@ def osm_piers(vol, g, pal, note):
 # sides inclined, and at the Praga zone a corten frame on the south edge -- a long diagonal up from the deck, a top
 # chord ~8 m over it, a steep leg back down -- over a sloped wooden backrest. Its line from the LiDAR ridge (DSM 2025:
 # 14 m at the deck end, 21-22 at the knee, 17-19 at the top chord's end).
-KLADKA = dict(box=(25, 245, 2355, 2835),
-              frame=[(2655, 104, 0), (2688, 92, 9), (2700, 86, 7), (2712, 80, 0)])  # (col, row, m over the deck)
+KLADKA = dict(box=(1305, 1525, 2355, 2835),
+              frame=[(2655, 1384, 0), (2688, 1372, 9), (2700, 1366, 7), (2712, 1360, 0)])  # (col, row, m over the deck)
 
 
 def kladka_abakanowicz(vol, g, pal, note):
@@ -2417,7 +2622,7 @@ def kladka_abakanowicz(vol, g, pal, note):
 # Most średnicowy (rail, 1931, rebuilt 1947; pl.wikipedia: five spans of ~93 m, 445 m, two parallel decks of two
 # tracks): the supports from the 2025 ortho (pier noses past the upstream edge at cols 2939, 3026, 3113; the next
 # ones at the same ~87-column step under the trees and at the banks)
-SREDNICOWY = dict(p0=(2813, 1294), p1=(3330, 1111), supports=[2852, 2939, 3026, 3113, 3200, 3287])
+SREDNICOWY = dict(p0=(2813, 2574), p1=(3330, 2391), supports=[2852, 2939, 3026, 3113, 3200, 3287])
 
 
 def srednicowy(vol, g, pal, note):
@@ -2488,7 +2693,7 @@ def srednicowy(vol, g, pal, note):
 # Most Łazienkowski (1974, rebuilt 2015; pl.wikipedia: 76.5 + 3 x 90 + 76.5 m = 424.5 m, steel plate girders 3.8 m
 # deep, six concrete supports; walkways under both edges since 2017): the river supports from the 2025 ortho (a pier
 # nose past the upstream edge at col 3367, the deck's expansion joint over the west bank)
-LAZIENKOWSKI = dict(p0=(2940, 2891), p1=(3570, 2900), supports=[3020, 3097, 3187, 3277, 3367, 3445], walk=(3140, 3540))
+LAZIENKOWSKI = dict(p0=(2940, 4171), p1=(3570, 4180), supports=[3020, 3097, 3187, 3277, 3367, 3445], walk=(3140, 3540))
 
 
 def lazienkowski(vol, g, pal, note):
@@ -2555,18 +2760,18 @@ def swietokrzyski_piers(vol, g, pal, note):
     """Commons photos from both bulwary: a thin box deck (~2.5 m) with the edges cantilevered; under it single wide
     concrete piers with rounded corners, white-grey like the pylon."""
     pylc = pal(_hex("#d6d8d6"), MAT_IDS["concrete"])
-    p0, p1 = (2705, 880), (3190, 752)
+    p0, p1 = (2705, 2160), (3190, 2032)
     F = _deck_frame(p0, p1, 18)
     if not len(F["s"]):
         return
     # the pylon: the highest column of its colour near the axis
-    box = vol[:, 760:850, 2950:3050]
+    box = vol[:, 2040:2130, 2950:3050]
     zz, rr, cc = np.nonzero(box == pylc)
     if not len(zz):
         note("Most Świętokrzyski: pylon not found")
         return
     k = np.argmax(zz)
-    pr, pc = rr[k] + 760, cc[k] + 2950
+    pr, pc = rr[k] + 2040, cc[k] + 2950
     sp = (pc + 0.5 - F["o"][0]) * F["t"][0] + (pr + 0.5 - F["o"][1]) * F["t"][1]
     deck_c = pal(_hex("#cfd0cc"), MAT_IDS["concrete"])
     n = 0
@@ -2610,7 +2815,7 @@ def _line6(vol, a, b, val):
 
 # antenna masts on the towers whose photos show them banded red and white (Commons: Q22 2016-2019 from Rondo ONZ, LIM
 # from Jerozolimskie, WFC from Emilii Plater): the LiDAR caught them as 1-2 m columns over the roof, left grey
-AVIATION_MASTS = {"Q22": (649, 373, 32), "Centrum LIM": (1622, 468, 60), "WFC": (947, 519, 30)}  # row, col, radius
+AVIATION_MASTS = {"Q22": (1929, 373, 32), "Centrum LIM": (2902, 468, 60), "WFC": (2227, 519, 30)}  # row, col, radius
 
 
 def aviation_masts(vol, g, pal, note):
@@ -2638,7 +2843,7 @@ def aviation_masts(vol, g, pal, note):
     note("aviation masts banded red/white:", n, "columns")
 
 
-PGE_SPIRE = (1341, 3579)  # the LiDAR's spire over the pitch (rows, cols)
+PGE_SPIRE = (2621, 3579)  # the LiDAR's spire over the pitch (rows, cols)
 
 
 def pge_spire(vol, g, pal, note):
