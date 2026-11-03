@@ -42,7 +42,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 9000);
 const controls = makeControls();
 const post = makePost(renderer, scene, camera);
-const daylight = new Daylight(renderer, scene, engine === 'zones' ? 2048 : 8192);
+const daylight = new Daylight(renderer, scene, engine === 'zones' ? 2048 : 4096);
 const nav = new Nav(camera, controls, renderer.domElement, scene, (v) => flyTo(v), onMode);
 const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)], river: RIVER, onDay: (d) => { setDay(d); share(); },
   onDayEnd: () => { if (weatherName === 'typical') setWeather('typical'); },
@@ -295,12 +295,14 @@ async function boot() {
 }
 
 let lastT = performance.now(), riverT = 0, riverSeen = -1e9;
+const frames: number[] = [];
 const t0 = lastT;
 renderer.setAnimationLoop((now) => {
   fly?.(now);
   stepWeather(now);
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
+  adapt(dt);
   nav.update(dt);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   const above = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3;
@@ -331,3 +333,13 @@ renderer.setAnimationLoop((now) => {
 });
 
 window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post };
+
+// slow frames (the median of 15 over 45 ms): one pixel per CSS pixel
+function adapt(dt: number) {
+  if (document.body.classList.contains('loading') || renderer.getPixelRatio() <= 1) return;
+  frames.push(dt);
+  if (frames.length < 15) return;
+  const median = frames.sort((a, b) => a - b)[7];
+  frames.length = 0;
+  if (median > 0.045) { renderer.setPixelRatio(1); onResize(); }
+}
