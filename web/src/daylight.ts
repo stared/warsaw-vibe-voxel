@@ -24,8 +24,8 @@ export class Daylight {
   private shadowKey = '';
   private northTheta = 0;
 
-  constructor(renderer: THREE.WebGLRenderer, private readonly scene: THREE.Scene) {
-    const sun = this.sun, size = Math.min(8192, renderer.capabilities.maxTextureSize);
+  constructor(renderer: THREE.WebGLRenderer, private readonly scene: THREE.Scene, shadowSize = 8192) {
+    const sun = this.sun, size = Math.min(shadowSize, renderer.capabilities.maxTextureSize);
     sun.castShadow = true;
     sun.shadow.mapSize.set(size, size);
     sun.shadow.bias = -0.0004;

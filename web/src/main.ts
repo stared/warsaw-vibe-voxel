@@ -42,7 +42,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 9000);
 const controls = makeControls();
 const post = makePost(renderer, scene, camera);
-const daylight = new Daylight(renderer, scene);
+const daylight = new Daylight(renderer, scene, engine === 'zones' ? 2048 : 8192);
 const nav = new Nav(camera, controls, renderer.domElement, scene, (v) => flyTo(v), onMode);
 const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)], river: RIVER, onDay: (d) => { setDay(d); share(); },
   onDayEnd: () => { if (weatherName === 'typical') setWeather('typical'); },
@@ -76,7 +76,7 @@ boot();
 // phones get the real area over clay (zones.ts); ?engine=full insists on the whole city
 function pickEngine(): Engine {
   if (Math.min(screen.width, screen.height) < 600 && !qs.get('shape') && qs.get('engine') !== 'full') {
-    qs.set('shape', 'budget'); qs.set('budget', '2');
+    qs.set('shape', 'budget'); qs.set('budget', '0.75');
     history.replaceState(null, '', `?${qs}`);
   }
   return qs.get('shape') ? 'zones' : 'city';
