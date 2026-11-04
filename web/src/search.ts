@@ -1,3 +1,4 @@
+import { track } from './stats';
 import { $, el } from './util';
 
 export interface SearchItem {
@@ -34,6 +35,7 @@ export class PlaceSearch {
       if (e.key === 'ArrowDown') { this.move(1); e.preventDefault(); }
       else if (e.key === 'ArrowUp') { this.move(-1); e.preventDefault(); }
       else if (e.key === 'Enter' && this.hits[this.sel]) this.pick(this.hits[this.sel]);
+      else if (e.key === 'Enter') track('search', { name: null });
       else if (e.key === 'Escape') { this.input.value = ''; this.input.blur(); }
     });
     this.input.addEventListener('keyup', (e) => e.stopPropagation());
@@ -81,6 +83,7 @@ export class PlaceSearch {
     this.list.innerHTML = '';
     this.input.value = '';
     this.input.blur();
+    track('search', { name: it.name, kind: it.kind });
     it.go();
   }
 }

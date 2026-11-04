@@ -10,6 +10,7 @@ import { loadWindows } from './windows';
 import { Fountains } from './fountains';
 import { Hud } from './hud';
 import { Labels } from './labels';
+import { blank, gpu, startStats, track, trackLater } from './stats';
 import { Nav, type Mode, type Ride } from './nav/nav';
 import { makePost } from './post';
 import type { SearchItem } from './search';
@@ -44,9 +45,10 @@ const controls = makeControls();
 const post = makePost(renderer, scene, camera);
 const daylight = new Daylight(renderer, scene, engine === 'zones' ? 2048 : 4096);
 const nav = new Nav(camera, controls, renderer.domElement, scene, (v) => flyTo(v), onMode);
-const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)], river: RIVER, onDay: (d) => { setDay(d); share(); },
+const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)], river: RIVER, onDay: (d) => { setDay(d); share(); trackLater('date', { day: d }); },
   onDayEnd: () => { if (weatherName === 'typical') setWeather('typical'); },
-  onHour: (h) => { setHour(h); share(); }, onWeather: (w) => { setWeather(w); share(); }, onRiver: (cm) => flood?.setGauge(cm) });
+  onHour: (h) => { setHour(h); share(); trackLater('hour', { hour: +h.toFixed(1) }); },
+  onWeather: (w) => { setWeather(w); share(); track('weather', { weather: w }); }, onRiver: (cm) => { flood?.setGauge(cm); trackLater('river', { cm }); } });
 const precip = new Precip(scene);
 const map = new THREE.Box3();
 const tiltShift = qs.get('tilt') !== '0' && innerWidth >= 600 && (engine === 'city' || qs.get('tilt') === '1');
@@ -57,6 +59,7 @@ let uniforms: ReturnType<typeof makeUniforms> | null = null, streamer: TileStrea
 let fly: ((now: number) => void) | null = null;
 let barRect: DOMRect | null = null;
 let climate: Climate | null = null;
+let places: Label[] = [];
 let setWindows: ((hour: number, day: number) => void) | null = null;
 
 nav.cancelFly = () => { fly = null; };
@@ -71,6 +74,7 @@ addEventListener('keydown', (e) => {
   if (e.key === '/' && !(e.metaKey || e.ctrlKey || e.altKey) && !(e.target as Element).closest?.('input')) { bar.search.input.focus(); e.preventDefault(); }
 });
 tamePinch(renderer.domElement);
+startStats(renderer.domElement);
 boot();
 
 // phones get the real area over clay (zones.ts); ?engine=full insists on the whole city
@@ -121,6 +125,7 @@ function onResize() {
 function onMode(m: Mode, ride: Ride | null) {
   document.body.classList.toggle('walking', m !== 'orbit');
   hud?.set(m, ride);
+  track('mode', { mode: m, kind: ride?.kind ?? null });
 }
 
 const focus = () => (nav.mode === 'orbit' ? controls.target : camera.position);
@@ -213,6 +218,7 @@ function goView(v: View) {
 }
 
 function onLabel(l: Label) {
+  track('label', { name: l.name });
   const v = Object.values(views).find((w) => w.label === l.name);
   if (v && nav.mode === 'orbit') goView(v);
   else goPlace(l.x, l.y, 60, null, l.name);
@@ -250,6 +256,7 @@ async function boot() {
   let meta: Meta;
   [meta, climate] = await Promise.all([fetchJson<Meta>('data/meta.json'), fetchJson<Climate>('data/climate.json')]);
   views = meta.views;
+  places = meta.labels;
   uniforms = makeUniforms(meta, engine);
   loadFoliage(meta, uniforms).then((city) => bar.setDays({ 'leaves out': city.leaf, 'trees in colour': city.colour, 'leaves down': city.fall, ...DAYS }))
     .catch((e) => console.warn('foliage', e));
@@ -323,6 +330,7 @@ renderer.setAnimationLoop((now) => {
   streamer?.update(camera);
   daylight.fitShadow(focus(), camera, viewDist, map);
   post.composer.render();
+  report(now);
   if (flood && now - riverT > 250) {
     riverT = now;
     if (flood.inView(camera, 2500) || Math.abs(bar.river.value - RIVER.typical) > 20) riverSeen = now;
@@ -342,4 +350,38 @@ function adapt(dt: number) {
   const median = frames.sort((a, b) => a - b)[7];
   frames.length = 0;
   if (median > 0.045) { renderer.setPixelRatio(1); onResize(); }
+}
+
+// once loaded: load time and GPU, a one-colour screen after 2 s, frame times over the next 20 s, the nearest landmark every 30 s
+let loadedAt = 0, checked = false, lastNow = 0, sent = false;
+const times: number[] = [];
+function report(now: number) {
+  const ms = now - lastNow;
+  lastNow = now;
+  if (document.body.classList.contains('loading')) return;
+  const gl = renderer.getContext();
+  if (!loadedAt) {
+    loadedAt = now;
+    track('loaded', { engine, seconds: +(now / 1000).toFixed(1), gpu: gpu(gl), dpr: devicePixelRatio, width: innerWidth, height: innerHeight });
+    setInterval(() => { if (!document.hidden) seen(); }, 30000);
+    return;
+  }
+  if (!checked && now - loadedAt > 2000) {
+    checked = true;
+    const c = blank(gl);
+    if (c) track('blank', { colour: c, gpu: gpu(gl) });
+  }
+  if (sent || now - loadedAt < 3000 || document.hidden) return;
+  times.push(ms);
+  if (now - loadedAt < 23000) return;
+  sent = true;
+  const t = times.sort((a, b) => a - b), q = (k: number) => +t[Math.floor(k * (t.length - 1))].toFixed(1);
+  track('perf', { engine, median: q(0.5), p95: q(0.95), frames: t.length, ratio: renderer.getPixelRatio(), gpu: gpu(gl) });
+}
+
+function seen() {
+  const f = focus();
+  let best: Label | null = null, d = 400 ** 2;
+  for (const l of places) { const e = (l.x - f.x) ** 2 + (l.y - f.z) ** 2; if (e < d) { d = e; best = l; } }
+  if (best) track('view', { name: best.name, mode: nav.mode });
 }

@@ -147,6 +147,10 @@ Software:
 - **Data pipeline:** [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [Shapely](https://shapely.readthedocs.io/), [rasterio](https://rasterio.readthedocs.io/), [pyproj](https://pyproj4.github.io/pyproj/) and [Pillow](https://python-pillow.org/).
 - The look follows the MagicaVoxel renders by [ephtracy](https://ephtracy.github.io/).
 
+## Usage stats (web/src/stats.ts)
+
+The live site sends anonymous events to PostHog (EU): load time, GPU model and frame times, a one-colour screen after loading, crashes and errors, and which places people search for, click or look at. No cookies, no IP addresses, no session recordings, no typed search text. The PostHog key is not in the repo: the deploy reads it from the repository's Actions variable `POSTHOG_PROJECT_TOKEN`, so builds without it (forks, local) send nothing.
+
 ## License
 
 The code is under the [MIT license](LICENSE), © 2026 Piotr Migdał. The generated data in `web/public/data` derives from OpenStreetMap, so it is under the ODbL (© OpenStreetMap contributors), and from GUGiK open data.
