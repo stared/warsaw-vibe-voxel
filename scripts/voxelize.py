@@ -1709,7 +1709,8 @@ np.savez_compressed("data/debug/pkin_box.npz", vol=vol[:, 2360:2660, 600:900], g
                     pal=np.array(pal.entries, np.int32))  # PKiN's block for facade work (r0=2360, c0=600)
 
 import labels as labels_mod
-labels = labels_mod.assemble(labels, osm, lambda r, c: int(g[r, c] + (topi[r, c] if bmask[r, c] else 0)))
+labels = labels_mod.assemble(labels, osm, lambda r, c: max(int(g[r, c] + (topi[r, c] if bmask[r, c] else 0)),
+                                                            int(landmarks.MON_TOP[max(r - 1, 0):r + 2, max(c - 1, 0):c + 2].max())))
 labels_mod.radii(labels, g, g + np.where(bmask, topi, 0))
 
 # ---------------------------------------------------------------- floating debris

@@ -59,7 +59,7 @@ class Palette:  # same keys as voxelize.Palette, seeded with the full build's en
         return self.index[key]
 
 
-boxes = [BOXES[a] if a in BOXES else tuple(int(v) for v in a.split(",")) for a in sys.argv[1:]]
+boxes = [BOXES[a] if a in BOXES else tuple(int(v) for v in a.split(",")) for a in sys.argv[1:] if a != "monuments"]
 meta = json.load(open(OUT / "meta.json"))
 pal = Palette(meta["palette"])
 st = pickle.load(open("data/cache/pre_state.pkl", "rb"))
@@ -75,6 +75,13 @@ from osm import OSM
 _osm = OSM()
 landmarks.sigismund_column(vol, g, st["feats"], _osm, pal, note)
 landmarks.syrenka(vol, g, _osm, pal, note)
+if "monuments" in sys.argv[1:]:
+    import monuments
+    from osm import to_grid
+    landmarks.monuments.build(vol, g, pal, note, keep=set(np.array(ids["debris_keep"]).tolist()))
+    for m in monuments.MONUMENTS.values():
+        c, r = (int(v) for v in to_grid(*m["at"]))
+        boxes.append((max(r - 40, 0), r + 41, max(c - 40, 0), c + 41))
 keep = np.array(ids.pop("debris_keep"), dtype=vol.dtype)
 for b in boxes:
     debris.drop_debris(vol, g, keep, note, box=b)

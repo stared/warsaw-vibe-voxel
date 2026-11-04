@@ -7,6 +7,8 @@ import numpy as np
 from shapely.geometry import Point
 from scipy import ndimage
 
+import monuments
+
 M_WALL, M_GLASS, M_PKIN, M_CONCRETE, M_CLOCK = 1, 2, 7, 13, 14
 
 # OSM name -> what a label shows; order = label priority (decluttering keeps earlier ones).
@@ -631,6 +633,8 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
     details_geometry(vol, g, feats, pal, note)
     sigismund_column(vol, g, feats, osm, pal, note)
     syrenka(vol, g, osm, pal, note)
+    global MON_TOP
+    MON_TOP = monuments.build(vol, g, pal, note, keep=set(leaf_ids) | {C["trunk"]})
     H = vol.shape[0]
 
     def top_at(r, c):
