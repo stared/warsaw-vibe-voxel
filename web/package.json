@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "n8ao": "^2.0.1",
-    "posthog-js": "^1.444.4",
+    "posthog-js": "^1.445.0",
     "postprocessing": "^6.39.5",
     "three": "^0.186.1"
   },

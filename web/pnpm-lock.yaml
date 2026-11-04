@@ -170,8 +170,8 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1(postprocessing@6.39.5(three@0.186.1))(three@0.186.1)
       posthog-js:
-        specifier: ^1.444.4
-        version: 1.444.4
+        specifier: ^1.445.0
+        version: 1.445.0
       postprocessing:
         specifier: ^6.39.5
         version: 6.39.5(three@0.186.1)
@@ -577,8 +577,8 @@ packages:
     resolution: {integrity: sha512-49cGhUbXj8Qenv0iTMxA1cFBzxXoctpC9Ujd77t1WcbJIr6nF/eI7g/8MgxrYldFRuAXvja7xQRwavoW7kgrxQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-js@1.444.4:
-    resolution: {integrity: sha512-oZgy3ETGhygPewB+UNbdu9htO0u2b3EmTdGSdyc+jCpFyuhOW+Yd+3ZccifkhwouUchMAk1ps9R3vZd1iCB/wA==}
+  posthog-js@1.445.0:
+    resolution: {integrity: sha512-yGROp65trzMLv1EcjEuw79lI1sl94P5/3xpzURbHJyXvh3CHJ/h9j4jjtiJo7depNbnT38HbN8nda21MULmqmw==}
     peerDependencies:
       '@types/react': '>=16.8.0'
       react: '>=16.8.0'
@@ -909,7 +909,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  posthog-js@1.444.4:
+  posthog-js@1.445.0:
     dependencies:
       '@posthog/browser-common': 0.10.4
       '@posthog/core': 1.62.1
