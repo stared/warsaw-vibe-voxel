@@ -33,7 +33,8 @@ export function startStats(canvas: HTMLCanvasElement) {
   import('posthog-js/dist/module.slim').then(({ default: posthog }) => {
     posthog.init(KEY!, {
       api_host: 'https://eu.i.posthog.com',
-      persistence: 'memory',
+      defaults: '2026-08-30',
+      cookieless_mode: 'always',
       autocapture: false,
       disable_session_recording: true,
       disable_surveys: true,
@@ -47,8 +48,10 @@ export function startStats(canvas: HTMLCanvasElement) {
 }
 
 export function gpu(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+  const plain = String(gl.getParameter(gl.RENDERER));
+  if (plain !== 'WebKit WebGL') return plain;
   const ext = gl.getExtension('WEBGL_debug_renderer_info');
-  return ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : String(gl.getParameter(gl.RENDERER));
+  return ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : plain;
 }
 
 export function blank(gl: WebGLRenderingContext | WebGL2RenderingContext) {
