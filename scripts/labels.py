@@ -47,7 +47,8 @@ FAR_TIERS = {
           "Pałac Potockich, Teatr Żydowski, Muzeum Etnograficzne, Kościół Jezuitów, Kościół św. Kazimierza, "
           "Kościół Nawiedzenia NMP, Kościół św. Jacka, Pałac Pod Blachą, Katedra Polowa, Arsenał, Pałac Mostowskich, "
           "Multimedialny Park Fontann, Arkady Kubickiego, Pomnik Powstania Warszawskiego, Sobór Marii Magdaleny, "
-          "Pałac Jabłonowskich, Plac Bankowy, Warszawa Wileńska, Syrenka Staromiejska",
+          "Pałac Jabłonowskich, Plac Bankowy, Warszawa Wileńska, Syrenka Staromiejska, Ogród Zoologiczny, "
+          "Kościół św. Augustyna, Ogród Krasińskich",
     900: "Centrum (metro), Świętokrzyska (metro), Nowy Świat-Uniwersytet (metro), Politechnika (metro), "
          "Rondo ONZ (metro), Centrum Nauki Kopernik (metro), Stadion Narodowy (metro), Plac Konstytucji (metro), "
          "Warszawa Powiśle, "
@@ -60,7 +61,11 @@ FAR_TIERS = {
          "Teatr Sabat, Teatr IMKA, Kino Atlantic, Fotoplastikon, Biblioteka Krasińskich, Pałac Zamoyskich, "
          "Pałac Tyszkiewiczów, Brama Uniwersytecka, Stadion Agrykola, Hotel MDM, Dom Chłopa, Widok Towers, "
          "Mały Powstaniec, Sąd Najwyższy, Pomnik Bohaterów Getta, Bazar Różyckiego, Teatr Kamienica, "
-         "Żydowski Instytut Historyczny, Kościół Narodzenia NMP, Pawiak, AGAD, Collegium Nobilium, Pomnik Nike",
+         "Żydowski Instytut Historyczny, Kościół Narodzenia NMP, Pawiak, AGAD, Collegium Nobilium, Pomnik Nike, "
+         "Hotel Polski, Pomnik Poległym i Pomordowanym na Wschodzie, Plac Krasińskich, Pałac Paca, Muzeum Warszawy, "
+         "Wiadukt Pancera, Kościół Kapucynów, Ratusz Arsenał (metro), Mury obronne, Kościół św. Marcina, Ratusz, "
+         "Pałac Prymasowski, Kościół ewangelicko-reformowany, Kościół św. Ducha, Dworzec Wileński (metro), "
+         "Kościół św. Andrzeja, Galeria Wileńska, Muzeum Niepodległości, Kościół św. Franciszka",
     400: "Pałac Sobańskich, Pałac Przezdzieckich, Pomnik Ofiar Tragedii Smoleńskiej, Riviera, Warszawa Śródmieście WKD, "
          "Pawilon Cepelii, Pomnik Kościuszkowców, Elizeum, Hotel Nobu, Willa Pniewskiego, Muzeum Techniki, "
          "Auditorium Maximum, Muzeum Ewolucji, Plac Na Rozdrożu, Gmach Giełdy i Banku Polskiego, Pomnik Lecha Kaczyńskiego, "
@@ -69,7 +74,13 @@ FAR_TIERS = {
          "Pomnik Tadeusza Kościuszki, Teatr Lalka, Muzeum Azji i Pacyfiku, Kamienica pod Gigantami, Hotel Grand, "
          "Zebra Tower, Kinoteka, Kościół Res Sacra Miser, Centrum Pieniądza NBP, Galeria Foksal, Hotel Sheraton, "
          "Kościół Świętej Trójcy na Solcu, Planetarium Niebo Kopernika, Pałac Karasia, Pałac Uruskich, Salonik Chopinów, "
-         "Muzeum Ziemi, Astoria, Kolektyw3, Miła 18",
+         "Muzeum Ziemi, Astoria, Kolektyw3, Miła 18, Chrześcijańska Akademia Teologiczna, Kino Femina, Pałac Blanka, "
+         "Muzeum Marii Skłodowskiej-Curie, Pałac Branickich, Pałac Teppera, Kościół Loretański, Gruba Kaśka, "
+         "Dyrekcja Kolei Państwowych, Gnojna Góra, Pomnik Jana Kilińskiego, Pałac Teppera-Dückerta, Reduta Bank Polski, "
+         "Pałac Ministra Skarbu, Szpital Praski, Pałac Sapiehów, Plac Muranowski, Plac Hallera, Cerkiew Zaśnięcia NMP, "
+         "Pałac Borchów, Pałac Biskupów Krakowskich, Pomnik Żołnierzy 1 Armii WP, Muzeum Literatury, Pomnik Monte Cassino, "
+         "Pałac Młodziejowskich, Pałac Mniszchów, Kino Muranów, Dom pod Królami, Brama Mostowa, "
+         "Pomnik Kobietom Powstania Warszawskiego",
 }
 FAR = {n.strip(): far for far, names in FAR_TIERS.items() for n in names.split(",")}
 
@@ -242,6 +253,58 @@ PICKS = {
     "Q110927707": P(name="Kościół św. Barbary", kind="church"),
     "Q33545766": P(name="Hala Gwardii", en="", kind="market hall"),
     "Q60862214": P(kind="stadium"),
+    "Q220261": P(name="Ogród Zoologiczny", en="Warsaw Zoo", kind="zoo"),
+    "Q1164761": P(name="Hotel Polski", en=None, kind="historic hotel"),
+    "Q11746557": P(name="Kościół św. Augustyna", en="St Augustine's Church", kind="church"),
+    "Q11823409": P(name="Pomnik Poległym i Pomordowanym na Wschodzie", en="Monument to the Fallen and Murdered in the East", kind="monument"),
+    "Q6436190": P(name="Plac Krasińskich", en="Krasiński Square", kind="square"),
+    "Q1084094": P(name="Chrześcijańska Akademia Teologiczna", en="Christian Theological Academy", kind="university"),
+    "Q33545589": P(name="Pałac Paca", en="Pac Palace", kind="palace"),
+    "Q11739351": P(name="Kino Femina", en="Femina Cinema", kind="cinema"),
+    "Q881519": P(name="Pałac Blanka", en="Blank Palace", kind="palace"),
+    "Q11796756": P(name="Ogród Krasińskich", en="Krasiński Garden", kind="park"),
+    "Q3559646": P(name="Muzeum Marii Skłodowskiej-Curie", en="Maria Skłodowska-Curie Museum", kind="museum"),
+    "Q202277": P(name="Muzeum Warszawy", en="Museum of Warsaw", kind="museum"),
+    "Q9372423": P(name="Wiadukt Pancera", en="Pancer Viaduct", kind="viaduct"),
+    "Q898513": P(name="Pałac Branickich", en="Branicki Palace", kind="palace"),
+    "Q11745762": P(name="Kościół Kapucynów", en="Capuchin Church", kind="church", alt="Kościół Przemienienia Pańskiego"),
+    "Q638595": P(name="Ratusz Arsenał", en=None, kind="metro station"),
+    "Q33531576": P(name="Mury obronne", en="Old Town walls", kind="city walls"),
+    "Q28549669": P(name="Pałac Teppera", en="Tepper Palace", kind="palace"),
+    "Q4570021": P(name="Kościół św. Marcina", en="St Martin's Church", kind="church"),
+    "Q1386064": P(name="Ratusz", en="City Hall", kind="city hall", alt="Pałac Komisji Rządowej Przychodu i Skarbu Urząd Miasta"),
+    "Q1328597": P(name="Pałac Prymasowski", en="Primate's Palace", kind="palace"),
+    "Q5116977": P(name="Kościół Loretański", en="Loreto Church", kind="church"),
+    "Q9281064": P(name="Gruba Kaśka", en=None, kind="water intake"),
+    "Q9181452": P(name="Dyrekcja Kolei Państwowych", en="State Railways headquarters", kind="office building"),
+    "Q17333870": P(name="Kościół ewangelicko-reformowany", en="Reformed Evangelical Church", kind="church"),
+    "Q784827": P(name="Kościół św. Ducha", en="Holy Spirit Church", kind="church"),
+    "Q11703035": P(name="Gnojna Góra", en="Dung Hill", kind="viewpoint"),
+    "Q11823236": P(name="Pomnik Jana Kilińskiego", en="Jan Kiliński Monument", kind="monument"),
+    "Q1328698": P(name="Pałac Teppera-Dückerta", en="Tepper-Dückert Palace", kind="palace"),
+    "Q5318333": P(name="Dworzec Wileński", en=None, kind="metro station"),
+    "Q11746609": P(name="Kościół św. Andrzeja", en="St Andrew's Church", kind="church"),
+    "Q821700": P(name="Reduta Bank Polski", en="Polish Bank Redoubt", kind="historic building"),
+    "Q9184043": P(name="Galeria Wileńska", en=None, kind="shopping centre"),
+    "Q155196": P(name="Pałac Ministra Skarbu", en="Treasury Minister's Palace", kind="palace"),
+    "Q9352133": P(name="Szpital Praski", en="Praga Hospital", kind="hospital"),
+    "Q1582462": P(name="Muzeum Niepodległości", en="Museum of Independence", kind="museum", alt="Pałac Przebendowskich"),
+    "Q962070": P(name="Pałac Sapiehów", en="Sapieha Palace", kind="palace"),
+    "Q11746676": P(name="Kościół św. Franciszka", en="St Francis Church", kind="church"),
+    "Q75687990": P(name="Plac Muranowski", en="Muranowski Square", kind="square"),
+    "Q11819226": P(name="Plac Hallera", en="Haller Square", kind="square"),
+    "Q11689734": P(name="Cerkiew Zaśnięcia NMP", en="Greek Catholic Church of the Dormition", kind="church"),
+    "Q893366": P(name="Pałac Borchów", en="Borch Palace", kind="palace"),
+    "Q174388": P(name="Pałac Biskupów Krakowskich", en="Palace of the Bishops of Kraków", kind="palace"),
+    "Q11823607": P(name="Pomnik Żołnierzy 1 Armii WP", en="First Polish Army Monument", kind="monument"),
+    "Q4679497": P(name="Muzeum Literatury", en="Museum of Literature", kind="museum"),
+    "Q11823137": P(name="Pomnik Monte Cassino", en="Monte Cassino Monument", kind="monument"),
+    "Q127162950": P(name="Pałac Młodziejowskich", en="Młodziejowski Palace", kind="palace"),
+    "Q1941258": P(name="Pałac Mniszchów", en="Mniszech Palace", kind="palace"),
+    "Q11739374": P(name="Kino Muranów", en="Muranów Cinema", kind="cinema"),
+    "Q1236535": P(name="Dom pod Królami", en="House under the Kings", kind="palace"),
+    "Q7601377": P(name="Brama Mostowa", en="Bridge Gate", kind="gate", alt="Stara Prochownia"),
+    "Q126118364": P(name="Pomnik Kobietom Powstania Warszawskiego", en="Monument to the Women of the Warsaw Uprising", kind="monument"),
 }
 
 # official sites for labels Wikidata has none for, found and checked by hand (Oct 2026)
@@ -604,6 +667,11 @@ def notable(osm, curated_qids, top_at):
             p = poly.representative_point() if poly is not None and not poly.contains(pt) else pt
             if not any(w in pick["kind"] for w in ("monument", "statue", "memorial", "artwork", "square", "park", "fountain", "garden")):
                 p = settle(p, poly if poly is not None else pt.buffer(2), top_at)
+        inside = lambda q: 0 <= q.x < W and 0 <= q.y < D
+        if not inside(p):  # the middle of an outline the map edge cuts (the Zoo)
+            if not inside(pt):
+                continue
+            p = pt
         r, c = int(p.y), int(p.x)
         name = pick.get("name") or IN_WARSAW.sub("", e["pl"])
         name = name[0].upper() + name[1:]
@@ -655,6 +723,34 @@ def finish(labels, curated_views, curated_sites):
     return labels
 
 
+GREEN = {("leisure", "park"): "park", ("leisure", "garden"): "garden", ("leisure", "marina"): "marina",
+         ("water", "harbour"): "harbour"}
+
+
+def greens(osm, labels, top_at, wd):
+    """Named parks, gardens, marinas and harbours over 2.5 ha on the map that no label names or stands in: most have
+    no Wikidata item, or one few read. An outline cut by the map edge comes as an open line."""
+    from shapely.geometry import Polygon, box
+    frame = box(0, 0, W, D)
+    shapes = [(t, g) for _, _, t, g in osm.areas] + [(t, Polygon(g.coords)) for _, t, g in osm.lines if len(g.coords) >= 3]
+    names = {l["name"] for l in labels}
+    out = []
+    for t, g in shapes:
+        kind = next((k for (key, v), k in GREEN.items() if t.get(key) == v), None)
+        if not kind or not t.get("name") or t["name"] in names:
+            continue
+        g = g.buffer(0).intersection(frame)
+        if g.area < 25000 or any(l.get("kind") in ("park", "garden", "marina", "harbour", "zoo") and g.contains(Point(l["x"], l["y"])) for l in labels + out):
+            continue
+        p = g.representative_point()
+        e = wd.get(t.get("wikidata"), {})
+        out.append(dict(name=t["name"], en=t.get("name:en"), kind=kind, views=e.get("views", 0), site=site_of(e, t),
+                        alt=" ".join(filter(None, [e.get("pl"), e.get("en")])) or None, auto=True, far=900,
+                        x=int(p.x), y=int(p.y), z=top_at(int(p.y), int(p.x))))
+        names.add(t["name"])
+    return out
+
+
 def assemble(curated, osm, top_at):
     curated = list(curated)
     for facts, poly in landmarks.jazdow_houses(osm):
@@ -663,7 +759,8 @@ def assemble(curated, osm, top_at):
     wd = json.loads(NOTABLE.read_text())
     qids, views, sites = curated_wikidata(osm, wd)
     roof_height(curated, osm, top_at)
-    return finish(curated + notable(osm, qids, top_at), views, sites)
+    picked = curated + notable(osm, qids, top_at)
+    return finish(picked + greens(osm, picked, top_at, wd), views, sites)
 
 
 def radii(labels, g, abs_top):
