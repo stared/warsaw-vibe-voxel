@@ -147,9 +147,9 @@ Software:
 - **Data pipeline:** [NumPy](https://numpy.org/), [SciPy](https://scipy.org/), [Shapely](https://shapely.readthedocs.io/), [rasterio](https://rasterio.readthedocs.io/), [pyproj](https://pyproj4.github.io/pyproj/) and [Pillow](https://python-pillow.org/).
 - The look follows the MagicaVoxel renders by [ephtracy](https://ephtracy.github.io/).
 
-## Usage stats (web/src/stats.ts)
+## Usage stats
 
-The live site sends anonymous events to PostHog (EU): load time, GPU model and frame times, a one-colour screen after loading, crashes and errors, and which places people search for, click or look at. No cookies, no IP addresses, no session recordings, no typed search text. The PostHog key is not in the repo: the deploy reads it from the repository's Actions variable `POSTHOG_PROJECT_TOKEN`, so builds without it (forks, local) send nothing.
+Anonymous, cookieless performance and usage events to PostHog (EU); see web/src/stats.ts and the script in web/index.html. To enable, set the repository's Actions variable `POSTHOG_PROJECT_TOKEN` to a PostHog project key; builds without it (forks, local) send nothing.
 
 ## License
 

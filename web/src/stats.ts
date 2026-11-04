@@ -1,17 +1,14 @@
-import type { PostHog } from 'posthog-js/dist/module.slim';
-
 type Props = Record<string, string | number | boolean | null>;
+interface Sender { on: boolean; key: string; common: Props; send(event: string, props?: Props): void }
 
-const KEY: string | undefined = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN;
-const ON = !!KEY && (location.hostname === 'p.migdal.pl' || new URLSearchParams(location.search).has('stats'));
-const queue: [string, Props][] = [];
-let ph: PostHog | null = null;
-let errors = 0;
+const S = (window as unknown as { __stats?: Sender }).__stats;
 
 export function track(event: string, props: Props = {}) {
-  if (!ON) return;
-  if (ph) ph.capture(event, props);
-  else queue.push([event, props]);
+  S?.send(event, props);
+}
+
+export function always(props: Props) {
+  if (S) Object.assign(S.common, props);
 }
 
 const timers: Record<string, number> = {};
@@ -20,30 +17,33 @@ export function trackLater(event: string, props: Props) {
   timers[event] = setTimeout(() => track(event, props), 1500);
 }
 
-export function startStats(canvas: HTMLCanvasElement) {
-  if (!ON) return;
+export function remember(last: Props) {
+  try { sessionStorage.setItem('wv-last', JSON.stringify(last)); } catch {}
+}
+
+export function startStats() {
+  if (!S?.on) return;
+  track('start');
   try {
-    if (sessionStorage.getItem('wv-alive')) track('crashed');
-    sessionStorage.setItem('wv-alive', '1');
-    addEventListener('pagehide', () => { try { sessionStorage.removeItem('wv-alive'); } catch {} });
+    const last = sessionStorage.getItem('wv-last');
+    if (last) track('crashed', JSON.parse(last));
+    sessionStorage.setItem('wv-last', '{}');
+    addEventListener('pagehide', () => { try { sessionStorage.removeItem('wv-last'); } catch {} });
   } catch {}
-  canvas.addEventListener('webglcontextlost', () => track('contextlost'));
-  addEventListener('error', (e) => { if (errors++ < 3) track('error', { message: String(e.message).slice(0, 200) }); });
-  addEventListener('unhandledrejection', (e) => { if (errors++ < 3) track('error', { message: String(e.reason).slice(0, 200) }); });
   import('posthog-js/dist/module.slim').then(({ default: posthog }) => {
-    posthog.init(KEY!, {
+    posthog.init(S.key, {
       api_host: 'https://eu.i.posthog.com',
       defaults: '2026-08-30',
       cookieless_mode: 'always',
       autocapture: false,
+      capture_pageview: false,
+      capture_pageleave: false,
       disable_session_recording: true,
       disable_surveys: true,
       advanced_disable_flags: true,
-      capture_pageview: true,
-      capture_pageleave: true,
     });
-    ph = posthog;
-    for (const [e, p] of queue.splice(0)) posthog.capture(e, p);
+    posthog.register({ pid: S.common.pid, build: S.common.build });
+    posthog.capture('$pageview');
   }).catch(() => {});
 }
 

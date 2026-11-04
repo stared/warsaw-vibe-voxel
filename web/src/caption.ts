@@ -7,9 +7,11 @@ export class Caption {
   private readonly count = $('.n', this.box);
   private readonly fill = $('i', this.box);
   private finished = false;
+  at = { stage: '', share: 0 };
 
   show(stage: string, done: number, total: number) {
     if (this.finished) return;
+    this.at = { stage, share: +Math.min(1, done / Math.max(1, total)).toFixed(2) };
     this.stage.textContent = stage;
     this.count.textContent = `${done} / ${total} tiles`;
     this.fill.style.width = `${(100 * Math.min(1, done / Math.max(1, total))).toFixed(1)}%`;

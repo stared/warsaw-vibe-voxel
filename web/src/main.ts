@@ -10,7 +10,7 @@ import { loadWindows } from './windows';
 import { Fountains } from './fountains';
 import { Hud } from './hud';
 import { Labels } from './labels';
-import { blank, gpu, startStats, track, trackLater } from './stats';
+import { always, blank, gpu, remember, startStats, track, trackLater } from './stats';
 import { Nav, type Mode, type Ride } from './nav/nav';
 import { makePost } from './post';
 import type { SearchItem } from './search';
@@ -36,9 +36,13 @@ const RIVER = { 'tiny creek': -355, 'record low': 104, typical: 185, '2010 flood
 const TODAY = dayOfYear(new Date());
 const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
 
+startStats();
 const qs = new URLSearchParams(location.search);
 const engine = pickEngine();
 const renderer = makeRenderer();
+always({ engine, gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
+  memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null });
+renderer.domElement.addEventListener('webglcontextlost', () => track('contextlost'));
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 9000);
 const controls = makeControls();
@@ -60,6 +64,7 @@ let fly: ((now: number) => void) | null = null;
 let barRect: DOMRect | null = null;
 let climate: Climate | null = null;
 let places: Label[] = [];
+const caption = new Caption();
 let setWindows: ((hour: number, day: number) => void) | null = null;
 
 nav.cancelFly = () => { fly = null; };
@@ -74,7 +79,6 @@ addEventListener('keydown', (e) => {
   if (e.key === '/' && !(e.metaKey || e.ctrlKey || e.altKey) && !(e.target as Element).closest?.('input')) { bar.search.input.focus(); e.preventDefault(); }
 });
 tamePinch(renderer.domElement);
-startStats(renderer.domElement);
 boot();
 
 // phones get the real area over clay (zones.ts); ?engine=full insists on the whole city
@@ -280,7 +284,7 @@ async function boot() {
     await (await import('./zones')).installZones({ streamer, uniforms: uniforms as typeof uniforms & ZoneUniforms, meta, focus, qs, composer: post.composer, n8: post.n8, camera });
     document.body.classList.remove('loading');
   } else {
-    city = await installCity({ streamer, uniforms: uniforms as typeof uniforms & BuildUniforms, meta, scene, focus, camera, caption: new Caption() });
+    city = await installCity({ streamer, uniforms: uniforms as typeof uniforms & BuildUniforms, meta, scene, focus, camera, caption });
   }
   labels = new Labels(meta.labels, onLabel);
   if (city) labels.gate = city.gate;
@@ -352,36 +356,50 @@ function adapt(dt: number) {
   if (median > 0.045) { renderer.setPixelRatio(1); onResize(); }
 }
 
-// once loaded: load time and GPU, a one-colour screen after 2 s, frame times over the next 20 s, the nearest landmark every 30 s
-let loadedAt = 0, checked = false, lastNow = 0, sent = false;
+// usage stats: pulses dense at first, then every minute
+const PULSES = [1, 2, 3, 5, 7, 10, 15, 20, 30, 45, 60, 90, 120];
+let lastNow = performance.now(), firstFrame = 0, loadedAt = 0, checked = false, pulses = 0, step = 0;
 const times: number[] = [];
 function report(now: number) {
   const ms = now - lastNow;
   lastNow = now;
+  if (!document.hidden && ms < 5000) times.push(ms);
+  firstFrame ||= now;
   if (document.body.classList.contains('loading')) return;
-  const gl = renderer.getContext();
   if (!loadedAt) {
     loadedAt = now;
-    track('loaded', { engine, seconds: +(now / 1000).toFixed(1), gpu: gpu(gl), dpr: devicePixelRatio, width: innerWidth, height: innerHeight });
-    setInterval(() => { if (!document.hidden) seen(); }, 30000);
-    return;
+    track('loaded', { seconds: +(now / 1000).toFixed(2), first: +(firstFrame / 1000).toFixed(2) });
   }
   if (!checked && now - loadedAt > 2000) {
     checked = true;
-    const c = blank(gl);
-    if (c) track('blank', { colour: c, gpu: gpu(gl) });
+    const c = blank(renderer.getContext());
+    if (c) track('blank', { colour: c });
   }
-  if (sent || now - loadedAt < 3000 || document.hidden) return;
-  times.push(ms);
-  if (now - loadedAt < 23000) return;
-  sent = true;
-  const t = times.sort((a, b) => a - b), q = (k: number) => +t[Math.floor(k * (t.length - 1))].toFixed(1);
-  track('perf', { engine, median: q(0.5), p95: q(0.95), frames: t.length, ratio: renderer.getPixelRatio(), gpu: gpu(gl) });
 }
 
-function seen() {
+const phase = () => (loadedAt ? 'ready' : 'loading');
+const progress = () => (loadedAt ? 1 : caption.at.share);
+
+function pulse(due: number) {
+  const late = Math.max(0, performance.now() - due);
+  if (!document.hidden) {
+    const t = times.sort((a, b) => a - b), q = (k: number) => (t.length ? +t[Math.floor(k * (t.length - 1))].toFixed(1) : null);
+    const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize;
+    track('pulse', { n: ++pulses, phase: phase(), stage: loadedAt ? null : caption.at.stage, share: progress(), frames: t.length,
+      median: q(0.5), p95: q(0.95), worst: q(1), slow: t.filter((x) => x > 50).length, late: Math.round(late),
+      ratio: renderer.getPixelRatio(), mode: nav.mode, near: nearest(), heap: heap ? Math.round(heap / 1e6) : null });
+    remember({ last_t: +(performance.now() / 1000).toFixed(1), last_phase: phase(), last_share: progress(), last_stage: caption.at.stage });
+  }
+  times.length = 0;
+  const next = (PULSES[++step] ?? (Math.floor(performance.now() / 60000) + 1) * 60) * 1000;
+  setTimeout(() => pulse(next), Math.max(0, next - performance.now()));
+}
+setTimeout(() => pulse(1000), Math.max(0, 1000 - performance.now()));
+addEventListener('pagehide', () => track('leave', { phase: phase(), share: progress(), pulses }));
+
+function nearest() {
   const f = focus();
   let best: Label | null = null, d = 400 ** 2;
   for (const l of places) { const e = (l.x - f.x) ** 2 + (l.y - f.z) ** 2; if (e < d) { d = e; best = l; } }
-  if (best) track('view', { name: best.name, mode: nav.mode });
+  return best?.name ?? null;
 }
