@@ -332,12 +332,30 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
 
     WEIGHT = {"pedestrian": 6.0, "living_street": 5.0, "footway": 1.0, "path": 0.6, "steps": 0.5,
               "platform": 0.8, "cycleway": 0.15}
+    def roof_z(x, y):
+        """the surface of a roof under a point: the top of the solid voxels, where all around it stands 2.5 m up"""
+        zs = []
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                c, r = min(max(int(x) + dc, 0), W - 1), min(max(int(y) + dr, 0), D - 1)
+                nz = np.nonzero(solid[vol[:, r, c]])[0]
+                zs.append(int(nz[-1]) + 1 if len(nz) else int(g[r, c]))
+        z = int(np.median(zs))
+        return z if min(zs) >= g[min(max(int(y), 0), D - 1), min(max(int(x), 0), W - 1)] + 2.5 else None
+
+    on_roof = {}  # pnode -> the roof's height there, for the steps that lead up
     for w, seg in split(pways):
         t = w["tags"]
-        p = pts_of(seg, t.get("bridge") not in (None, "no"))
+        bridge = t.get("bridge") not in (None, "no")
+        p = pts_of(seg, bridge)
         L = length(p)
         if L < 0.8:
             continue
+        if vol is not None and not bridge and max(_num(t.get("level"), 0) or 0, _num(t.get("layer"), 0) or 0) >= 1:
+            zs = [roof_z(x, y) for x, y, _ in p]  # a path on a roof garden (BUW, the university on Dobra)
+            if all(z is not None for z in zs):
+                p = [[x, y, z] for (x, y, _), z in zip(p, zs)]
+                on_roof[pnode(seg[0])], on_roof[pnode(seg[-1])] = zs[0], zs[-1]
         e = dict(a=pnode(seg[0]), b=pnode(seg[-1]), p=p, L=round(L, 1),
                  w=WEIGHT.get(t["highway"], 1.0) * (1.5 if t.get("footway") == "sidewalk" else 1.0))
         is_cross = t.get("footway") == "crossing" or t.get("cycleway") == "crossing" or "crossing" in t
@@ -350,6 +368,13 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
                 dx, dy = p[-1][0] - p[0][0], p[-1][1] - p[0][1]
                 e["x"] = dict(ctrl=k, axis=0 if abs(dx) >= abs(dy) else 1)
         peds.append(e)
+    for e in peds:  # steps or a ramp from the ground up to a roof path: their heights from one end to the other
+        za, zb = on_roof.get(e["a"]), on_roof.get(e["b"])
+        if (za is None) == (zb is None) or abs((za or zb) - e["p"][0 if za is None else -1][2]) < 2:
+            continue
+        z0, z1 = (e["p"][0][2], zb) if za is None else (za, e["p"][-1][2])
+        cum = np.concatenate([[0], np.cumsum([math.dist(a[:2], b[:2]) for a, b in zip(e["p"], e["p"][1:])])])
+        e["p"] = [[x, y, int(round(z0 + (z1 - z0) * k / max(cum[-1], 1e-6)))] for (x, y, _), k in zip(e["p"], cum)]
     pn = [None] * len(pidx)
     for n, i in pidx.items():
         pn[i] = [round(nodes[n][0], 1), round(nodes[n][1], 1)]

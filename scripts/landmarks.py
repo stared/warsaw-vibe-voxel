@@ -8,6 +8,7 @@ from shapely.geometry import Point
 from scipy import ndimage
 
 import monuments
+import roofgardens
 
 M_WALL, M_GLASS, M_PKIN, M_CONCRETE, M_CLOCK = 1, 2, 7, 13, 14
 
@@ -631,6 +632,7 @@ def classic_buildings(vol, g, feats, pal, note):
 
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
     details_geometry(vol, g, feats, pal, note)
+    roofgardens.build(vol, g, bmask, pal, osm, cells_of, _orto(), C["garden"], note)
     sigismund_column(vol, g, feats, osm, pal, note)
     syrenka(vol, g, osm, pal, note)
     global MON_TOP
