@@ -67,29 +67,39 @@ def crosses(w, d, z):
 
 
 def sappers():
-    """Pomnik Chwała Saperom (1975, Stanisław Kulon), Commons 2006-2026, along its axis (2026): two groups of three
-    welded steel pylons (the river shipyard's plates, painted light grey) flaring out like a mine's blast, a broad
-    front one to 17 m, an outer one behind it leaning further, a slim near-vertical one inside; bronze reliefs wrap
-    the groups' feet; between them, on a round plinth, the kneeling sapper in his helmet, the rifle on his back, over
-    the wreaths. Its axis runs to its other half on the river pier; the sapper faces away from it, to the city"""
-    # its axis is 31 degrees off the grid: every box turned back square to the voxels and leaning straight along
-    # them (north or south), so a pylon steps cleanly instead of fraying
-    G, n = -31, (math.cos(math.radians(31)), math.sin(math.radians(31)))
-    out = [B(0, 0.5, 4, 4, 0, 0.5, GRANITE, G),
-           B(0, 0.5, 2, 2, 0.5, 1.5, SAPPER, G), B(0, 0, 2, 1, 1.5, 2.5, SAPPER, G),
-           B(0.5, 0.5, 1, 1, 2.5, 3.5, SAPPER, G), B(-0.5, -0.5, 1, 1, 2.5, 4, SAPPER, G)]
-    for k in (-1, 1):
-        lean = lambda m: (m * k * n[0], m * k * n[1])
-        out += [B(5.5 * k, 1, 2.5, 2, 0, 1.5, LIGHT, G),
-                B(5.5 * k, 1, 2, 1.5, 1.5, 17, STEEL, G),
-                B(8 * k, -1.5, 2, 1.5, 0, 14, STEEL, G, lean(3)),
-                B(3.5 * k, -4.5, 1.5, 1.5, 0, 12, STEEL, G),
-                B(6.5 * k, 0, 5, 3, 1.5, 4, RELIEF, G)]
+    """Pomnik Chwała Saperom (1975, Stanisław Kulon), the 2025 ortho with Commons 2006-2026: six welded steel blades in
+    a ring round the kneeling sapper, each leaning out from the centre, a mine's blast; a blade stands edge-on to the
+    centre, 1.5 m by 1 m, on a pale block 8-9.5 m out wrapped in a bronze relief; a ring of paving round the sapper"""
+    out = [B(0, 0, 3, 3, 0, 1, GRANITE),
+           B(0, 0, 2, 2, 1, 2, SAPPER), B(0, 0, 2, 1, 2, 3, SAPPER), B(0, 0, 1, 1, 3, 4, SAPPER)]
+    # bearing (clockwise from north) and distance of each blade's pale base block, read off the ortho (the shadows
+    # start at them); heights from the shadows and the photos; each leans 2.5 m further out by its top
+    for th, r0, h in ((16, 7.3, 15), (84, 9.0, 17), (148, 9.4, 16), (198, 9.5, 17), (256, 8.2, 14), (294, 9.0, 16)):
+        u = (math.sin(math.radians(th)), math.cos(math.radians(th)))
+        for z in range(h):
+            r = r0 + 2.5 * max(z - 3, 0) / (h - 4)
+            col = LIGHT if z < 2 else RELIEF if z < 4 else STEEL
+            cells = radial(r, 1.4 if z < 4 else 0.8, u)
+            if z < 4:  # the block is thicker than the blade
+                cells += [(a + round(u[1]), b - round(u[0])) for a, b in cells]
+            out += [B(a, b, 1, 1, z, z + 1, col) for a, b in dict.fromkeys(cells)]
     return out
 
 
+def radial(r, half, u):
+    """the whole cells of a radial run from r - half to r + half along u (a, b), each touching the last by a face"""
+    cells = []
+    for t in np.arange(r - half, r + half + 1e-6, 0.2):
+        c = (round(t * u[0]), round(t * u[1]))
+        if cells and c != cells[-1] and c[0] != cells[-1][0] and c[1] != cells[-1][1]:
+            cells.append((c[0], cells[-1][1]))  # a diagonal step gets the cell between
+        if not cells or c != cells[-1]:
+            cells.append(c)
+    return list(dict.fromkeys(cells))
+
+
 MONUMENTS = {
-    "Pomnik Chwała Saperom": dict(at=(21.041212, 52.228660), phi=301, parts=sappers()),
+    "Pomnik Chwała Saperom": dict(at=(21.041212, 52.228660), phi=0, parts=sappers()),
     "Saperzy nad Wisłą": dict(at=(21.044794, 52.228289), phi=301,  # its other half, off the Czerniakowski bridgehead
                               # (Commons 2022): a dark steel post in the water by the steps, pale figures on it
                               parts=[B(0, 0, 1, 1, 0, 4, BLACK), B(0, 0, 2, 2, 4, 4.5, LIGHT)]
