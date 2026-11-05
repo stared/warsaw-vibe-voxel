@@ -289,7 +289,7 @@ def on_bridge(t):
     return t.get("bridge") not in (None, "no") or t.get("man_made") == "bridge"
 
 
-foot_shapes, road_shapes, bridge_shapes, cycle_shapes = [], [], [], []  # bridge ways are painted on the deck, not on the river below
+foot_shapes, road_shapes, bridge_shapes, cycle_shapes, road_lines = [], [], [], [], []  # bridge ways are painted on the deck, not on the river below
 bridge_rails = []  # (line, colour) the rails of tracks on bridges, drawn on the deck like those on the ground
 bridge_lines = []  # (line, half width, layer) of every way on a bridge: the deck's height profile is taken along them
 bridge_roads = []  # (line, width) of carriageways on bridges, for the inferred deck lamps
@@ -316,6 +316,8 @@ for oid, t, line in osm.lines:
             bridge_roads.append((line, w))  # (not the Karowa footbridge, a living_street for service vans only)
         continue
     if hw in ROADS or base in ROADS:
+        if base in ("trunk", "primary", "secondary", "tertiary", "unclassified", "residential"):
+            road_lines.append((oid, line, C[SURF.get(t.get("surface"), "asphalt")]))
         road_shapes.append((poly, C[SURF.get(t.get("surface"), "asphalt")]))
     elif hw == "cycleway":  # one red the whole way, whatever its stretches are tagged (asphalt, paving stones): drawn last
         cycle_shapes.append((poly, C["cycle"]))
@@ -329,12 +331,16 @@ burn(road_mask, [(s, 1) for s, _ in road_shapes])
 burn(gcol, road_shapes)
 
 AH = {"footway": "paving", "pedestrian": "paving", "cycleway": "cycle", "traffic_island": "kerb", "steps": "steps",
-      "emergency": "asphalt_l", "yes": "paving", "platform": "platform", "busway": "asphalt", "parking": "parking"}
+      "emergency": "asphalt_l", "yes": "paving", "platform": "platform", "busway": "asphalt", "parking": "parking",
+      "junction": "asphalt", "bus_bay": "asphalt", "bus": "asphalt", "crossing": "asphalt", "tram": "asphalt", "taxi_stop": "asphalt",
+      "passing_place": "asphalt", "shoulder": "asphalt", "prohibited": "asphalt_l", "parking_lane": "parking"}
 area_hw = []
 for oid, typ, t, geom in osm.areas_with("area:highway"):
     if tunnelish(t):
         continue
     v = t["area:highway"]
+    if v == "yes" and t.get("junction"):  # a junction's square of carriageway (Rondo Dmowskiego's five)
+        v = "junction"
     key = SURF.get(t.get("surface")) if v in ("footway", "pedestrian", "yes") else None
     key = key or AH.get(v) or ("asphalt" if v in HW or v.replace("_link", "") in ROADS else "paving")
     area_hw.append((geom, C[key]))
@@ -342,10 +348,23 @@ for oid, typ, t, geom in osm.areas_with("area:highway"):
         burn(road_mask, [(geom, 1)])
 area_hw.sort(key=lambda s: -s[0].area)
 burn(gcol, area_hw)
+burn(gcol, [(line.buffer(1.0, cap_style="flat"), own) for _, line, own in road_lines])  # no area drawn over a carriageway cuts it
 _cyc = np.zeros((D, W), np.uint16)  # a footway area drawn over a cycleway beside it does not cut it
 burn(_cyc, [(sh, 1) for sh, _ in cycle_shapes])
 gcol[(_cyc > 0) & (road_mask == 0)] = C["cycle"]
 is_road = road_mask > 0
+_ped = [C[k] for k in ("paving", "paving2", "kerb", "cycle", "steps", "platform", "gravel", "grass", "dirt")]
+_bad = []
+for oid, line, own in road_lines:
+    pts = [line.interpolate(d) for d in np.arange(0, line.length, 1.0)]
+    rc = [(int(p.y), int(p.x)) for p in pts if 0 <= p.y < D and 0 <= p.x < W]
+    off = sum(gcol[r, c] in _ped and gcol[r, c] != own for r, c in rc)
+    if off >= 6:
+        _bad.append((int(off), oid, rc[0]))
+_bad.sort(reverse=True)
+note(f"carriageway sanity: {len(_bad)} roads with 6+ m of their centreline painted as pavement: {_bad[:8]}")
+if _bad:
+    raise SystemExit("carriageways painted as pavement; see the sanity line above")
 
 # rails & trams (only open-air)
 rail_beds, rails = [], []
