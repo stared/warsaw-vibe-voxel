@@ -113,7 +113,7 @@ def stable_hash(*a):
 pal = Palette()
 C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "paving": pal("#c6c2b8"), "paving2": pal("#b5b4af"), "asphalt": pal("#5f636b"), "asphalt_l": pal("#6e7178"),
-    "sett": pal("#8f8981"), "road_paving": pal("#a49f97"), "tartan": pal("#b3604c"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
+    "sett": pal("#8f8981"), "road_paving": pal("#a49f97"), "tartan": pal("#b3604c"), "court": pal("#4f8db3"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
     "grass": pal("#86b45a", M_GRASS), "grass2": pal("#79a852", M_GRASS), "garden": pal("#73a34e", M_GRASS),
     "scrub": pal("#5f8f45", M_LEAF), "flower": pal("#d98fb3", M_GRASS), "flower2": pal("#e8c25e", M_GRASS),
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
@@ -310,12 +310,14 @@ for oid, typ, t, geom in osm.areas:
         containers.append((geom, C[SURF.get(t.get("surface"), "paving")]))
     if t.get("landuse") in LANDUSE:
         soft.append((geom, C[LANDUSE[t["landuse"]]]))
-    if t.get("leisure") == "pitch":  # its colour as the ortho sees it: red tartan, green turf or a grey court; the
+    if t.get("leisure") in ("pitch", "track"):  # its colour as the ortho sees it: red tartan, green turf or a grey court; the
         # surface tags disagree with it (a green turf pitch tagged tartan by Zamoyski's school, red courts untagged)
-        rr_, cc_ = cells_of(geom.buffer(-1) if geom.area > 60 else geom)
+        inner = geom.buffer(-1) if geom.area > 60 else geom
+        rr_, cc_ = cells_of(geom if inner.is_empty else inner)
         if len(rr_) >= 10:
             r_, g_, b_ = np.median(cellcol[rr_, cc_], axis=0)
-            key = "tartan" if r_ > g_ + 18 and r_ > b_ + 25 else "grass" if g_ > r_ + 6 and g_ > b_ + 6 else "asphalt_l"
+            key = "tartan" if r_ > g_ + 18 and r_ > b_ + 25 else "court" if b_ > r_ + 25 else \
+                "grass" if (2 * g_ - r_ - b_) / (r_ + g_ + b_ + 1) > 0.03 else "paving" if r_ + g_ + b_ > 560 else "asphalt_l"  # (white: an air hall)
             soft.append((geom, C[key]))
             continue
     if t.get("leisure") in LEISURE:
