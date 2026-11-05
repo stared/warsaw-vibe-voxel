@@ -576,6 +576,7 @@ def classic_buildings(vol, g, feats, pal, note):
     st_alexander(vol, g, feats, pal, note)
     magdalene(vol, g, feats, pal, note)
     staszic(vol, g, feats, pal, note)
+    carmelites(vol, g, feats, pal, note)
     f = _feat(feats, "Zamek Ujazdowski")
     if f is not None:  # Commons 2014-2022, raw LiDAR: cream walls to the eaves at 13 m, a green copper hipped roof to 21 m
         # round the court, a square tower at each corner under its green helmet and lantern to 24-26 m
@@ -2051,6 +2052,51 @@ def staszic(vol, g, feats, pal, note, cy=2147.5, cx=1750.0):
             if d < 0.8:
                 col[gz + 27:gz + 29] = wall
     note("Pałac Staszica: dome over the north front")
+
+
+def carmelites(vol, g, feats, pal, note):
+    """the Carmelite church on Krakowskie Przedmieście (Commons 2011-2023, raw LiDAR): warm sandstone, the nave's eaves
+    at 18 m under a patina roof to 28 m; the west front to the street a full-width storey to 16 m with the door, the
+    narrower upper storey with its big window to 27 m under the green copper globe to 34 m, a small domed tower on
+    each end of the lower cornice"""
+    f = _by_id(feats, 30908038)
+    if f is None:
+        return
+    stone_hex = "#cdb68e"
+    classic_rebuild(vol, g, pal, f["geom"], eave=18, slope=1.0, wall_hex=stone_hex, roof_hex="#86a99a", cap=28,
+                    rows=[(3, 6), (11, 5)], bay=4.5, note=note, name="Kościół Karmelitów")
+    stone, cu = pal(_hex(stone_hex), MAT_IDS["classic"]), pal(_hex("#6f9c8c"), 6)
+    dark = pal((40, 36, 32), MAT_IDS["window"])
+    for r in range(1500, 1522):  # the front, 4 m deep: the lower storey full width to 16 m, the upper the middle to 27 m
+        for c in range(1773, 1777):
+            if not f["geom"].buffer(0.5).contains(Point(c + 0.5, r + 0.5)):
+                continue
+            gz = int(g[r, c]); col = vol[:, r, c]
+            col[gz + 1:gz + 40] = 0
+            col[gz:gz + 16] = stone
+            if 1505 <= r <= 1516:
+                col[gz + 16:gz + 27] = stone
+            if c == 1773:
+                if 1509 <= r <= 1512:
+                    col[gz + 1:gz + 6] = dark  # the door
+                    col[gz + 18:gz + 24] = dark  # the big window over it
+                elif r in (1503, 1518):
+                    col[gz + 1:gz + 5] = dark
+    for r, c, z0, h, R in ((1510.5, 1775, 27, 7, 1.6), (1502, 1775, 16, 6, 1.2), (1519, 1775, 16, 6, 1.2)):
+        for rr_ in range(int(r - 2), int(r + 3)):
+            for cc_ in range(c - 2, c + 3):
+                d = math.hypot(rr_ + 0.5 - r, cc_ + 0.5 - c)
+                gz = int(g[rr_, cc_]); col = vol[:, rr_, cc_]
+                if R > 1.5 and d <= 2:
+                    col[gz + z0:gz + z0 + 2] = stone
+                    if d <= 1.6:
+                        col[gz + z0 + 2:gz + z0 + 5] = cu
+                    if d < 0.8:
+                        col[gz + z0 + 5:gz + z0 + h] = cu
+                elif R < 1.5 and d <= 1.2:
+                    col[gz + z0:gz + z0 + 4] = stone
+                    col[gz + z0 + 4:gz + z0 + h] = cu if d < 0.8 else 0
+    note("Carmelites: the west front and its domes")
 
 
 def holy_trinity(vol, g, feats, pal, note):
