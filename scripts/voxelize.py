@@ -234,6 +234,56 @@ def burn(target, shapes, all_touched=False):
     target[m > 0] = m[m > 0]
 
 
+# the street over a road tunnel: the LiDAR's ground sagged 3 m over the trasa under Marszałkowska, and the trams and
+# cars on it dipped into the cut. A short tunnelled carriageway (under 150 m) crossed by surface ways: the street level
+# is where those ways stand 4 m clear of it on either side; its footprint lower than that by 1.5-6 m is lifted to it
+_surf = [l_ for _, t_, l_ in osm.lines if (t_.get("highway") or t_.get("railway") == "tram") and t_.get("tunnel") is None
+         and parse_len(t_.get("layer", 0)) >= 0]
+_stree = STRtree(_surf)
+n_tun = 0
+_tun = [l_.buffer((parse_len(t_.get("lanes")) or 2) * 1.6 + 2, cap_style="flat") for _, t_, l_ in osm.lines
+        if t_.get("tunnel") == "yes" and l_.length <= 150 and (t_.get("highway") or "").replace("_link", "") in
+        ("motorway", "trunk", "primary", "secondary", "tertiary", "unclassified", "residential")]
+# a dual carriageway's two tunnels and the strip between them are one crossing
+from shapely.ops import unary_union as _uu
+_tun = _uu(_tun).buffer(6).buffer(-6) if _tun else None
+for foot in getattr(_tun, "geoms", [_tun] if _tun else []):
+    levels = []
+    for k in _stree.query(foot):
+        sl = _surf[k]
+        x_ = sl.intersection(foot)
+        if x_.is_empty or x_.length < 3:
+            continue
+        pr = [sl.project(Point(c_)) for g_ in getattr(x_, "geoms", [x_]) for c_ in g_.coords]
+        for q in (sl.interpolate(max(min(pr) - 4, 0)), sl.interpolate(min(max(pr) + 4, sl.length))):
+            if 0 <= q.y < D and 0 <= q.x < W and not foot.contains(q):
+                levels.append(int(g[int(q.y), int(q.x)]))
+    if len(levels) < 2 or np.percentile(levels, 80) - np.percentile(levels, 20) > 2:
+        continue
+    street = int(np.median(levels))
+    rr_, cc_ = cells_of(foot)
+    low = (street - g[rr_, cc_] >= 1.5) & (street - g[rr_, cc_] <= 6)
+    g[rr_[low], cc_[low]] = street
+    n_tun += int(low.sum())
+note("ground over short road tunnels lifted to the street crossing them:", n_tun)
+# a carriageway or a railway tagged one layer down but with no tunnel is an open cut (Trasa Łazienkowska east and west
+# of Marszałkowska, the cross-city line's cutting): it had been left out as if underground. Where the ground along it
+# stands 2 m or more under the ground 6-24 m to its sides (a dual carriageway's cut is 30 m wide), it is drawn and driven, its layer set to 0
+OPEN_CUT = set()
+for oid, t, line in osm.lines:
+    if not ((t.get("highway") or "").replace("_link", "") in ("motorway", "trunk", "primary", "secondary", "tertiary",
+                                                                "unclassified", "residential") or t.get("railway") == "rail"):
+        continue
+    if parse_len(t.get("layer", 0)) >= 0 or t.get("tunnel") not in (None, "no") or t.get("covered") not in (None, "no") \
+            or t.get("location") == "underground" or t.get("indoor") == "yes" or line.length < 10:
+        continue
+    rr_, cc_ = cells_of(line.buffer(1.5, cap_style="flat"))
+    sr, sc = cells_of(line.buffer(24, cap_style="flat").difference(line.buffer(6, cap_style="flat")))
+    if len(rr_) and len(sr) and np.percentile(g[sr, sc], 85) - np.median(g[rr_, cc_]) >= 2:
+        OPEN_CUT.add(oid)
+        t["layer"] = "0"
+note("open cuts (layer -1, no tunnel) drawn:", len(OPEN_CUT))
+
 # ---------------------------------------------------------------- ground classes
 gcol = np.full((D, W), C["paving"], np.uint16)
 is_road = np.zeros((D, W), bool)
@@ -1901,6 +1951,7 @@ for _z in range(int(g.min()), int(_lim.max()) + 1):
 deck_near[_rb, _cb] = _top - g[_rb, _cb]
 _solid = ~_skip
 _solid[0] = False
+traffic.OPEN_CUT = OPEN_CUT
 json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2), vol=vol, solid=_solid,
                         roofs=unary_union([b for b, *_ in GARDEN_ROOFS.values()]), paths=roofgardens.PATHS),
           open(OUT / "traffic.json", "w"), separators=(",", ":"))

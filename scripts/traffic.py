@@ -13,7 +13,7 @@ from collections import defaultdict
 
 import numpy as np
 from pyproj import Transformer
-from scipy.ndimage import maximum_filter1d
+from scipy.ndimage import grey_closing, maximum_filter1d
 from shapely.geometry import LineString
 
 from aoi import D, RAW, W, to_grid
@@ -34,12 +34,15 @@ def _num(v, default=None):
         return default
 
 
+OPEN_CUT = set()  # layer -1 ways that are open cuts, not tunnels (voxelize.py)
+
+
 def underground(t):
     return (t.get("tunnel") in ("yes", "building_passage") or _num(t.get("layer"), 0) < 0 or t.get("indoor") == "yes"
             or t.get("location") == "underground" or (_num(t.get("level"), 0) or 0) < 0 or t.get("covered") == "yes")
 
 
-def fit(p, offs, vol, solid, W, D, step=0.5):
+def fit(p, offs, vol, solid, W, D, step=0.5, decks=False):
     """a path's heights onto the voxels as drawn: every 0.5 m, across the offsets the bodies use, the free level over
     the drawn surface nearest the path's own height (a deck, not the street under it); the highest across, then over
     1 m along, so a body rises before a step instead of cutting into it. Returns the points (the path's corners and
@@ -68,6 +71,15 @@ def fit(p, offs, vol, solid, W, D, step=0.5):
         blocked |= cand == -99
         best = np.maximum(best, cand)
     best = np.where(best == -99, zi, best)
+    # a way not tagged as a bridge leaving a deck (Poniatowski's east end, past the gate towers) has its nodes at the
+    # street under the deck: the path dipped under the deck and climbed back to the embankment. Where the path runs
+    # lower than on both sides within 20 m, and the drawn surface at that higher level is free, it takes it (vehicles
+    # only: a walkers' underpass is meant to dip under the street)
+    hi = grey_closing(best, size=41) if decks else best
+    c0 = np.clip(x.astype(int), 0, W - 1); r0 = np.clip(y.astype(int), 0, D - 1)
+    zh = np.clip(hi, 1, H - 2)
+    deck = (hi > best) & (hi - best <= 9) & solid[vol[zh - 1, r0, c0]] & ~solid[vol[zh, r0, c0]] & ~solid[vol[zh + 1, r0, c0]]
+    best = np.where(deck, hi, best)
     zf = maximum_filter1d(best, 5)
     run = longest = 0
     for b in blocked:
@@ -198,6 +210,26 @@ def join_bike_ways(peds, pn, note, nodes_xy=None, fit_ok=None):
     note(f"traffic: bike network joined across {opened} footway links and {linked} short gaps, {comps} parts left")
 
 
+
+def trim_portal(p, reach=8.0):
+    """a route piece cut at a tunnel starts on its portal node, in the retaining wall's top cell: the fitted path
+    ramped down the wall (a tram diving 11 m at the W-Z tunnel). Points standing 2 m or more over the lowest point
+    within `reach` m on from them are dropped, at both ends"""
+    def head(q):
+        k = 0
+        while k < len(q) - 2:
+            s0, lo = 0.0, q[k][2]
+            for j in range(k + 1, len(q)):
+                s0 += math.hypot(q[j][0] - q[j - 1][0], q[j][1] - q[j - 1][1])
+                if s0 > reach:
+                    break
+                lo = min(lo, q[j][2])
+            if q[k][2] - lo < 2:
+                break
+            k += 1
+        return q[k:]
+    return head(head(p)[::-1])[::-1]
+
 def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=None, paths=()):
     """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving.
     nd_mean: height of the walking/driving surface above the ground where it is a bridge deck (voxelize.py passes the
@@ -307,7 +339,7 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         return float(sum(math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:])))
 
     # ---------------- roads
-    rways = [w for w in ways if w["tags"]["highway"] in DRIVE and not underground(w["tags"])
+    rways = [w for w in ways if w["tags"]["highway"] in DRIVE and (not underground(w["tags"]) or w["id"] in OPEN_CUT)
              and w["tags"].get("access") not in ("no", "private") and w["tags"].get("area") != "yes"]
     sig_nodes = {n for n, t in ntags.items() if t.get("highway") == "traffic_signals" and n in nodes}
     # controllers: cluster signal nodes
@@ -587,12 +619,19 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
             w = way_by_id.get(m["ref"])
             if not w or w.get("tags", {}).get("railway") not in ("tram", "rail", "light_rail"):
                 continue
+            wt = w.get("tags", {})
+            if wt.get("tunnel") in ("yes", "covered") or str(wt.get("layer", "0")).lstrip("-").isdigit() and int(wt.get("layer", 0)) < 0:
+                if seq and seq[-1] is not None:  # under the W-Z tunnel: the tram goes in at the portal, not over the ground
+                    seq.append(None)
+                continue
             ns = [n for n in w["nodes"] if n in nodes]
             if len(ns) < 2:
                 continue
             if m.get("role") == "backward":
                 ns = ns[::-1]
-            if seq:
+            if seq and seq[-1] is None:
+                seq.extend(ns)
+            elif seq:
                 if seq[-1] == ns[-1]:
                     ns = ns[::-1]
                 elif seq[-1] != ns[0]:
@@ -693,13 +732,15 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         n_lift = 0
         for e in roads:
             lo, hi = e["o0"] - 0.8, e["o0"] + (e["lanes"] - 1) * 3.0 + 0.8
-            e["p"], lift, _ = fit(e["p"], np.linspace(lo, hi, max(2, int(hi - lo) + 1)), vol, solid, W, D)
+            e["p"], lift, _ = fit(e["p"], np.linspace(lo, hi, max(2, int(hi - lo) + 1)), vol, solid, W, D, decks=True)
             n_lift += lift
         for tr in trams:
-            tr["p"], lift, _ = fit(tr["p"], (-0.9, 0.0, 0.9), vol, solid, W, D)
+            tr["p"], lift, _ = fit(tr["p"], (-0.9, 0.0, 0.9), vol, solid, W, D, decks=True)
             n_lift += lift
+            tr["p"] = trim_portal(tr["p"])
+            tr["L"] = round(length(tr["p"]), 1)
         for tr in trains:
-            p_, lift, _ = fit(tr["p"], (-1.2, 0.0, 1.2), vol, solid, W, D)
+            p_, lift, _ = fit(tr["p"], (-1.2, 0.0, 1.2), vol, solid, W, D, decks=True)
             if len(p_) != len(tr["p"]):  # the stops are arc lengths: they hold as long as the path's corners do
                 L_ = length(p_)
                 for v in tr["svc"]:
