@@ -51,7 +51,7 @@ export class LifeMeshes {
     this.tram = instanced(merge(box(2.4, 0.9, L, 0, 0.15, 0, 0xc8322b), box(2.4, 1.9, L, 0, 1.05, 0, 0xf2c230), box(2.0, 0.35, L - 0.8, 0, 2.95, 0, 0xd9d6cf)),
       std({ vertexColors: true, roughness: 0.45, metalness: 0.1 }), MAX_TRAM_SECTIONS, { shadow: true });
     this.tramWin = instanced(box(2.46, 0.85, L - 1.2, 0, 1.6, 0), this.tramWinMat, MAX_TRAM_SECTIONS);
-    const P = MAX_PEOPLE;
+    const P = MAX_PEOPLE + MAX_BIKES;
     this.legs = instanced(merge(box(0.18, 0.85, 0.22, -0.1, 0, 0, 0x2b3240), box(0.18, 0.85, 0.22, 0.1, 0, 0, 0x2b3240),
       box(0.3, 0.3, 0.3, 0, 1.45, 0, 0xe0b48f), box(0.32, 0.1, 0.32, 0, 1.72, 0, 0x3a2a20)), std({ vertexColors: true, roughness: 0.9, metalness: 0 }), P);
     this.torso = instanced(box(0.46, 0.62, 0.3, 0, 0.85, 0), std({ color: 0xffffff, roughness: 0.9, metalness: 0 }), P, { color: true });

@@ -381,7 +381,7 @@ export class StreetLife {
     for (let k = 0; k < 40 && this.people.length < targetPeds; k++) this.spawnPed();
     // at July's evening peak 5 riders a km per unit of weight: 30 a km on Świętokrzyski bridge (~800 an hour at
     // 5 m/s), 10 along a main road, 5 on an ordinary bike way
-    const targetBikes = Math.min(MAX_BIKES, MAX_PEOPLE - 300 - targetPeds, Math.round(this.bikeKm * 5 * density.bikes));
+    const targetBikes = Math.min(MAX_BIKES, Math.round(this.bikeKm * 5 * density.bikes));
     for (let k = 0; k < 10 && this.riders.length < targetBikes; k++) this.spawnRider();
     if (this.riders.length > targetBikes) this.riders.length = Math.max(0, targetBikes);
     if (this.people.length > targetPeds) { // the person followed or walked stays in the crowd
@@ -643,7 +643,7 @@ export class StreetLife {
     this.drawTrams(back, night);
     this.trains.render(0, night);
     const n = this.drawPeople(dt, lead) + this.drawRiders(dt, lead, this.people.length);
-    const nd = drawDancers(this.M, n, MAX_PEOPLE, this.t, this.hour, this.world?.groundAt(DANCE.x, DANCE.y) ?? 0);
+    const nd = drawDancers(this.M, n, MAX_PEOPLE + MAX_BIKES, this.t, this.hour, this.world?.groundAt(DANCE.x, DANCE.y) ?? 0);
     setCount(n + nd, this.M.legs, this.M.torso);
     this.drawSignals();
   }
