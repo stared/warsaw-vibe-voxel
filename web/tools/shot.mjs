@@ -13,7 +13,8 @@ await page.waitForFunction(() => window.__ready === true, null, { timeout: +(pro
 await page.waitForFunction(() => !document.body.classList.contains('loading'), null, { timeout: +(process.env.TMO || 180000) });
 await page.waitForFunction(() => window.__streamer.inflight === 0 && window.__streamer.queue.length === 0, null, { timeout: 60000 }).catch(() => {});
 console.log('ready in', Date.now() - t0, 'ms');
+
+await page.waitForTimeout(+(process.env.WAIT || 2500));
 if (process.env.EXPR) console.log('expr:', JSON.stringify(await page.evaluate(process.env.EXPR)));
-await page.waitForTimeout(2500);
 await page.screenshot({ path: out });
 await browser.close();

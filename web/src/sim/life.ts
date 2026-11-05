@@ -3,7 +3,7 @@ import { hash, pushTo, smooth } from '../util';
 import type { World } from '../world';
 import { findCrossings } from './crossings';
 import { drawDancers, DANCE } from './dance';
-import { LifeMeshes, MAX_CARS, MAX_PEOPLE, MAX_TRAM_SECTIONS, setCount } from './meshes';
+import { LifeMeshes, MAX_BIKES, MAX_CARS, MAX_PEOPLE, MAX_TRAM_SECTIONS, setCount } from './meshes';
 import { at, cellKey, landingLane, prepPath, pt, Turn, turnOf, type Pt } from './path';
 import { Trains } from './trains';
 import type { Agent, Car, Controller, Kind, PedEdge, Person, Pose, Rideable, Road, TrafficData, Tram, TramPath, TramStop } from './types';
@@ -50,6 +50,8 @@ export class StreetLife {
   readonly trams: Tram[] = [];
   readonly trains: Trains;
   people: Person[] = [];
+  riders: Person[] = [];
+  day = 180;
   private t = 0;
   private hour = 12;
   private acc = 0;
@@ -70,6 +72,8 @@ export class StreetLife {
   private pedOn: boolean[] = [];
   private roadW: number[] = [];
   private pedW: number[] = [];
+  private bikeW: number[] = [];
+  private bikeKm = 0;
   private sources: number[] = [];
   private laneKm = 0;
   private pedKm = 0;
@@ -112,6 +116,9 @@ export class StreetLife {
       cars: Math.min(1, 0.18 + 0.55 * bell(8, 2.2) + 0.5 * bell(17, 2.6) + 0.45 * bell(13, 5)),
       peds: Math.min(1, 0.08 + 0.4 * bell(8.5, 1.8) + 0.85 * bell(16, 4.5) + 0.25 * bell(21, 2)),
       trams: hh > 0.5 && hh < 5 ? 0 : 1,
+      // the counters' day: the commute to work and home, a lunch hump, little at night; a fifth of July's in January
+      bikes: (0.03 + 0.85 * bell(8, 1.4) + 1.0 * bell(17, 2.0) + 0.35 * bell(13, 3))
+        * (0.2 + 0.4 * (1 - Math.cos(2 * Math.PI * (this.day - 15) / 365))),
     };
     this.acc += dt;
     while (this.acc >= STEP) { this.step(STEP, density); this.acc -= STEP; }
@@ -131,6 +138,9 @@ export class StreetLife {
     this.sources = this.roads.filter((e, i) => this.roadOn[i] && e.L > 15 && !(this.ins.get(e.a) ?? []).some((j) => this.roadOn[j])).map((e) => e.i);
     this.pedW = this.peds.map((e, i) => (this.pedOn[i] ? e.L * e.w : 0));
     this.pedKm = this.peds.reduce((a, e, i) => a + (this.pedOn[i] ? e.L : 0), 0) / 1000;
+    this.bikeW = this.peds.map((e, i) => (this.pedOn[i] && e.bk ? e.L * e.bk : 0));
+    this.bikeKm = this.bikeW.reduce((a, w) => a + w, 0) / 1000;
+    this.riders = this.riders.filter((p) => this.pedOn[p.e]);
     const out = new Set(this.cars.filter((c) => !this.roadOn[c.e] && c !== this.keep));
     for (const c of out) this.removeCar(c);
     if (out.size) this.cars.splice(0, this.cars.length, ...this.cars.filter((c) => !out.has(c)));
@@ -161,6 +171,13 @@ export class StreetLife {
     const ei = pickWeighted(this.pedW), e = this.peds[ei];
     this.people.push({ kind: 'person', e: ei, dir: Math.random() < 0.5 ? 1 : -1, s: Math.random() * e.L, v: 1.05 + Math.random() * 0.55,
       lat: 0.35 + Math.random() * 1.0, ph: Math.random() * 6.28, wait: false, col: new THREE.Color(anyOf(SHIRTS)) });
+  }
+
+  private spawnRider() {
+    const ei = pickWeighted(this.bikeW), e = this.peds[ei];
+    if (!e || !e.bk) return;
+    this.riders.push({ kind: 'person', e: ei, dir: Math.random() < 0.5 ? 1 : -1, s: Math.random() * e.L, v: 4 + Math.random() * 1.8,
+      lat: 0.45 + Math.random() * 0.3, ph: Math.random() * 6.28, wait: false, bike: true, col: new THREE.Color(anyOf(SHIRTS)) });
   }
 
   private newTram(p: TramPath, s: number): Tram {
@@ -355,13 +372,18 @@ export class StreetLife {
   }
 
   // ------------------------------------------------------------------ one tick
-  private step(dt: number, density: { cars: number; peds: number; trams: number }) {
+  private step(dt: number, density: { cars: number; peds: number; trams: number; bikes: number }) {
     this.t += dt;
     if (((this.t / 0.5) | 0) !== (((this.t - dt) / 0.5) | 0)) this.breakDeadlocks();
     const targetCars = Math.min(MAX_CARS, Math.round(this.laneKm * 9 * density.cars));
     const targetPeds = Math.min(MAX_PEOPLE, Math.round(this.pedKm * 24 * density.peds));
     for (let k = 0; k < 6 && this.cars.length < targetCars; k++) this.spawnCar(this.cars.length > targetCars * 0.5);
     for (let k = 0; k < 40 && this.people.length < targetPeds; k++) this.spawnPed();
+    // at July's evening peak 5 riders a km per unit of weight: 30 a km on Świętokrzyski bridge (~800 an hour at
+    // 5 m/s), 10 along a main road, 5 on an ordinary bike way
+    const targetBikes = Math.min(MAX_BIKES, MAX_PEOPLE - 300 - targetPeds, Math.round(this.bikeKm * 5 * density.bikes));
+    for (let k = 0; k < 10 && this.riders.length < targetBikes; k++) this.spawnRider();
+    if (this.riders.length > targetBikes) this.riders.length = Math.max(0, targetBikes);
     if (this.people.length > targetPeds) { // the person followed or walked stays in the crowd
       this.people = [...this.people.filter((p) => p.ctl || p === this.keep), ...this.people.filter((p) => !p.ctl && p !== this.keep)];
       this.people.length = targetPeds;
@@ -370,6 +392,7 @@ export class StreetLife {
     this.stepCars(dt, targetCars);
     this.stepTrams(dt, density.trams);
     this.stepPeople(dt);
+    this.stepRiders(dt);
   }
 
   // where everything is at the start of the tick: tram bodies and cars in grids, and who physically blocks whom
@@ -574,6 +597,30 @@ export class StreetLife {
     }
   }
 
+  // a rider keeps to the bike ways, the busier more often; off their end (into a street) they are gone, and another
+  // starts somewhere else
+  private stepRiders(dt: number) {
+    this.riders = this.riders.filter((pe) => {
+      const e = this.peds[pe.e];
+      if (pe.wait) {
+        if (!e.x || !pedGreen(this.ctrls[e.x.ctrl], this.t, e.x.axis)) return true;
+        pe.wait = false;
+      }
+      pe.s += pe.v * dt * pe.dir;
+      pe.ph += pe.v * dt * 1.6;
+      if (pe.s >= 0 && pe.s <= e.L) return true;
+      const opts = (this.padj.get(pe.s < 0 ? e.a : e.b) ?? []).filter(([j]) => j !== pe.e && this.pedOn[j] && this.peds[j].bk);
+      if (!opts.length) return false;
+      const [j, end] = opts[pickWeighted(opts.map(([k]) => this.peds[k].bk! * Math.max(this.peds[k].L, 5)))];
+      const n = this.peds[j];
+      pe.e = j;
+      pe.dir = end === 0 ? 1 : -1;
+      pe.s = end === 0 ? 0 : n.L;
+      if (n.x && !pedGreen(this.ctrls[n.x.ctrl], this.t, n.x.axis)) pe.wait = true;
+      return true;
+    });
+  }
+
   // ------------------------------------------------------------------ drawing
   // a car's path at arc length s, blended across the junction node into a smooth arc
   private carPoint(car: Car, s: number, out: Pt, off = car.off) {
@@ -595,7 +642,7 @@ export class StreetLife {
     this.drawCars(back, night);
     this.drawTrams(back, night);
     this.trains.render(0, night);
-    const n = this.drawPeople(dt, lead);
+    const n = this.drawPeople(dt, lead) + this.drawRiders(dt, lead, this.people.length);
     const nd = drawDancers(this.M, n, MAX_PEOPLE, this.t, this.hour, this.world?.groundAt(DANCE.x, DANCE.y) ?? 0);
     setCount(n + nd, this.M.legs, this.M.torso);
     this.drawSignals();
@@ -670,6 +717,31 @@ export class StreetLife {
       M.torso.setColorAt(i, p.col);
     });
     return this.people.length;
+  }
+
+  // a rider on a bike: the person sits 0.45 m up, keeping right of the way's line; the bike under them
+  private drawRiders(dt: number, lead: number, i0: number) {
+    const M = this.M, m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    const A = pt(), B = pt(), pos = new THREE.Vector3(), k = 1 - Math.exp(-dt * 10), sit = new THREE.Vector3(1, 0.82, 1);
+    const one = new THREE.Vector3(1, 1, 1);
+    this.riders.forEach((p, i) => {
+      const e = this.peds[p.e], ds = p.wait ? 0 : p.v * lead;
+      at(e, p.s + ds * p.dir, 0, A);
+      at(e, p.s + (ds + 1) * p.dir, 0, B);
+      const l = Math.hypot(B.x - A.x, B.y - A.y) || 1, dx = (B.x - A.x) / l, dy = (B.y - A.y) / l;
+      const x = A.x - dy * p.lat, y = A.y + dx * p.lat, h = Math.atan2(dx, dy);
+      if (!p.rp || Math.hypot(p.rp.x - x, p.rp.z - y) > 8) { p.rp = new THREE.Vector3(x, A.z, y); p.rh = h; }
+      p.rp.lerp(pos.set(x, A.z, y), k);
+      p.rh = (p.rh ?? h) + Math.atan2(Math.sin(h - (p.rh ?? h)), Math.cos(h - (p.rh ?? h))) * k;
+      q.setFromAxisAngle(up, p.rh!);
+      M.bike.setMatrixAt(i, m.compose(p.rp, q, one));
+      pos.copy(p.rp); pos.y += 0.45;
+      m.compose(pos, q, sit);
+      M.legs.setMatrixAt(i0 + i, m); M.torso.setMatrixAt(i0 + i, m);
+      M.torso.setColorAt(i0 + i, p.col);
+    });
+    setCount(this.riders.length, M.bike);
+    return this.riders.length;
   }
 
   private drawSignals() {

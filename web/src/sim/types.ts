@@ -15,7 +15,7 @@ export interface RoadData extends PathData {
 }
 export interface Road extends RoadData, Path { i: number; lists: Car[][] }
 
-export interface PedData extends PathData { a: number; b: number; w: number; x?: SignalRef; side?: number }
+export interface PedData extends PathData { a: number; b: number; w: number; x?: SignalRef; side?: number; bk?: number }
 export interface PedEdge extends PedData, Path { i: number }
 
 export interface TramStop extends SignalRef { s: number }
@@ -93,6 +93,7 @@ export interface Person {
   ph: number;
   wait: boolean;
   col: THREE.Color;
+  bike?: boolean;
   rp?: THREE.Vector3;
   rh?: number;
   ctl?: { x: number; y: number; z: number; h: number; moving: boolean };

@@ -79,6 +79,29 @@ def fit(p, offs, vol, solid, W, D, step=0.5):
     return out, int((zf > z0 + 0.5).sum() * step), longest * step
 
 
+# Riders per hour on a bike way, relative: ZDM's counts (2023 video counts at 53 points, 25 counters; 2025: 66 and 31)
+# put Świętokrzyski and Łazienkowski bridges at ~7000 a day, the other Vistula bridges at 1200-4200, Bulwar Pattona
+# by Świętokrzyski the busiest point of all, the main corridors (Al. Ujazdowskie, Towarowa, Czerniakowska) at
+# 800-1200 an hour at the peak; a bike way elsewhere carries a few hundred a day
+BIKE_BRIDGES = {"Most Świętokrzyski": 6, "Most Łazienkowski": 6, "Most Gdański": 4, "Most Siekierkowski": 3,
+                "Most Śląsko-Dąbrowski": 2.5, "Most Poniatowskiego": 2, "Most Grota-Roweckiego": 2.5}
+
+
+def bike_weight(t):
+    """how much a way is ridden, relative to an ordinary bike way (1); 0 where bikes are not ridden"""
+    hw = t.get("highway")
+    bike = hw == "cycleway" or t.get("bicycle") == "designated" or (hw == "path" and t.get("bicycle") != "no")
+    if not bike or t.get("bicycle") in ("no", "dismount"):
+        return 0
+    name = t.get("name", "") + " " + t.get("bridge:name", "")
+    for b, wt in BIKE_BRIDGES.items():
+        if b in name:
+            return wt
+    if "Bulwar" in name or "Wybrzeże" in name:
+        return 4
+    return 1 if hw == "cycleway" or t.get("bicycle") == "designated" else 0.3
+
+
 def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=None, paths=()):
     """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving.
     nd_mean: height of the walking/driving surface above the ground where it is a bridge deck (voxelize.py passes the
@@ -381,6 +404,9 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
                 on_roof[pnode(seg[0])], on_roof[pnode(seg[-1])] = zs[0], zs[-1]
         e = dict(a=pnode(seg[0]), b=pnode(seg[-1]), p=p, L=round(L, 1),
                  w=WEIGHT.get(t["highway"], 1.0) * (1.5 if t.get("footway") == "sidewalk" else 1.0))
+        bk = bike_weight(t)
+        if bk:
+            e["bk"] = bk
         is_cross = t.get("footway") == "crossing" or t.get("cycleway") == "crossing" or "crossing" in t
         signalled = t.get("crossing") == "traffic_signals" or t.get("crossing:signals") == "yes" \
             or any(n in ped_sig for n in seg)
@@ -399,6 +425,28 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         cum = np.concatenate([[0], np.cumsum([math.dist(a[:2], b[:2]) for a, b in zip(e["p"], e["p"][1:])])])
         e["flat"] = e["p"]  # as it was, should the voxels not hold the slope (a ramp OSM maps over another)
         e["p"] = [[x, y, int(round(z0 + (z1 - z0) * k / max(cum[-1], 1e-6)))] for (x, y, _), k in zip(e["p"], cum)]
+    # a bike way rides with the road beside it: on a Vistula bridge its count, along a main road twice a side street's
+    from shapely.strtree import STRtree
+    rl = [(w["tags"], LineString([nodes[n] for n in w["nodes"]])) for w in ways
+          if w["tags"]["highway"] in DRIVE and len(w["nodes"]) > 1]
+    rtree = STRtree([l for _, l in rl])
+    main = {"primary", "trunk", "secondary", "primary_link", "trunk_link"}
+    for e in peds:
+        if "bk" not in e or e["bk"] != 1:
+            continue
+        mid = LineString([q[:2] for q in e["p"]]).interpolate(0.5, normalized=True)
+        near = [rl[i] for i in rtree.query(mid.buffer(25)) if rl[i][1].distance(mid) < 25]
+        for t_, _ in near:
+            bw = BIKE_BRIDGES.get(t_.get("name", ""))
+            if bw and t_.get("bridge") not in (None, "no"):
+                e["bk"] = bw
+                break
+        else:
+            if any(t_["highway"] in main for t_, _ in near):
+                e["bk"] = 2
+    bks = [e["bk"] for e in peds if "bk" in e]
+    note(f"traffic: {len(bks)} bike way edges ({round(sum(e['L'] for e in peds if 'bk' in e) / 1000, 1)} km), "
+         f"{sum(b >= 2.5 for b in bks)} on bridges or boulevards, {sum(b == 2 for b in bks)} along main roads")
     pn = [None] * len(pidx)
     for n, i in pidx.items():
         pn[i] = [round(nodes[n][0], 1), round(nodes[n][1], 1)]

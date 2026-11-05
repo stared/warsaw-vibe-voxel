@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export const MAX_CARS = 1400, MAX_PEOPLE = 4000, MAX_TRAM_SECTIONS = 240;
+export const MAX_CARS = 1400, MAX_PEOPLE = 4000, MAX_TRAM_SECTIONS = 240, MAX_BIKES = 1200;
 
 function box(w: number, h: number, l: number, x: number, y: number, z: number, hex?: number) {
   const g = new THREE.BoxGeometry(w, h, l).translate(x, y + h / 2, z);
@@ -35,6 +35,7 @@ export class LifeMeshes {
   readonly legs: THREE.InstancedMesh;
   readonly torso: THREE.InstancedMesh;
   readonly pole: THREE.InstancedMesh;
+  readonly bike: THREE.InstancedMesh;
   readonly lamp: THREE.InstancedMesh;
   readonly headMat = new THREE.MeshBasicMaterial({ color: 0xfff3dd });
   readonly tramWinMat = std({ color: 0x26323d, roughness: 0.15, metalness: 0.4, emissive: new THREE.Color(1.0, 0.82, 0.55), emissiveIntensity: 0 });
@@ -55,6 +56,9 @@ export class LifeMeshes {
       box(0.3, 0.3, 0.3, 0, 1.45, 0, 0xe0b48f), box(0.32, 0.1, 0.32, 0, 1.72, 0, 0x3a2a20)), std({ vertexColors: true, roughness: 0.9, metalness: 0 }), P);
     this.torso = instanced(box(0.46, 0.62, 0.3, 0, 0.85, 0), std({ color: 0xffffff, roughness: 0.9, metalness: 0 }), P, { color: true });
     this.legs.castShadow = this.torso.castShadow = true;
+    const wheelB = (z: number) => box(0.07, 0.68, 0.68, 0, 0, z, 0x1a1a1a);
+    this.bike = instanced(merge(wheelB(-0.55), wheelB(0.55), box(0.06, 0.07, 1.05, 0, 0.62, 0, 0x8c8f93), box(0.06, 0.5, 0.06, 0, 0.3, -0.18, 0x8c8f93),
+      box(0.5, 0.05, 0.05, 0, 1.0, 0.5, 0x2b2b2b)), std({ vertexColors: true, roughness: 0.5, metalness: 0.4 }), MAX_BIKES, { shadow: true });
     const H = Math.max(1, heads.length);
     this.pole = instanced(merge(box(0.18, 3.3, 0.18, 0, 0, 0, 0x3a3e42), box(0.42, 1.25, 0.36, 0, 3.0, 0, 0x202225)), std({ vertexColors: true, roughness: 0.6 }), H);
     this.pole.castShadow = true;
@@ -62,7 +66,7 @@ export class LifeMeshes {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
     heads.forEach(([x, y, z, rot], i) => this.pole.setMatrixAt(i, m.compose(new THREE.Vector3(x, z, y), q.setFromAxisAngle(up, rot + Math.PI), one)));
     this.pole.count = heads.length;
-    this.group.add(this.body, this.dark, this.head, this.tail, this.legs, this.torso, this.pole, this.lamp, this.tram, this.tramWin);
+    this.group.add(this.body, this.dark, this.head, this.tail, this.legs, this.torso, this.bike, this.pole, this.lamp, this.tram, this.tramWin);
     scene.add(this.group);
   }
 }

@@ -328,7 +328,7 @@ renderer.setAnimationLoop((now) => {
   if (city?.complete) document.body.classList.remove('loading');
   if (life) {
     life.group.visible = !city || city.complete;
-    if (life.group.visible) life.update(dt, daylight.hour, daylight.night, focus());
+    if (life.group.visible) { life.day = daylight.day; life.update(dt, daylight.hour, daylight.night, focus()); }
   }
   daylight.sky.mesh.position.copy(camera.position);
   streamer?.update(camera);
