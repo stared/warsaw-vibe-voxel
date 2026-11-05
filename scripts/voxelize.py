@@ -885,15 +885,23 @@ def wall_style(f):
     if mat_tag in ("brick",) and col is None:
         col = hex_rgb("#a95f45")
     core = CORE.contains(f["geom"].representative_point())
+    royal = not core and h < 26 and ROYAL.intersects(f["geom"])
     if col is None:
-        walls = CORE_WALLS if core else WALL_DEFAULTS
+        walls = CORE_WALLS if core else ROYAL_WALLS if royal else WALL_DEFAULTS
         col = hex_rgb(walls[stable_hash(f["id"]) % len(walls)])
     if btype in SACRED or tag(f, "amenity") == "place_of_worship":
         return pal(soften(col), M_CLASSIC)  # stone or brick, tall windows: not the shader's office grid of storeys
-    if core:
+    if core or royal:
         return pal(soften(col), M_TENEMENT)
     return pal(soften(col), M_WALL)
 
+
+# the Royal Route's houses (Krakowskie Przedmieście, Nowy Świat; Commons 2018-2023 street photos): low classicist
+# fronts in white, cream, pale yellow, pink and salmon plaster with tall windows, not the generic beige office grid.
+# (buildings under 26 m whose outline comes within 14 m of its centreline)
+_rr = [l_ for _, t_, l_ in osm.lines if t_.get("name") in ("Nowy Świat", "Krakowskie Przedmieście") and t_.get("highway")]
+ROYAL = _uu([l_.buffer(14) for l_ in _rr]) if _rr else Point(-1e6, -1e6)
+ROYAL_WALLS = ["#efe9dc", "#ece7da", "#e6d7b8", "#e3bcae", "#eddcb6", "#f1ece2", "#d9a487", "#e8e2d4"]
 
 ROOF_OVERRULED = []
 
