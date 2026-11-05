@@ -868,14 +868,17 @@ def roof_style(f):
     if col is None:
         col = hex_rgb("#7d7f84")
     col = np.array(col, float) * 1.05  # ortho is slightly dark
-    tiles = (tag(f, "roof:material") or "") in ("roof_tiles", "tile", "tiles") or CORE.contains(f["geom"].representative_point())
+    # (an untagged roof the ortho sees clearly orange is tiles too: 422 of them, palaces and friaries off the old town,
+    # had been washed out to beige)
+    tiles = (tag(f, "roof:material") or "") in ("roof_tiles", "tile", "tiles") or CORE.contains(f["geom"].representative_point()) \
+        or (col[0] > col[2] + 35 and col[0] > col[1] + 18)
     # and carries blue sky reflections -- but not a tiled roof's red, which went pink (the Old Town: Rynek photos)
     red = tiles and col[0] > col[2] + 25  # the ortho's sunlit tiles read orange; in photos they are a brick red-brown
-    if red and CORE.contains(f["geom"].representative_point()):
+    if red:
         # one of three tile shades: the house's ortho median mixed in dormers and skylights (pink and orange roofs
         # side by side where the ortho shows one red-brown)
         return pal(soften(hex_rgb(["#a4533b", "#9a4b35", "#ad5d41"][stable_hash(f["id"]) % 3]), 0.05), M_ROOF, q=12)
-    col = tuple(np.clip((col.mean() + (col - col.mean()) * (0.85 if red else 0.6)) * (0.9 if red else 1.0), 0, 255))
+    col = tuple(np.clip(col.mean() + (col - col.mean()) * 0.6, 0, 255))
     return pal(soften(col, 0.1), M_ROOF, q=12)
 
 
