@@ -1751,6 +1751,23 @@ for i, sl in enumerate(objs, 1):
         n_cars += 1
 note("vehicles from LiDAR:", n_cars, "cars,", n_bus, "buses/trams/trucks")
 
+# churches' walls are the plain classic material (no grid of office storeys): without windows of their own they read
+# as blank blocks (Holy Cross, the Carmelites, St Alexander's). Tall windows on every straight outer edge, a second
+# row under the eaves of the tall ones; the curated churches redraw theirs later
+_win = pal((58, 70, 68), 21)
+n_cw = 0
+for f in render:
+    t_ = f["tags"]
+    if f["part"] or f["geom"].geom_type != "Polygon" or len(f["rr"]) < 150 or \
+            not (t_.get("building") in SACRED or t_.get("amenity") == "place_of_worship"):
+        continue
+    h30 = float(np.percentile(topi[f["rr"], f["cc"]], 30))
+    if h30 < 9:
+        continue
+    rows = [(3, int(min(7, h30 - 5)))] + ([(int(h30) - 7, 4)] if h30 >= 20 else [])
+    n_cw += landmarks.edge_windows(vol, g, f["geom"], _win, rows, 4.5)
+note("church windows:", n_cw)
+
 # ---------------------------------------------------------------- curated landmark details
 landmarks.apply_zones(vol, g, feats, pal, bmask, note)
 floods = landmarks.apply_stripes(vol, g, bmask, pal, osm, cells_of, note)
