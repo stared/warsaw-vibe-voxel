@@ -630,6 +630,7 @@ def classic_buildings(vol, g, feats, pal, note):
 def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_ids=()):
     details_geometry(vol, g, feats, pal, note)
     roofgardens.build(vol, g, bmask, pal, osm, cells_of, _orto(), C["garden"], note)
+    polin(vol, g, feats, pal, note)
     sigismund_column(vol, g, feats, osm, pal, note)
     global MON_TOP
     MON_TOP = monuments.build(vol, g, pal, note, keep=set(leaf_ids) | {C["trunk"]})
@@ -1881,6 +1882,48 @@ def ortho_roof(vol, g, geom, pal, note, name, glass_hex="#9fbccd", min_rel=4, al
         else:
             col[z] = pal(tuple(int(v) for v in px), 12, q=12); n[2] += 1
     note(f"{name} roof from the ortho: {n[0]} glass, {n[1]} planted, {n[2]} roof")
+
+
+def polin(vol, g, feats, pal, note):
+    """POLIN (Lahdelma & Mahlamäki, 2013; Commons 2013-2019, ortho 2025): a plain box of 21.5 m, its walls of glass
+    fins over pale glass, grey-green, with no windows to speak of; through it from east to west the canyon, a
+    curved slot with walls of beige concrete, widest at the top, its line the wavy skylight across the roof; the
+    entrance at its east end. The LiDAR's ragged edges and the generic window walls give way to a clean box."""
+    f = _feat(feats, "Muzeum Historii Żydów Polskich Polin")
+    if f is None:
+        note("POLIN: not found"); return
+    D, W = g.shape
+    rr, cc = _cells_geom(f["geom"], D, W)
+    inside = np.zeros((D, W), bool)
+    inside[rr, cc] = True
+    edge = inside & ~ndimage.binary_erosion(inside)
+    z0 = int(np.percentile(g[rr, cc], 90))
+    H = 21
+    fin = [pal(_hex(h), 0) for h in ("#6c7c84", "#7b8b92")]
+    roof, beige, dark = pal(_hex("#c8c8c3"), MAT_IDS["roof"]), pal(_hex("#d6c7ad"), 0), pal(_hex("#3e4a50"), MAT_IDS["glass"])
+    for r, c in zip(rr, cc):
+        vol[g[r, c]:z0 + H + 6, r, c] = 0
+        vol[g[r, c]:z0 + H, r, c] = fin[(r + c) % 2] if edge[r, c] else roof
+        vol[z0 + H, r, c] = fin[(r + c) % 2] if edge[r, c] else roof
+    # the canyon: its middle line from the ortho's skylight (grid col, row), the slot 3 m wide at the foot, 9 at the top
+    xs = np.array([545, 560, 575, 590, 600, 608]); ys = np.array([377, 371, 367, 367, 370, 375])
+    n = 0
+    for r, c in zip(rr, cc):
+        mid = np.interp(c, xs, ys)
+        for z in range(H):
+            half = 1.5 + 3.0 * z / H
+            d = abs(r + 0.5 - mid)
+            if d < half:
+                vol[z0 + z, r, c] = 0
+                n += 1
+            elif d < half + 1:
+                vol[z0 + z, r, c] = beige
+        if abs(r + 0.5 - mid) < 1.5:
+            vol[g[r, c]:z0, r, c] = beige  # its floor
+    for r, c in zip(rr, cc):  # the glass walls across the canyon's floor inside the entrance (east) and the west door
+        if abs(r + 0.5 - np.interp(c, xs, ys)) < 4.5 and c in (int(xs[-1]) - 6, int(xs[0]) + 6):
+            vol[z0:z0 + 6, r, c] = np.where(vol[z0:z0 + 6, r, c] == 0, dark, vol[z0:z0 + 6, r, c])
+    note(f"POLIN: a clean box {H} m, glass fins, the canyon ({n} cells)")
 
 
 def recolour_walls(vol, g, geom, pal, hex_, mat, note, name):

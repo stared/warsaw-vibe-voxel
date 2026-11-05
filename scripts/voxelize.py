@@ -289,7 +289,7 @@ def on_bridge(t):
     return t.get("bridge") not in (None, "no") or t.get("man_made") == "bridge"
 
 
-foot_shapes, road_shapes, bridge_shapes = [], [], []  # bridge ways are painted on the deck, not on the river below
+foot_shapes, road_shapes, bridge_shapes, cycle_shapes = [], [], [], []  # bridge ways are painted on the deck, not on the river below
 bridge_rails = []  # (line, colour) the rails of tracks on bridges, drawn on the deck like those on the ground
 bridge_lines = []  # (line, half width, layer) of every way on a bridge: the deck's height profile is taken along them
 bridge_roads = []  # (line, width) of carriageways on bridges, for the inferred deck lamps
@@ -317,13 +317,13 @@ for oid, t, line in osm.lines:
         continue
     if hw in ROADS or base in ROADS:
         road_shapes.append((poly, C[SURF.get(t.get("surface"), "asphalt")]))
-    elif hw == "cycleway":
-        foot_shapes.append((poly, C[SURF.get(t.get("surface"), "cycle")] if t.get("surface") not in ("asphalt", None) else C["cycle"]))
+    elif hw == "cycleway":  # one red the whole way, whatever its stretches are tagged (asphalt, paving stones): drawn last
+        cycle_shapes.append((poly, C["cycle"]))
     elif hw == "steps":
         foot_shapes.append((poly, C["steps"]))
     elif hw in ("footway", "path", "pedestrian", "platform", "track", "bridleway"):
         foot_shapes.append((poly, C[SURF.get(t.get("surface"), "paving")]))
-burn(gcol, foot_shapes)
+burn(gcol, foot_shapes + cycle_shapes)
 road_mask = np.zeros((D, W), np.uint16)
 burn(road_mask, [(s, 1) for s, _ in road_shapes])
 burn(gcol, road_shapes)
@@ -342,6 +342,9 @@ for oid, typ, t, geom in osm.areas_with("area:highway"):
         burn(road_mask, [(geom, 1)])
 area_hw.sort(key=lambda s: -s[0].area)
 burn(gcol, area_hw)
+_cyc = np.zeros((D, W), np.uint16)  # a footway area drawn over a cycleway beside it does not cut it
+burn(_cyc, [(sh, 1) for sh, _ in cycle_shapes])
+gcol[(_cyc > 0) & (road_mask == 0)] = C["cycle"]
 is_road = road_mask > 0
 
 # rails & trams (only open-air)

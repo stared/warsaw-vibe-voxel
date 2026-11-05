@@ -59,7 +59,7 @@ class Palette:  # same keys as voxelize.Palette, seeded with the full build's en
         return self.index[key]
 
 
-boxes = [BOXES[a] if a in BOXES else tuple(int(v) for v in a.split(",")) for a in sys.argv[1:] if a not in ("monuments", "gardens")]
+boxes = [BOXES[a] if a in BOXES else tuple(int(v) for v in a.split(",")) for a in sys.argv[1:] if a not in ("monuments", "gardens", "polin")]
 meta = json.load(open(OUT / "meta.json"))
 pal = Palette(meta["palette"])
 st = pickle.load(open("data/cache/pre_state.pkl", "rb"))
@@ -80,6 +80,9 @@ if "gardens" in sys.argv[1:]:
     for geom in [gm for _, gm in roofgardens.gardens(_osm)] + [b for b, *_ in roofgardens.hosts(_osm).values()]:
         c0, r0, c1, r1 = (int(v) for v in geom.bounds)
         boxes.append((max(r0 - 2, 0), r1 + 3, max(c0 - 2, 0), c1 + 3))
+if "polin" in sys.argv[1:]:
+    landmarks.polin(vol, g, st["feats"], pal, note)
+    boxes.append((300, 430, 520, 640))
 landmarks.sigismund_column(vol, g, st["feats"], _osm, pal, note)
 if "monuments" in sys.argv[1:]:
     import monuments
