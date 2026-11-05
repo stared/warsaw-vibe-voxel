@@ -1702,6 +1702,8 @@ for f in feats:
         bkind[f["rr"], f["cc"]] = 2
 from shapely.geometry import Polygon as _Poly
 landmarks.PIERS = [_Poly(l.coords) for oid, t, l in osm.lines if t.get("bridge:support") and l.is_closed and len(l.coords) >= 4]
+import underpass
+underpass.build(vol, g, pal, C, osm, note)
 if os.environ.get("LMCACHE"):  # the volume before the curated landmark details, for scripts/patch.py
     import pickle
     Path("data/cache").mkdir(parents=True, exist_ok=True)

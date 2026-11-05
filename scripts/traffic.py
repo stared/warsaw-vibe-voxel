@@ -333,8 +333,9 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         rnodes[i] = [round(x, 1), round(y, 1)]
 
     # ---------------- pedestrians
+    import underpass
     pways = [w for w in ways if (w["tags"]["highway"] in WALK or w["tags"].get("footway") == "sidewalk")
-             and not underground(w["tags"]) and w["tags"].get("access") not in ("no", "private")]
+             and (not underground(w["tags"]) or w["id"] in underpass.IDS) and w["tags"].get("access") not in ("no", "private")]
     ped_sig = {n for n, t in ntags.items() if t.get("crossing") == "traffic_signals" or t.get("crossing:signals") == "yes"}
     peds, pidx = [], {}
 
@@ -368,7 +369,10 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         if vol is not None and not bridge and not up and roofs is not None and not underground(t) \
                 and LineString([q[:2] for q in p]).intersection(roofs).length > 0.8 * L:
             up = fit(p, (0.0,), vol, solid, W, D)[2] > 2  # on a garden roof, unless it fits under it (an arcade)
-        if vol is not None and not bridge and up:
+        if w["id"] in underpass.IDS:  # down a stairwell or through a passage: its carved walking levels
+            zs = [int(underpass.WALK[min(max(int(y), 0), D - 1), min(max(int(x), 0), W - 1)]) for x, y, _ in p]
+            p = [[x, y, z if z >= 0 else z0] for (x, y, z0), z in zip(p, zs)]
+        elif vol is not None and not bridge and up:
             zs = [roof_z(x, y) for x, y, _ in p]  # a path on a roof garden (BUW, Dobra, the Kubicki Arcades)
             if len(zs) > 2 and all(z is not None for z in zs[1:-1]):  # an end at the roof's edge (a ramp's top)
                 zs[0], zs[-1] = zs[0] or zs[1], zs[-1] or zs[-2]
