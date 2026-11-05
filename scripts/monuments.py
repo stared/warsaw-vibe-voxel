@@ -99,6 +99,23 @@ def plane(L, S, col):
            B(0, -L * 0.42, S * 0.4, 2, 2, 3, c), B(0, -L * 0.42, 1.2, 2.5, 3, 5, c)]
     return out
 
+
+def uw_gate():
+    """the University of Warsaw's main gate on Krakowskie Przedmieście (1910, Stefan Szyller; Commons 2019-2023): two
+    white pavilions with a statue in a niche facing the street, a pediment and a lamp on a tall post over each, the
+    wrought-iron arch with the crowned eagle between them over the 5 m opening, an iron side gate and a post with an
+    urn beyond each; the street to the west (-a)"""
+    white, iron, gold, statue = ("#ece6d8", STONE), ("#2b2d2e", METAL), ("#b8943f", METAL), ("#a8a59c", STONE)
+    out = []
+    for s_ in (-1, 1):
+        b = 4.5 * s_
+        out += [B(0, b, 3, 4, 0, 6, white), B(0, b, 3, 3, 6, 7.5, white), B(0, b, 1, 1, 7.5, 9, white),
+                B(0, b, 1, 1, 9, 12.5, iron), B(-1, b, 1, 1, 1, 4, statue),
+                B(0, 7.4 * s_, 1, 2, 3.5, 4.5, iron), B(0, 7.4 * s_, 1, 1, 0, 3.5, iron),
+                B(0, 9.2 * s_, 2, 2, 0, 5.5, white), B(0, 9.2 * s_, 1, 1, 5.5, 6.5, white)]
+    out += [B(0, 0, 1, 5, 6, 7, iron), B(0, 0, 1, 1, 7, 8, gold)]
+    return out
+
 def palm():
     """Palma (2002, Joanna Rajkowska; Commons 2010-2023): an artificial date palm on the roundabout's lawn, a slim
     grey-brown trunk to 15 m and a star of drooping green fronds, the same in every season"""
@@ -242,6 +259,7 @@ MONUMENTS = {
     "Samolot MWP F": dict(at=(21.025838, 52.231589), phi=120, parts=plane(12, 7, "#9fa59c")),
     "Samolot MWP H": dict(at=(21.026043, 52.231453), phi=150, parts=plane(14, 9, "#9aa19a")),
     "Samolot MWP I": dict(at=(21.026236, 52.231495), phi=30, parts=plane(12, 8, "#a3a8a2")),
+    "Brama Uniwersytecka": dict(at=(21.017197, 52.239798), phi=0, parts=uw_gate(), clear=6),
     "Palma": dict(at=(21.020867, 52.231846), phi=0, parts=palm(), clear=5),
     "Saperzy nad Wisłą": dict(at=(21.044794, 52.228289), phi=301,  # its other half, off the Czerniakowski bridgehead
                               # (Commons 2022): a dark steel post in the water by the steps, pale figures on it
