@@ -8,6 +8,7 @@ Output traffic.json, coordinates in grid metres (x = col, y = row) with z = walk
 Axis 0/1 = travel roughly along grid x / grid y (the grid is aligned to the Śródmieście street grid).
 """
 import json
+from collections import Counter
 import math
 from collections import defaultdict
 
@@ -730,10 +731,16 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
 
     if vol is not None:
         n_lift = 0
+        deg = Counter([e["a"] for e in roads] + [e["b"] for e in roads])
         for e in roads:
             lo, hi = e["o0"] - 0.8, e["o0"] + (e["lanes"] - 1) * 3.0 + 0.8
             e["p"], lift, _ = fit(e["p"], np.linspace(lo, hi, max(2, int(hi - lo) + 1)), vol, solid, W, D, decks=True)
             n_lift += lift
+            if deg[e["a"]] == 1 or deg[e["b"]] == 1:  # a dead end at a tunnel's portal (the link into the roundabout
+                # under Poniatowski's viaduct): its last node on the deck over the portal, the car climbed the wall
+                p_ = trim_portal(e["p"])
+                if len(p_) >= 2 and length(p_) > 3:
+                    e["p"], e["L"] = p_, round(length(p_), 1)
         for tr in trams:
             tr["p"], lift, _ = fit(tr["p"], (-0.9, 0.0, 0.9), vol, solid, W, D, decks=True)
             n_lift += lift
