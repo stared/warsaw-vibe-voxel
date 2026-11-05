@@ -38,6 +38,9 @@ BOXES = {  # rows, cols of the 1 m grid around each landmark's curated work
     "laz": (4140, 4215, 2930, 3580),
     "swk": (2000, 2200, 2680, 3220),
     "kladka": (1305, 1525, 2355, 2835),
+    "prez": (1505, 1615, 1730, 1872),
+    "bristol": (1598, 1665, 1742, 1850),
+    "europejski": (1604, 1685, 1625, 1721),
 }
 OUT = Path("web/public/data")
 t0 = time.time()

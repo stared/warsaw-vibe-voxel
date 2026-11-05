@@ -570,6 +570,25 @@ def classic_buildings(vol, g, feats, pal, note):
             if 1843 <= r <= 1845:
                 vol[gz + 1:gz + 6, r, fc - 2] = dark
     holy_trinity(vol, g, feats, pal, note)
+    presidential_palace(vol, g, feats, pal, note)
+    bristol(vol, g, feats, pal, note)
+    f = _feat(feats, "Hotel Europejski")
+    if f is not None:  # Commons 2019-2026 (after the Raffles restoration): bright white stucco, a tall arcaded ground
+        # floor and three storeys to the cornice at ~22 m, the dark charcoal mansard rounding the corners to 28 m
+        # the 2025 ortho: the mansard a band 5-6 m wide round the outside, then a flat light grey roof round the court
+        classic_rebuild(vol, g, pal, f["geom"], eave=22, slope=1.3, wall_hex="#efede6", roof_hex="#33393b",
+                        rows=[(1, 4), (7, 3), (11, 3), (15, 2), (18, 2)], bay=3.4, cap=28, pure_hip=True, note=note,
+                        name="Hotel Europejski")
+        D, W = g.shape
+        rr, cc = _cells_geom(f["geom"], D, W)
+        outer = f["geom"].exterior
+        flat = pal(_hex("#b4b7b6"), 12)
+        for r, c in zip(rr, cc):
+            if outer.distance(Point(c + 0.5, r + 0.5)) > 5.5:
+                col = vol[:, r, c]
+                nz = np.nonzero(col)[0]
+                if len(nz) and nz[-1] >= int(g[r, c]) + 27:
+                    col[nz[-1]] = flat
     hk = _feat(feats, "Hala Koszyki")
     if hk is not None:  # Commons 2016-2023: red brick sides with tall windows; ortho: grey metal gables, skylights
         recolour_walls(vol, g, hk["geom"], pal, "#9b4f3e", MAT_IDS["wall"], note, "Hala Koszyki")
@@ -1820,6 +1839,64 @@ def classic_rebuild(vol, g, pal, geom, eave, slope, wall_hex, roof_hex, note, na
     if rows:
         n = edge_windows(vol, g, geom, pal((58, 70, 68), MAT_IDS["window"]), rows, bay)
     note(f"{name} rebuilt: {len(rr)} columns, {n} windows")
+
+
+def _by_id(feats, oid):
+    return next((f for f in feats if f["id"] == oid), None)
+
+
+def presidential_palace(vol, g, feats, pal, note):
+    """Pałac Prezydencki (Commons 2013-2026, raw LiDAR): two-storey wings round the court, eaves ~10 m under hipped
+    roofs to 14-15 m; the three-storey main block at the court's end, eaves ~17 m, roof to 23-24 m; white stucco, a pale
+    green-grey copper on every roof (2025 ortho)."""
+    wall, roof = "#e9e3d5", "#a2b4a9"
+    for oid, eave, slope, cap, rows in (
+            (29093779, 10, 0.8, 15, [(2, 2), (6, 2)]), (854340880, 10, 0.8, 15, [(2, 2), (6, 2)]),
+            (854340875, 10, 0.8, 15, [(2, 2), (6, 2)]), (1127846574, 10, 0.8, 16, [(2, 2), (6, 2)]),
+            (854340878, 17, 0.7, 24, [(2, 3), (7, 3), (12, 3)]), (1127846573, 15, 0.7, 18, [(2, 3), (7, 3)]),
+            (1127846575, 15, 0.7, 18, [])):
+        f = _by_id(feats, oid)
+        if f is not None:
+            classic_rebuild(vol, g, pal, f["geom"], eave=eave, slope=slope, wall_hex=wall, roof_hex=roof, rows=rows,
+                            bay=3.6, cap=cap, pure_hip=True, note=note, name=f"Pałac Prezydencki {oid}")
+
+
+def bristol(vol, g, feats, pal, note):
+    """Hotel Bristol (Commons 2007-2021, raw LiDAR): cream stone, a tall shop floor and four storeys to the cornice at
+    ~23 m, a grey zinc mansard to the flat top at 31 m round the court; on the rounded corner at Karowa the round
+    belvedere of columns under a small grey dome."""
+    f = _feat(feats, "Hotel Bristol")
+    if f is None:
+        return
+    wall_hex, roof_hex = "#e6dcc4", "#8f9499"
+    classic_rebuild(vol, g, pal, f["geom"], eave=23, slope=8, wall_hex=wall_hex, roof_hex=roof_hex,
+                    rows=[(1, 4), (6, 3), (10, 3), (14, 2), (18, 2)], bay=3.4, cap=31, note=note,
+                    name="Hotel Bristol")
+    wall, roof = pal(_hex(wall_hex), MAT_IDS["classic"]), pal(_hex(roof_hex), 12)
+    cy, cx, R = 1654.0, 1760.0, 4.3
+    n = 0
+    for r in range(int(cy - R) - 1, int(cy + R) + 2):
+        for c in range(int(cx - R) - 1, int(cx + R) + 2):
+            d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+            if d > R:
+                continue
+            col = vol[:, r, c]
+            gz = int(g[r, c])
+            col[gz:gz + 23] = np.where(col[gz:gz + 23] == 0, wall, col[gz:gz + 23])
+            col[gz + 23:gz + 27] = wall
+            col[gz + 27:gz + 40] = 0
+            col[gz + 27] = wall
+            if d > R - 1.2:
+                col[gz + 31] = wall
+            for z, rad in ((32, R - 0.4), (33, R * 0.62), (34, 1.3)):
+                if d <= rad:
+                    col[gz + z] = roof
+            n += 1
+    for k in range(6):
+        t = 2 * math.pi * (k + 0.5) / 6
+        r, c = int(cy + (R - 0.7) * math.sin(t)), int(cx + (R - 0.7) * math.cos(t))
+        vol[int(g[r, c]) + 28:int(g[r, c]) + 31, r, c] = wall
+    note(f"Hotel Bristol belvedere: {n} cells")
 
 
 def holy_trinity(vol, g, feats, pal, note):
