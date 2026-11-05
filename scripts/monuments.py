@@ -17,7 +17,8 @@ STONE, METAL = 0, 6
 BRONZE, PATINA = ("#6a5c48", METAL), ("#678072", METAL)
 GRANITE, DARK, BLACK = ("#9c9890", STONE), ("#6a6661", STONE), ("#34353a", STONE)
 LIGHT, SAND, MARBLE = ("#cfcac0", STONE), ("#d6c39c", STONE), ("#eeece6", STONE)
-CONCRETE, BASALT = ("#bdbab2", STONE), ("#807a71", STONE)
+CONCRETE, BASALT, STEEL = ("#bdbab2", STONE), ("#807a71", STONE), ("#b3b1aa", STONE)
+RELIEF, SAPPER, SILVER = ("#55635b", METAL), ("#4f5a53", METAL), ("#c4c6c4", METAL)
 
 
 def B(a, b, w, d, z0, z1, col, rot=0.0, lean=(0.0, 0.0), top=1.0):
@@ -44,20 +45,33 @@ def rider(a, b, z, col, rot=0.0):
 
 
 def sappers():
-    """Pomnik Chwała Saperom (1975, Stanisław Kulon): six 17 m concrete pylons in a ring, the blast of a mine, three
-    each side, leaning out, bronze reliefs at their feet; the kneeling sapper in the middle"""
-    out = [B(0, 0, 1, 2, 0, 2, BRONZE)]
-    for th, h in ((240, 15), (270, 17), (300, 13), (60, 13), (90, 17), (120, 15)):
-        e = (math.sin(math.radians(th)), math.cos(math.radians(th)))
-        out += [B(6.5 * e[0], 6.5 * e[1], 2, 3, 0, h, CONCRETE, th, (3 * e[0], 3 * e[1])),
-                B(5 * e[0], 5 * e[1], 1, 1, 0, 2, PATINA, th)]
+    """Pomnik Chwała Saperom (1975, Stanisław Kulon), Commons 2006-2026, along its axis (2026): two groups of three
+    welded steel pylons (the river shipyard's plates, painted light grey) flaring out like a mine's blast, a broad
+    front one to 17 m, an outer one behind it leaning further, a slim near-vertical one inside; bronze reliefs wrap
+    the groups' feet; between them, on a round plinth, the kneeling sapper in his helmet, the rifle on his back, over
+    the wreaths. Its axis runs to its other half on the river pier; the sapper faces away from it, to the city"""
+    # its axis is 31 degrees off the grid: every box turned back square to the voxels and leaning straight along
+    # them (north or south), so a pylon steps cleanly instead of fraying
+    G, n = -31, (math.cos(math.radians(31)), math.sin(math.radians(31)))
+    out = [B(0, 0.5, 4, 4, 0, 0.5, GRANITE, G),
+           B(0, 0.5, 2, 2, 0.5, 1.5, SAPPER, G), B(0, 0, 2, 1, 1.5, 2.5, SAPPER, G),
+           B(0.5, 0.5, 1, 1, 2.5, 3.5, SAPPER, G), B(-0.5, -0.5, 1, 1, 2.5, 4, SAPPER, G)]
+    for k in (-1, 1):
+        lean = lambda m: (m * k * n[0], m * k * n[1])
+        out += [B(5.5 * k, 1, 2.5, 2, 0, 1.5, LIGHT, G),
+                B(5.5 * k, 1, 2, 1.5, 1.5, 17, STEEL, G),
+                B(8 * k, -1.5, 2, 1.5, 0, 14, STEEL, G, lean(3)),
+                B(3.5 * k, -4.5, 1.5, 1.5, 0, 12, STEEL, G),
+                B(6.5 * k, 0, 5, 3, 1.5, 4, RELIEF, G)]
     return out
 
 
 MONUMENTS = {
-    "Pomnik Chwała Saperom": dict(at=(21.041212, 52.228660), phi=0, parts=sappers()),
-    "Saperzy nad Wisłą": dict(at=(21.044499, 52.228262), phi=0,  # the figures on a pier where the port meets the river
-                              parts=[B(0, 0, 2, 2, 0, 5, CONCRETE), B(0, 0, 2, 1, 5, 8, BRONZE)]),
+    "Pomnik Chwała Saperom": dict(at=(21.041212, 52.228660), phi=301, parts=sappers()),
+    "Saperzy nad Wisłą": dict(at=(21.044794, 52.228289), phi=301,  # its other half, off the Czerniakowski bridgehead
+                              # (Commons 2022): a dark steel post in the water by the steps, pale figures on it
+                              parts=[B(0, 0, 1, 1, 0, 4, BLACK), B(0, 0, 2, 2, 4, 4.5, LIGHT)]
+                              + standing(0, 0, 4.5, 3, SILVER)),
     "Pomnik Mikołaja Kopernika": dict(  # Thorvaldsen 1830: the seated astronomer with the armillary sphere
         at=(21.017972, 52.238155), phi=0,
         parts=[B(0, 0, 7, 7, 0, 1, GRANITE), B(0, 0, 5, 5, 1, 2, GRANITE), B(0, 0, 2, 3, 2, 6, DARK),
