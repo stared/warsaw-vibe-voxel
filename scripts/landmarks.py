@@ -572,6 +572,7 @@ def classic_buildings(vol, g, feats, pal, note):
     holy_trinity(vol, g, feats, pal, note)
     presidential_palace(vol, g, feats, pal, note)
     bristol(vol, g, feats, pal, note)
+    holy_cross(vol, g, feats, pal, note)
     f = _feat(feats, "Hotel Europejski")
     if f is not None:  # Commons 2019-2026 (after the Raffles restoration): bright white stucco, a tall arcaded ground
         # floor and three storeys to the cornice at ~22 m, the dark charcoal mansard rounding the corners to 28 m
@@ -1897,6 +1898,37 @@ def bristol(vol, g, feats, pal, note):
         r, c = int(cy + (R - 0.7) * math.sin(t)), int(cx + (R - 0.7) * math.cos(t))
         vol[int(g[r, c]) + 28:int(g[r, c]) + 31, r, c] = wall
     note(f"Hotel Bristol belvedere: {n} cells")
+
+
+def holy_cross(vol, g, feats, pal, note):
+    """Kościół Świętego Krzyża (Commons; raw LiDAR): cream walls to the eaves at ~20 m, a patina roof to the nave's
+    ridge at 27 m; on the front to Krakowskie Przedmieście two square towers, shafts to 32 m under dark green copper
+    helmets, their spires to 54 m (north) and 45 m (south)."""
+    f = _feat(feats, "Kościół pw. Świętego Krzyża")
+    if f is None:
+        return
+    wall_hex = "#e6d8b6"
+    classic_rebuild(vol, g, pal, f["geom"], eave=20, slope=0.9, wall_hex=wall_hex, roof_hex="#7f9a8f",
+                    rows=[(3, 7), (13, 4)], bay=5, cap=27, note=note, name="Kościół Świętego Krzyża")
+    wall, helm = pal(_hex(wall_hex), MAT_IDS["classic"]), pal(_hex("#3f5d54"), 6)
+    for (cr, cc_), peak in (((2016, 1721), 54), ((2048, 1721), 45)):
+        for r in range(cr - 4, cr + 4):
+            for c in range(cc_ - 4, cc_ + 4):
+                gz = int(g[r, c])
+                col = vol[:, r, c]
+                col[gz + 1:gz + 60] = 0
+                col[gz:gz + 32] = wall
+                d = max(abs(r + 0.5 - cr), abs(c + 0.5 - cc_))
+                for z0, z1, rad in ((32, 34, 4.0), (34, 37, 3.0), (37, 39, 2.0), (39, 42, 1.2), (42, peak, 0.6)):
+                    if d <= rad and z1 > z0:
+                        col[gz + z0:gz + z1] = helm
+        dark = pal((40, 44, 46), MAT_IDS["window"])
+        for z0, z1 in ((24, 30), (13, 18)):  # the belfry's arched openings and the storey's window under them
+            for k in (-1, 0):
+                for r, c in ((cr - 4, cc_ + k), (cr + 3, cc_ + k), (cr + k, cc_ - 4), (cr + k, cc_ + 3)):
+                    gz = int(g[r, c])
+                    vol[gz + z0:gz + z1, r, c] = dark
+    note("Holy Cross towers: helmets to 54 and 45 m")
 
 
 def holy_trinity(vol, g, feats, pal, note):
