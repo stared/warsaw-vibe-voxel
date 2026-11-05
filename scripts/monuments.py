@@ -19,6 +19,9 @@ GRANITE, DARK, BLACK = ("#9c9890", STONE), ("#6a6661", STONE), ("#34353a", STONE
 LIGHT, SAND, MARBLE = ("#cfcac0", STONE), ("#d6c39c", STONE), ("#eeece6", STONE)
 CONCRETE, BASALT, STEEL = ("#bdbab2", STONE), ("#807a71", STONE), ("#b3b1aa", STONE)
 RELIEF, SAPPER, SILVER = ("#55635b", METAL), ("#4f5a53", METAL), ("#c4c6c4", METAL)
+DARK_BRONZE, DARK_GRANITE, RED_GRANITE = ("#4a453e", METAL), ("#4b4b4e", STONE), ("#8f6f66", STONE)
+PINK_GRANITE, GREY_BRONZE, WORN_BRONZE = ("#b4a598", STONE), ("#59605a", METAL), ("#4f5a50", METAL)
+MID_GRANITE, COPPER, MERMAID = ("#8f8d88", STONE), ("#7a5236", METAL), ("#4d6b5e", METAL)
 
 
 def B(a, b, w, d, z0, z1, col, rot=0.0, lean=(0.0, 0.0), top=1.0):
@@ -34,14 +37,33 @@ def standing(a, b, z, h, col, arm=None):
     return out
 
 
-def rider(a, b, z, col, rot=0.0):
-    """a horse with its rider, 4.5 m, three voxels long, facing +b"""
+def rider(a, b, z, col, rot=0.0, arm=False):
+    """a horse with its rider, 5 m, facing +b: front and hind legs, a 4 m body, the neck and head raised, the tail,
+    the rider over the saddle, arm out ahead with a sabre if arm"""
     r = math.radians(rot)
     at = lambda k: (a + k * math.sin(r), b + k * math.cos(r))
-    return [B(*at(-1), 1, 1, z, z + 1, col, rot), B(*at(1), 1, 1, z, z + 1, col, rot),   # legs
-            B(*at(0), 1, 3, z + 1, z + 2, col, rot),                                    # body
-            B(*at(1.6), 1, 1, z + 2, z + 3, col, rot),                                   # neck and head
-            B(*at(-0.2), 1, 1, z + 2, z + 4, col, rot)]                                  # the rider
+    out = [B(*at(-1.5), 1, 1, z, z + 2, col, rot), B(*at(1.5), 1, 1, z, z + 2, col, rot),
+           B(*at(0), 1, 4, z + 2, z + 3, col, rot), B(*at(2.5), 1, 1, z + 3, z + 5, col, rot),
+           B(*at(-2.5), 1, 1, z + 1, z + 3, col, rot), B(*at(-0.5), 1, 1, z + 3, z + 5, col, rot)]
+    if arm:
+        out.append(B(*at(0.5), 1, 1, z + 4, z + 5, col, rot))
+    return out
+
+
+def crosses(w, d, z):
+    """a thicket of crosses over w x d cells from z: each cell a post of its own height (4 to 7 m), some with the
+    crossbar out to a side"""
+    out = []
+    for i in range(w):
+        for k in range(d):
+            hh = (i * 7 + k * 13 + i * k * 5) % 5
+            if hh == 4:
+                continue
+            a, b, top = i - (w - 1) / 2, k - (d - 1) / 2, z + 3 + hh
+            out.append(B(a, b, 1, 1, z, top, DARK_BRONZE))
+            if (i + k * 3) % 3 == 0:
+                out.append(B(a + (-1 if i < w / 2 else 1), b, 1, 1, top - 2, top - 1, DARK_BRONZE))
+    return out
 
 
 def sappers():
@@ -72,88 +94,142 @@ MONUMENTS = {
                               # (Commons 2022): a dark steel post in the water by the steps, pale figures on it
                               parts=[B(0, 0, 1, 1, 0, 4, BLACK), B(0, 0, 2, 2, 4, 4.5, LIGHT)]
                               + standing(0, 0, 4.5, 3, SILVER)),
-    "Pomnik Mikołaja Kopernika": dict(  # Thorvaldsen 1830: the seated astronomer with the armillary sphere
-        at=(21.017972, 52.238155), phi=0,
-        parts=[B(0, 0, 7, 7, 0, 1, GRANITE), B(0, 0, 5, 5, 1, 2, GRANITE), B(0, 0, 2, 3, 2, 6, DARK),
-               B(0, 0.5, 2, 2, 6, 7, BRONZE), B(0, 0, 2, 1, 7, 8, BRONZE), B(-0.5, 0, 1, 1, 8, 9, BRONZE),
-               B(1.5, 0, 1, 1, 7, 8, BRONZE)]),
-    "Pomnik Bohaterów Getta": dict(  # 1948, Rapoport and Suzin: an 11 m basalt block on a stepped granite platform,
-        at=(20.994216, 52.249741), phi=270,  # the fighters' bronze relief to the west, the march to death behind
-        parts=[B(0, 0, 30, 20, 0, 1, DARK), B(0, 0, 10, 4, 1, 12, BASALT, top=0.85),
-               B(0, 1.5, 3, 1, 3, 8, BRONZE), B(0, -1.5, 8, 1, 2, 4, BRONZE),
-               B(-6, 4, 1, 1, 1, 3, BRONZE), B(6, 4, 1, 1, 1, 3, BRONZE)]),
-    "Pomnik Nike": dict(  # Pomnik Bohaterów Warszawy (1964, Marian Konieczny): a 14 m sandstone-clad pedestal,
-        at=(21.009183, 52.245897), phi=112,  # the 7 m bronze Nike lunging with a 6 m sword
-        parts=[B(0, 0, 4.5, 7, 0, 14, SAND, top=0.75),
-               B(0, -1, 2, 5, 14, 15, BRONZE), B(0, -0.5, 2, 3, 15, 16, BRONZE), B(0, 0, 2, 2, 16, 18, BRONZE),
-               B(-0.5, 0, 1, 1, 18, 19, BRONZE), B(0.5, 0, 1, 1, 18, 21, BRONZE), B(0.5, 2.5, 1, 4, 19, 20, BRONZE)]),
-    "Pomnik Józefa Poniatowskiego": dict(  # Thorvaldsen 1832: the prince on horseback, 4.5 m, on a two-step pedestal
-        at=(21.015480, 52.242803), phi=180,
-        parts=[B(0, 0, 5, 8, 0, 1, GRANITE), B(0, 0, 3, 6, 1, 6, DARK)] + rider(0, 0, 6, BRONZE)),
-    "Pomnik Adama Mickiewicza": dict(  # Cyprian Godebski 1898: the 4.5 m poet on a granite column over a terrace
-        at=(21.014857, 52.243726), phi=90,
-        parts=[B(0, 0, 13, 13, 0, 1, DARK), B(0, 0, 11, 11, 1, 2, GRANITE),
-               B(0, 0, 4, 4, 2, 4, LIGHT), B(0, 0, 3, 3, 4, 7, LIGHT), B(0, 0, 2, 2, 7, 10, LIGHT)]
-              + standing(0, 0, 10, 5, BRONZE)
-              + [B(x, y, 1, 1, 2, 6, BRONZE) for x in (-5, 5) for y in (-5, 5)]),
-    "Pomnik Józefa Piłsudskiego": dict(  # 1995, Tadeusz Łodziana: the marshal in his greatcoat on a granite block
+    "Pomnik Mikołaja Kopernika": dict(  # Thorvaldsen 1830 (Commons 2004-2020): the astronomer seated on a stone
+        at=(21.017972, 52.238155), phi=0,  # block, the armillary sphere held out in his left hand, in dark bronze
+        parts=[B(0, 0, 7, 8, 0, 1, RED_GRANITE), B(0, 0, 4, 5, 1, 2, DARK_GRANITE),  # on a dark granite pedestal
+               B(0, 0, 3, 4, 2, 5, DARK_GRANITE), B(0, 0, 4, 5, 5, 6, DARK_GRANITE),  # over a red granite step,
+               B(0, -1, 2, 2, 6, 7, DARK_BRONZE), B(0, 0.5, 2, 2, 6, 7, DARK_BRONZE),  # facing the street, his
+               B(0, -0.5, 2, 1, 7, 9, DARK_BRONZE), B(0.5, -0.5, 1, 1, 9, 10, DARK_BRONZE),  # back to the palace
+               B(-0.5, 1, 1, 1, 7, 9, DARK_BRONZE)]),
+    # 1948, Rapoport and Suzin (Commons 1948-2024): an 11 m block of grey granite slabs, a little narrower at the top,
+    # on a dark platform; the fighters' tall relief in its west face, the march to death wide and low in the east, the
+    # two menorahs either side of the steps
+    "Pomnik Bohaterów Getta": dict(
+        at=(20.994216, 52.249741), phi=270,
+        parts=[B(0, 0, 22, 12, 0, 1, DARK_GRANITE), B(0, 0, 10, 4, 1, 12, ("#68655f", STONE), top=0.85),
+               B(0, 1.5, 3, 1, 2, 9, DARK_BRONZE), B(0, -1.5, 7, 1, 3, 5, DARK_BRONZE),
+               B(-6, 4, 1, 1, 1, 3, DARK_BRONZE), B(6, 4, 1, 1, 1, 3, DARK_BRONZE)]),
+    # Pomnik Bohaterów Warszawy (1964, Marian Konieczny; Commons 1974-2020): a slender sandstone shaft of 14 m,
+    # narrowing upwards, and on it the dark bronze Nike lunging low along its top, the sword held level over her head
+    # and reaching far past the shaft
+    "Pomnik Nike": dict(
+        at=(21.009183, 52.245897), phi=112,
+        parts=[B(0, 0, 3, 4, 0, 14, SAND, top=0.75),
+               B(0, -1.5, 2, 3, 14, 15, DARK_BRONZE), B(0, 0, 2, 2, 15, 16, DARK_BRONZE),
+               B(0, 1, 2, 1, 16, 17, DARK_BRONZE), B(0.5, 1.5, 1, 1, 17, 18, DARK_BRONZE),
+               B(-0.5, 0.5, 1, 1, 17, 19, DARK_BRONZE), B(-0.5, -0.5, 1, 6, 19, 20, DARK_BRONZE)]),
+    # Thorvaldsen 1832 (Commons 1920s-2023): the prince on horseback over a dark granite pedestal on a pale step, in
+    # the Presidential Palace's courtyard, riding out to Krakowskie Przedmieście (west)
+    "Pomnik Józefa Poniatowskiego": dict(
+        at=(21.015480, 52.242803), phi=270,
+        parts=[B(0, 0, 5, 8, 0, 1, GRANITE), B(0, 0, 3, 6, 1, 5, DARK_GRANITE)] + rider(0, 0, 5, DARK_BRONZE, arm=True)),
+    # Cyprian Godebski 1898 (Commons): the 4.5 m poet in dark bronze over a pinkish granite pedestal, its lower block
+    # hung with bronze garlands, a slender shaft and capital, on a balustraded terrace with steps and four lamps;
+    # he faces Krakowskie Przedmieście (west), the Carmelite church to his left
+    "Pomnik Adama Mickiewicza": dict(
+        at=(21.014857, 52.243726), phi=270,
+        parts=[B(0, 0, 13, 13, 0, 1, GRANITE), B(0, 0, 11, 11, 1, 2, PINK_GRANITE),
+               B(0, 0, 4, 4, 2, 4, PINK_GRANITE), B(0, 0, 4, 4, 4, 5, DARK_BRONZE), B(0, 0, 2, 2, 5, 9, PINK_GRANITE),
+               B(0, 0, 3, 3, 9, 10, PINK_GRANITE)]
+              + standing(0, 0, 10, 5, DARK_BRONZE)
+              + [B(x, y, 1, 1, 2, 6, DARK_BRONZE) for x in (-5, 5) for y in (-5, 5)]),
+    # 1995, Tadeusz Łodziana (Commons): the marshal in his greatcoat, 4 m of dark grey-green bronze, on a near-black
+    # granite pedestal over a round grey base, by the Europejski, looking west over the square
+    "Pomnik Józefa Piłsudskiego": dict(
         at=(21.014130, 52.241393), phi=270,
-        parts=[B(0, 0, 3, 3, 0, 1, GRANITE), B(0, 0, 2, 2, 1, 5, DARK)] + standing(0, 0, 5, 4, BRONZE)),
-    "Pomnik Lecha Kaczyńskiego": dict(  # 2021: a 3.5 m figure on a 3.5 m light granite block wrapped in bronze
-        at=(21.014063, 52.240900), phi=270,
-        parts=[B(0, 0, 4, 4, 0, 1, LIGHT), B(0, 0, 2, 2, 1, 4, LIGHT), B(0, 1, 2, 1, 1, 4, BRONZE)]
-              + standing(0, 0, 4, 4, BRONZE)),
-    "Pomnik Ofiar Tragedii Smoleńskiej": dict(  # 2018: black granite steps rising 6 m over a glass-covered pit
+        parts=[B(0, 0, 5, 5, 0, 1, GRANITE), B(0, 0, 3, 3, 1, 5, DARK_GRANITE), B(0, 0, 2, 2, 5, 7, GREY_BRONZE)]
+              + standing(0, 0, 7, 2, GREY_BRONZE)),
+    # 2021 (Commons 2021-2024): the president, 3.5 m of dark bronze, hand on his chest, on a light grey granite block
+    # whose front a dark bronze sheet wraps, over a low stepped platform; he faces the square (north-north-west, here
+    # north), the cream garrison building behind him
+    "Pomnik Lecha Kaczyńskiego": dict(
+        at=(21.014063, 52.240900), phi=0,
+        parts=[B(0, 0, 8, 8, 0, 1, GRANITE), B(0, 0, 3, 3, 1, 4, ("#c4c1ba", STONE)), B(0, 1.5, 3, 1, 1, 4, DARK_BRONZE),
+               B(0, 0, 2, 2, 4, 6, DARK_BRONZE)]
+              + standing(0, 0, 6, 2, DARK_BRONZE)),
+    # 2018 (Commons 2018-2022): a 2 m thick slab of black granite whose top is a long stair rising to 6.5 m at the
+    # end with the eagle and the wreaths; the glass over the pit around it lies flush with the paving
+    "Pomnik Ofiar Tragedii Smoleńskiej": dict(
         at=(21.012757, 52.240658), phi=0,
-        parts=[B(0, 0, 7, 14, 0, 1, ("#3c4a50", STONE))]
-              + [B(0, -4 + k, 3, 1 + 8 - k, 1, 1 + 0.7 * (k + 1), BLACK) for k in range(8)]),
-    "Pomnik Kościuszkowców": dict(  # 1985, Bronisław Koniuszy: a 12 m bronze soldier in a cape, arm flung out
-        at=(21.030788, 52.248040), phi=270,
-        parts=[B(0, 0, 8, 6, 0, 1, DARK), B(0, 0, 6, 4, 1, 5, PATINA, top=0.8), B(0, 0, 5, 3, 5, 9, PATINA, top=0.7),
-               B(0, 0, 2, 2, 9, 12, PATINA), B(1.5, 0, 1, 1, 8, 10, PATINA), B(2.5, 0, 1, 1, 9, 11, PATINA),
-               B(3.5, 0, 1, 1, 10, 12, PATINA), B(4.5, 0, 1, 1, 11, 13, PATINA)]),
-    "Pomnik Armii Krajowej": dict(  # 1999: a 32 m light granite blade whose foot sweeps out along the ground
+        parts=[B(0, 0, 6, 13, 0, 0.5, ("#5f8f94", 2))] + [B(0, -4 + k, 2, 1, 0, 0.75 * (k + 1), BLACK) for k in range(9)]),
+    # 1985, Bronisław Koniuszy (Commons 2008-2023): a 10 m soldier in a hooded rain cape that flares to its foot,
+    # weathered dark bronze, his left arm flung up and out, on a low dark plinth; the ortho's shadow has the arm
+    # reaching west, so he faces north
+    "Pomnik Kościuszkowców": dict(
+        at=(21.030788, 52.248040), phi=0,
+        parts=[B(0, 0, 9, 6, 0, 1, DARK_GRANITE), B(0, 0, 7, 4, 1, 6, WORN_BRONZE, top=0.75),
+               B(0, 0, 5, 3, 6, 9, WORN_BRONZE, top=0.6), B(0, 0, 2, 2, 9, 11, WORN_BRONZE)]
+              + [B(-1.5 - k, 0, 1, 1, 8 + k, 10 + k, WORN_BRONZE) for k in range(5)]),
+    # 1999 (Commons 2010-2024): a light grey granite blade, narrowing as it rises to 32 m, the dark bronze anchor of
+    # Polska Walcząca low on its face, its foot curving out into a long low wall: TOBIE OJCZYZNO - ARMIA KRAJOWA
+    "Pomnik Armii Krajowej": dict(
         at=(21.026323, 52.225180), phi=90,
-        parts=[B(0, 0, 3, 2, 0, 32, ("#d6d3cc", STONE), top=0.6)]
-              + [B(0, 1 + k / 2, 3, 1 + k, 0, 8 - k, ("#d6d3cc", STONE)) for k in range(8)]),
-    "Pomnik Jazdy Polskiej": dict(  # 1994, Mieczysław Welter: two riders on a slim column, the battles on its foot
+        parts=[B(0, 0, 4, 2, 0, 32, ("#d6d3cc", STONE), top=0.5), B(0, 1, 2, 1, 3, 6, DARK_BRONZE)]
+              + [B(2.5 + k, 0, 1, 2, 0, h, ("#d6d3cc", STONE)) for k, h in enumerate([6, 4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2])]),
+    # 1994, Mieczysław Welter (Commons 2008-2012): on a mound with steps, a black block naming the cavalry's battles,
+    # a slender pale green column to 20 m, and over its small capital two dark bronze riders galloping side by side,
+    # a modern lancer with his sabre out and a winged hussar
+    "Pomnik Jazdy Polskiej": dict(
         at=(21.014494, 52.216535), phi=0,
-        parts=[B(0, 0, 2, 2, 0, 6, BLACK), B(0, 0, 1, 1, 6, 20, ("#a6b0a3", STONE)), B(0, 0, 3, 3, 20, 21, LIGHT)]
-              + rider(-0.5, 0, 21, BRONZE) + rider(0.5, 0.5, 21, BRONZE)),
-    "Pomnik Tadeusza Kościuszki": dict(  # 2010, a copy of Antoni Popiel's Washington monument: the general over a
-        at=(21.002461, 52.239602), phi=90,  # granite pedestal, the eagle on a globe and the soldier groups below
-        parts=[B(0, 0, 13, 13, 0, 1, GRANITE), B(0, 0, 8, 8, 1, 2, GRANITE), B(0, 0, 3, 3, 2, 7, LIGHT)]
-              + standing(0, 0, 7, 3, BRONZE)
-              + [B(x, y, 1, 1, 2, 4, BRONZE) for x, y in ((2.5, 0), (-2.5, 0), (0, 2.5), (0, -2.5))]),
-    "Pomnik Poległym i Pomordowanym na Wschodzie": dict(  # 1995, Maksymilian Biskupski: a flatcar of crosses on rails
-        at=(20.998874, 52.253780), phi=106,                # whose sleepers name the places of Soviet murder
-        parts=[B(0, 0, 4, 8, 0, 1, DARK), B(0, 0, 4, 8, 1, 2, BRONZE)]
-              + [B(x, y, 1, 1, 2, h, BRONZE) for x, y, h in ((-1.5, -3, 6), (0, -2.5, 7), (1.5, -3.5, 5), (-1, -1, 7),
-                                                            (1, -0.5, 6), (0, 0.5, 8), (-1.5, 1.5, 6), (1.5, 1.5, 7),
-                                                            (0, 3, 6), (-1, 3.5, 5), (1, 3.5, 6))]
-              + [B(0, -6 - 2 * k, 3, 1, 0, 1, PATINA) for k in range(8)]),
-    "Pomnik Jana Kilińskiego": dict(  # Stanisław Jackowski 1936: the cobbler leading the charge, sabre high,
-        at=(21.010865, 52.248222), phi=180,  # 4 m of bronze on a 3 m granite block
-        parts=[B(0, 0, 5, 5, 0, 1, GRANITE), B(0, 0, 2, 2, 1, 4, DARK)] + standing(0, 0, 4, 4, BRONZE, arm="up")),
-    "Pomnik Żołnierzy 1 Armii WP": dict(  # 1945–1963, Bazyli Wojtowicz: an 8 m soldier hewn in grey granite
+        parts=[B(0, 0, 2, 2, 0, 6, BLACK), B(0, 0, 1, 1, 6, 20, ("#a6b0a3", STONE)), B(0, 0, 2, 4, 20, 21, DARK_BRONZE)]
+              + rider(-0.5, 0, 21, DARK_BRONZE, arm=True) + rider(0.5, 0, 21, DARK_BRONZE)
+              + [B(0.5, -1.5, 1, 1, 26, 27, DARK_BRONZE), B(0.5, -2.5, 1, 1, 26, 28, DARK_BRONZE)]),  # the hussar's wing
+    # 2010, a copy of Antoni Popiel's Washington monument (Commons): the general in copper-brown bronze on a grey
+    # granite pedestal over a stepped platform; at its foot the eagle spreading its wings on a half globe (front) and
+    # the soldier groups at the sides and back; the Lubomirski Palace behind him, he faces east over the square
+    "Pomnik Tadeusza Kościuszki": dict(
+        at=(21.002461, 52.239602), phi=90,
+        parts=[B(0, 0, 13, 13, 0, 1, GRANITE), B(0, 0, 9, 9, 1, 2, GRANITE), B(0, 0, 3, 3, 2, 7, MID_GRANITE),
+               B(0, 2.5, 2, 2, 2, 3, COPPER), B(0, 2.5, 4, 1, 3, 4, COPPER),
+               B(2.5, 0, 1, 1, 2, 4, COPPER), B(-2.5, 0, 1, 1, 2, 4, COPPER), B(0, -2.5, 1, 1, 2, 4, COPPER)]
+              + standing(0, 0, 7, 3, COPPER)),
+    # 1995, Maksymilian Biskupski (Commons): a railway flatcar packed with a thicket of dark bronze crosses to 7 m, the
+    # eagle among them, on a track whose sleepers each name a place of Soviet murder
+    "Pomnik Poległym i Pomordowanym na Wschodzie": dict(
+        at=(20.998874, 52.253780), phi=106,
+        parts=[B(0, 0, 4, 8, 0, 1, BLACK), B(0, 0, 4, 8, 1, 2, DARK_BRONZE)] + crosses(4, 8, 2)
+              + [B(0, -10, 3, 12, 0, 1, DARK_BRONZE)]),
+    # Stanisław Jackowski 1936 (Commons 1936-2023): the cobbler in his long coat, 4 m of dark bronze, the sabre high in
+    # his right hand, the left arm out, on a slim dark granite pedestal as tall; he faces south, the walls behind him
+    "Pomnik Jana Kilińskiego": dict(
+        at=(21.010865, 52.248222), phi=180,
+        parts=[B(0, 0, 7, 7, 0, 1, GRANITE), B(0, 0, 2, 2, 1, 5, DARK_GRANITE),
+               B(0, 0, 2, 2, 5, 7, DARK_BRONZE), B(0, 0, 2, 1, 7, 8, DARK_BRONZE), B(0.5, 0, 1, 1, 8, 9, DARK_BRONZE),
+               B(1.5, 0, 1, 1, 7, 11, DARK_BRONZE), B(-1.5, 0, 1, 1, 7, 8, DARK_BRONZE)]),
+    # 1945-1963, Bazyli Wojtowicz (Commons): a 6 m soldier hewn in grey granite, helmeted, his gun across his chest,
+    # his coat to the boots, on a squat tapering pedestal over a stepped platform
+    "Pomnik Żołnierzy 1 Armii WP": dict(
         at=(20.998243, 52.248198), phi=180,
-        parts=[B(0, 0, 9, 6, 0, 1, GRANITE), B(0, 0, 3, 3, 1, 3, GRANITE), B(0, 0, 2, 2, 3, 9, ("#a8a49c", STONE)),
-               B(0, 0, 1, 1, 9, 11, ("#a8a49c", STONE))]),
-    "Pomnik Monte Cassino": dict(  # 1999, Gustaw Zemła: a white marble column torn open, the wings of Nike over it,
-        at=(21.000386, 52.247154), phi=210,  # on a 2 m base with the Monte Cassino cross
-        parts=[B(0, 0, 8, 5, 0, 2, MARBLE), B(-1, -1, 2, 2, 2, 13, MARBLE, top=0.7),
-               B(-2, -1, 1, 1, 12, 14, MARBLE), B(-3, -1, 1, 1, 13, 15, MARBLE),
-               B(0, -1, 1, 1, 12, 14, MARBLE), B(1, -1, 1, 1, 13, 15, MARBLE)]),
-    "Pomnik Kobietom Powstania Warszawskiego": dict(  # 2022, Monika Osiecka: three women in bronze on a granite slab
+        parts=[B(0, 0, 9, 7, 0, 1, GRANITE), B(0, 0, 3, 3, 1, 4, GRANITE, top=0.9),
+               B(0, 0, 3, 2, 4, 9, ("#a8a49c", STONE)), B(0, 0, 1, 1, 9, 10, ("#a8a49c", STONE))]),
+    # 1999, Gustaw Zemła (Commons): a broad, broken column of white marble, Nike's wings opening from its top into a
+    # V to 15 m, on a long marble base with rough slanted ends and the Monte Cassino cross
+    "Pomnik Monte Cassino": dict(
+        at=(21.000386, 52.247154), phi=210,
+        parts=[B(0, 0, 6, 4, 0, 2, MARBLE), B(-3.5, 0, 1, 3, 0, 1, MARBLE), B(3.5, 0, 1, 3, 0, 1, MARBLE),
+               B(0, -0.5, 3, 2, 2, 11, MARBLE, top=0.85)]
+              + [B(k * (1 + j), -0.5, 1, 1, 11 + j, 13 + j, MARBLE) for k in (-1, 1) for j in range(3)]),
+    # 2022, Monika Osiecka (Commons 2022-2024): three women in brown bronze, life and a half size, close in a shallow
+    # arc on a round bronze plate over a light grey granite plinth
+    "Pomnik Kobietom Powstania Warszawskiego": dict(
         at=(21.004628, 52.248968), phi=180,
-        parts=[B(0, 0, 3, 3, 0, 1, DARK)] + [B(x, 0, 1, 1, 1, 3, BRONZE) for x in (-1, 0, 1)]),
-    "Mały Powstaniec": dict(at=(21.009620, 52.249274), phi=90,  # Jerzy Jarnuszkiewicz 1983: the boy in a big helmet
-                            parts=[B(0, 0, 1, 1, 0, 1, ("#7a4a3a", STONE)), B(0, 0, 1, 1, 1, 2, BRONZE)]),
+        parts=[B(0, 0, 4, 4, 0, 1, GRANITE)] + [B(x, y, 1, 1, 1, 3, ("#6b5845", METAL)) for x, y in ((-1, -0.5), (0, 0.5), (1, -0.5))]),
+    # Jerzy Jarnuszkiewicz 1983 (Commons): the boy in a big helmet, 1.3 m of dark bronze, on a dark brown post, his
+    # back to the city walls and the raised half-round brick terrace before them (east); he faces west
+    "Mały Powstaniec": dict(
+        at=(21.009620, 52.249274), phi=270,
+        parts=[B(0, -2.5, 6, 3, 0, 1, ("#a0523d", STONE)), B(0, 0, 1, 1, 0, 2, ("#4a3428", STONE)),
+               B(0, 0, 1, 1, 2, 3, DARK_BRONZE)]),
     "Miła 18": dict(at=(20.992342, 52.251514), phi=0,  # the stone on the mound over the ŻOB bunker
                     parts=[B(0, 0, 1, 1, 0, 3, ("#9a978f", STONE))]),
-    "Syrenka": dict(at=(21.032085, 52.240239), phi=270,  # Ludwika Nitschowa 1939: the 2.75 m mermaid with sword and
-                    parts=[B(0, 0, 4, 4, 0, 1, SAND), B(0, 0, 2, 2, 1, 3, SAND)]  # shield over a sandstone pedestal
-                    + standing(0, 0, 3, 3, PATINA, arm="up")),
+    # Ludwika Nitschowa 1939 (Commons 2019-2024): the 2.75 m mermaid in dark green bronze, seated on her tail, the
+    # sword high in her right hand, the round shield on her left, on a stepped sandstone pedestal; she faces west,
+    # the stadium behind her
+    "Syrenka": dict(
+        at=(21.032085, 52.240239), phi=270,
+        parts=[B(0, 0, 5, 5, 0, 1, SAND), B(0, 0, 3, 3, 1, 3, SAND),
+               B(0, 0, 2, 2, 3, 4, MERMAID), B(0, 0, 2, 1, 4, 5, MERMAID), B(0.5, 0, 1, 1, 5, 6, MERMAID),
+               B(1.5, 0, 1, 1, 5, 7, MERMAID), B(-1.5, 0, 1, 1, 4, 5, MERMAID)]),
 }
 
 
