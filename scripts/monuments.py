@@ -88,6 +88,17 @@ def uprising():
     return out
 
 
+
+def plane(L, S, col):
+    """an aircraft on display, nose along +b: the fuselage 2 m round on its gear, swept wings of span S a little behind
+    the middle, the tailplane and the fin at the back"""
+    c = (col, METAL)
+    out = [B(0, L * 0.3, 1.6, 1.6, 0, 1, c), B(-1.5, -L * 0.05, 1.6, 1.6, 0, 1, c), B(1.5, -L * 0.05, 1.6, 1.6, 0, 1, c),
+           B(0, 0, 2, L, 1, 3, c), B(0, L / 2 + 0.5, 1.6, 1.6, 1.5, 2.5, c),
+           B(0, -L * 0.05, S, max(2, L * 0.15), 1, 2, c),
+           B(0, -L * 0.42, S * 0.4, 2, 2, 3, c), B(0, -L * 0.42, 1.2, 2.5, 3, 5, c)]
+    return out
+
 def palm():
     """Palma (2002, Joanna Rajkowska; Commons 2010-2023): an artificial date palm on the roundabout's lawn, a slim
     grey-brown trunk to 15 m and a star of drooping green fronds, the same in every season"""
@@ -221,6 +232,16 @@ MONUMENTS = {
     "Kamień Milowy": dict(
         at=(21.010979, 52.230021), phi=0, clear=2,
         parts=[B(0, 0, 1, 1, 0, 3, ("#4f504d", STONE)), B(0, 0, 1, 1, 3, 4, ("#b08a4a", METAL))]),
+    # the Polish Army Museum's open-air display by Aleje Jerozolimskie (2025 ortho: each aircraft's place, heading,
+    # length and span; OSM maps none): jets, a transport and a camouflaged bomber on the grass
+    "Samolot MWP A": dict(at=(21.026237, 52.232404), phi=143, parts=plane(15, 9, "#c9ccc8")),
+    "Samolot MWP B": dict(at=(21.026267, 52.232301), phi=155, parts=plane(16, 10, "#c4c8c4")),
+    "Samolot MWP C": dict(at=(21.026481, 52.232057), phi=135, parts=plane(17, 18, "#e2e2dd")),
+    "Samolot MWP D": dict(at=(21.026607, 52.231817), phi=41, parts=plane(26, 22, "#7f8b6c")),
+    "Samolot MWP E": dict(at=(21.026641, 52.2316), phi=117, parts=plane(15, 8, "#a6aaa6")),
+    "Samolot MWP F": dict(at=(21.025838, 52.231589), phi=120, parts=plane(12, 7, "#9fa59c")),
+    "Samolot MWP H": dict(at=(21.026043, 52.231453), phi=150, parts=plane(14, 9, "#9aa19a")),
+    "Samolot MWP I": dict(at=(21.026236, 52.231495), phi=30, parts=plane(12, 8, "#a3a8a2")),
     "Palma": dict(at=(21.020867, 52.231846), phi=0, parts=palm(), clear=5),
     "Saperzy nad Wisłą": dict(at=(21.044794, 52.228289), phi=301,  # its other half, off the Czerniakowski bridgehead
                               # (Commons 2022): a dark steel post in the water by the steps, pale figures on it
