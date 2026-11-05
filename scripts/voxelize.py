@@ -293,6 +293,21 @@ foot_shapes, road_shapes, bridge_shapes, cycle_shapes, road_lines = [], [], [], 
 bridge_rails = []  # (line, colour) the rails of tracks on bridges, drawn on the deck like those on the ground
 bridge_lines = []  # (line, half width, layer) of every way on a bridge: the deck's height profile is taken along them
 bridge_roads = []  # (line, width) of carriageways on bridges, for the inferred deck lamps
+_paved = [(g_, t_["surface"]) for _, _, t_, g_ in osm.areas
+          if t_.get("surface") in SURF and ("area:highway" in t_ or (t_.get("highway") and t_.get("area") == "yes"))]
+_ptree = STRtree([g_ for g_, _ in _paved])
+n_inherit = 0
+
+
+def area_surface(line):
+    """the surface of the paved square or courtyard a road without its own runs through (the palace's driveway)"""
+    for i in _ptree.query(line):
+        g_, s_ = _paved[i]
+        if line.intersection(g_).length > 0.6 * line.length:
+            return s_
+    return None
+
+
 for oid, t, line in osm.lines:
     hw = t.get("highway")
     if hw == "construction":
@@ -316,15 +331,18 @@ for oid, t, line in osm.lines:
             bridge_roads.append((line, w))  # (not the Karowa footbridge, a living_street for service vans only)
         continue
     if hw in ROADS or base in ROADS:
+        _s = t.get("surface") or area_surface(line)
+        n_inherit += _s is not None and "surface" not in t
         if base in ("trunk", "primary", "secondary", "tertiary", "unclassified", "residential"):
-            road_lines.append((oid, line, C[SURF.get(t.get("surface"), "asphalt")]))
-        road_shapes.append((poly, C[SURF.get(t.get("surface"), "asphalt")]))
+            road_lines.append((oid, line, C[SURF.get(_s, "asphalt")]))
+        road_shapes.append((poly, C[SURF.get(_s, "asphalt")]))
     elif hw == "cycleway":  # one red the whole way, whatever its stretches are tagged (asphalt, paving stones): drawn last
         cycle_shapes.append((poly, C["cycle"]))
     elif hw == "steps":
         foot_shapes.append((poly, C["steps"]))
     elif hw in ("footway", "path", "pedestrian", "platform", "track", "bridleway"):
         foot_shapes.append((poly, C[SURF.get(t.get("surface"), "paving")]))
+note(f"roads taking their square's surface: {n_inherit}")
 burn(gcol, foot_shapes + cycle_shapes)
 road_mask = np.zeros((D, W), np.uint16)
 burn(road_mask, [(s, 1) for s, _ in road_shapes])
@@ -471,9 +489,22 @@ for oid, t, line in osm.lines:
             L = ln.length
             for s in np.arange(1.0, L - 1, 9.0):
                 lane_lines.append(substring(ln, s, min(s + 3, L)))
+_deg, _hw = {}, {}
+for oid, t, line in osm.lines:
+    b = (t.get("highway") or "").replace("_link", "")
+    if b not in HW or b not in ROADS or tunnelish(t) or on_bridge(t):
+        continue
+    xy = [tuple(np.round(p, 1)) for p in line.coords]
+    for k, p in enumerate(xy):
+        _deg[p] = _deg.get(p, 0) + (k > 0) + (k < len(xy) - 1)
+        _hw[p] = max(_hw.get(p, 0), HW[b] / 2)
+_junc = [Point(p).buffer(_hw[p] + 4) for p, d in _deg.items() if d >= 3]
+_junc += [geom for oid, typ, t, geom in osm.areas_with("area:highway") if t.get("junction") and not tunnelish(t)]
 lm = np.zeros((D, W), np.uint16)
 burn(lm, [(l, 1) for l in lane_lines], all_touched=False)
-lm_mask = (lm > 0) & np.isin(gcol, [C["asphalt"]])
+_jm = np.zeros((D, W), np.uint16)
+burn(_jm, [(j, 1) for j in _junc])
+lm_mask = (lm > 0) & (_jm == 0) & np.isin(gcol, [C["asphalt"]])
 gcol[lm_mask] = C["mark"]
 note("lane marking cells:", int(lm_mask.sum()))
 
