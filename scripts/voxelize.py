@@ -339,6 +339,19 @@ soft.sort(key=lambda s: -s[0].area)
 burn(gcol, containers)
 burn(gcol, soft)
 burn(gcol, hard)
+# a lawn island inside a car park (the stadium's) is drawn over it, not under
+_hard_u = _uu([h_ for h_, _ in hard]) if hard else None
+burn(gcol, [(g_, c_) for g_, c_ in soft if c_ in (C["grass"], C["grass2"]) and _hard_u is not None and g_.area < 20000
+            and _hard_u.contains(g_.representative_point())])
+# a construction site is bare earth only where the 2025 ortho sees it so (the Saxon Palace's and Twórcza Twarda's
+# fenced plots were lawn and trees then)
+_con = np.zeros((D, W), np.uint16)
+burn(_con, [(g_, 1) for _, _, t_, g_ in osm.areas if t_.get("landuse") == "construction" and not tunnelish(t_)])
+_cm = (_con > 0) & (gcol == C["dirt"])
+_cg = ndimage.median_filter(((exg > 0.04) | (lum < 70)).astype(np.uint8), 9) > 0  # (a crown's shadow on the lawn is lawn)
+_cp = ndimage.median_filter(((exg <= 0.04) & (lum >= 70) & (cellcol[..., 0] < cellcol[..., 2] + 12)).astype(np.uint8), 9) > 0
+gcol[_cm & _cg] = C["grass"]
+gcol[_cm & ~_cg & _cp] = C["paving2"]  # grey hardstanding, not earth
 parking_mask = np.zeros((D, W), np.uint16)
 burn(parking_mask, [(geom, 1) for geom, _ in hard])
 
