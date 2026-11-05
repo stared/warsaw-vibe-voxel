@@ -113,7 +113,7 @@ def stable_hash(*a):
 pal = Palette()
 C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "paving": pal("#c6c2b8"), "paving2": pal("#b5b4af"), "asphalt": pal("#5f636b"), "asphalt_l": pal("#6e7178"),
-    "sett": pal("#8f8981"), "road_paving": pal("#a49f97"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
+    "sett": pal("#8f8981"), "road_paving": pal("#a49f97"), "tartan": pal("#b3604c"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
     "grass": pal("#86b45a", M_GRASS), "grass2": pal("#79a852", M_GRASS), "garden": pal("#73a34e", M_GRASS),
     "scrub": pal("#5f8f45", M_LEAF), "flower": pal("#d98fb3", M_GRASS), "flower2": pal("#e8c25e", M_GRASS),
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
@@ -310,6 +310,14 @@ for oid, typ, t, geom in osm.areas:
         containers.append((geom, C[SURF.get(t.get("surface"), "paving")]))
     if t.get("landuse") in LANDUSE:
         soft.append((geom, C[LANDUSE[t["landuse"]]]))
+    if t.get("leisure") == "pitch":  # its colour as the ortho sees it: red tartan, green turf or a grey court; the
+        # surface tags disagree with it (a green turf pitch tagged tartan by Zamoyski's school, red courts untagged)
+        rr_, cc_ = cells_of(geom.buffer(-1) if geom.area > 60 else geom)
+        if len(rr_) >= 10:
+            r_, g_, b_ = np.median(cellcol[rr_, cc_], axis=0)
+            key = "tartan" if r_ > g_ + 18 and r_ > b_ + 25 else "grass" if g_ > r_ + 6 and g_ > b_ + 6 else "asphalt_l"
+            soft.append((geom, C[key]))
+            continue
     if t.get("leisure") in LEISURE:
         soft.append((geom, C[SURF.get(t.get("surface"), LEISURE[t["leisure"]])]))
     if t.get("natural") in ("scrub", "heath", "grassland"):
@@ -418,7 +426,7 @@ AH = {"footway": "paving", "pedestrian": "paving", "cycleway": "cycle", "traffic
       "passing_place": "asphalt", "shoulder": "asphalt", "prohibited": "asphalt_l", "parking_lane": "parking"}
 area_hw = []
 for oid, typ, t, geom in osm.areas_with("area:highway"):
-    if tunnelish(t):
+    if tunnelish(t) or t.get("landuse") == "grass":  # (a lawn mapped as a pedestrian area: the castle gardens')
         continue
     v = t["area:highway"]
     if v == "yes" and t.get("junction"):  # a junction's square of carriageway (Rondo Dmowskiego's five)
