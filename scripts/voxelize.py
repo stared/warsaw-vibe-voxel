@@ -914,7 +914,9 @@ def roof_style(f):
     if pkin["geom"].contains(f["geom"].representative_point()) and col == hex_rgb("#666666"):
         # OSM's dark grey: the ortho shows light stone-grey roofs (its own colours carry the tower's shadow)
         return pal(soften(hex_rgb("#bab3a5"), 0.05), M_ROOF, q=12)
-    if h < 40:
+    lum_ = lambda c_: 0.299 * c_[0] + 0.587 * c_[1] + 0.114 * c_[2]
+    # (a near-black tag on a tower too: the slabs on Wola tagged #170106 tar paper read light grey in the ortho)
+    if h < 40 or (col is not None and lum_(col) < 60):
         cc = cellcol[f["rr"], f["cc"]]
         L = lum[f["rr"], f["cc"]]
         if len(L) >= 3:
@@ -923,7 +925,6 @@ def roof_style(f):
             # an OSM roof colour far from what the ortho sees (a palace's #003300, near black, over a mid-green copper
             # roof) gives way to the ortho
             # (never towards darker: a roof in a tower's shadow reads dark in the ortho)
-            lum_ = lambda c_: 0.299 * c_[0] + 0.587 * c_[1] + 0.114 * c_[2]
             # (only dark OSM colours, the near-black tags; a red or green roof tag is usually right)
             if col is None or (np.linalg.norm(np.subtract(col, oc)) > 110 and lum_(col) < 90 and lum_(oc) > lum_(col) - 15):
                 if col is not None:
