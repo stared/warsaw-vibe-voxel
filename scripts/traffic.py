@@ -14,6 +14,7 @@ from collections import defaultdict
 import numpy as np
 from pyproj import Transformer
 from scipy.ndimage import maximum_filter1d
+from shapely.geometry import LineString
 
 from aoi import D, RAW, W, to_grid
 
@@ -78,7 +79,7 @@ def fit(p, offs, vol, solid, W, D, step=0.5):
     return out, int((zf > z0 + 0.5).sum() * step), longest * step
 
 
-def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
+def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=None, paths=()):
     """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving.
     nd_mean: height of the walking/driving surface above the ground where it is a bridge deck (voxelize.py passes the
     deck height: the lowest LiDAR return around, not the cars or cable stays the 2025 flight caught on it).
@@ -105,6 +106,18 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
                 nodes[nid] = (float(i), float(j))
         if all(n in nodes for n in e["nodes"]):
             ways.append(e)
+    junction = {}  # paths on a roof garden OSM does not map (roofgardens.WHOLE): footways on the roof, new node ids
+    for k, (a, b, pts) in enumerate(paths):
+        ids = []
+        for end, p in ((a, pts[0]), *((None, q) for q in pts[1:-1]), (b, pts[-1])):
+            if isinstance(end, int):
+                ids.append(end)
+                continue
+            n = junction.setdefault(end, -len(nodes) - 1) if end else -len(nodes) - 1
+            nodes.setdefault(n, (float(p[0]), float(p[1])))
+            ids.append(n)
+        if all(n in nodes for n in ids):
+            ways.append(dict(id=-k - 1, nodes=ids, tags=dict(highway="footway", level="1")))
 
     def inside(nid, m=3):
         x, y = nodes[nid]
@@ -351,8 +364,14 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
         L = length(p)
         if L < 0.8:
             continue
-        if vol is not None and not bridge and max(_num(t.get("level"), 0) or 0, _num(t.get("layer"), 0) or 0) >= 1:
-            zs = [roof_z(x, y) for x, y, _ in p]  # a path on a roof garden (BUW, the university on Dobra)
+        up = max(_num(t.get("level"), 0) or 0, _num(t.get("layer"), 0) or 0) >= 1
+        if vol is not None and not bridge and not up and roofs is not None and not underground(t) \
+                and LineString([q[:2] for q in p]).intersection(roofs).length > 0.8 * L:
+            up = fit(p, (0.0,), vol, solid, W, D)[2] > 2  # on a garden roof, unless it fits under it (an arcade)
+        if vol is not None and not bridge and up:
+            zs = [roof_z(x, y) for x, y, _ in p]  # a path on a roof garden (BUW, Dobra, the Kubicki Arcades)
+            if len(zs) > 2 and all(z is not None for z in zs[1:-1]):  # an end at the roof's edge (a ramp's top)
+                zs[0], zs[-1] = zs[0] or zs[1], zs[-1] or zs[-2]
             if all(z is not None for z in zs):
                 p = [[x, y, z] for (x, y, _), z in zip(p, zs)]
                 on_roof[pnode(seg[0])], on_roof[pnode(seg[-1])] = zs[0], zs[-1]
@@ -374,6 +393,7 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
             continue
         z0, z1 = (e["p"][0][2], zb) if za is None else (za, e["p"][-1][2])
         cum = np.concatenate([[0], np.cumsum([math.dist(a[:2], b[:2]) for a, b in zip(e["p"], e["p"][1:])])])
+        e["flat"] = e["p"]  # as it was, should the voxels not hold the slope (a ramp OSM maps over another)
         e["p"] = [[x, y, int(round(z0 + (z1 - z0) * k / max(cum[-1], 1e-6)))] for (x, y, _), k in zip(e["p"], cum)]
     pn = [None] * len(pidx)
     for n, i in pidx.items():
@@ -539,8 +559,10 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None):
             n_lift += lift
         keep = []
         for e in peds:  # people keep 0.35-1.35 m to their right (both sides of the line), else all on its free side
-            for side, offs in ((None, (-1.35, -0.35, 0.35, 1.35)), (1, (0.35, 1.35)), (-1, (-1.35, -0.35)), (0, (0.0,))):
-                p, lift, blocked = fit(e["p"], offs, vol, solid, W, D)
+            for side, offs, p0 in [(sd, of, p0) for p0 in filter(None, (e["p"], e.pop("flat", None)))
+                                   for sd, of in ((None, (-1.35, -0.35, 0.35, 1.35)), (1, (0.35, 1.35)),
+                                                  (-1, (-1.35, -0.35)), (0, (0.0,)))]:
+                p, lift, blocked = fit(p0, offs, vol, solid, W, D)
                 if blocked <= 2:
                     break
             else:  # mapped through a wall: nobody walks there

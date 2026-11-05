@@ -25,6 +25,7 @@ from shapely.strtree import STRtree
 from aoi import CX, CY, D, THETA, W
 from osm import OSM
 import landmarks
+import roofgardens
 
 OUT = Path("web/public/data")
 DBG = Path("data/debug")
@@ -558,7 +559,8 @@ for f in render:
         top[f["rr"], f["cc"]] = 3.2 * (parse_len(tag(f, "building:levels")) or 1)
         note("no LiDAR + no height -> levels:", f["id"], tag(f, "name"))
 
-# tree canopy over low roofs: clip to OSM height
+# tree canopy over low roofs: clip to OSM height; not a garden's beds on its roof (Kopernik's, 6 m over its 3 levels)
+GARDEN_ROOFS = roofgardens.hosts(osm)
 cell_maxh = np.full((D, W), np.nan, np.float32)
 for f in sorted(render, key=lambda f: f["maxh"] or 0):
     if f["maxh"] is not None:
@@ -581,6 +583,8 @@ for f in render:
     if ring.sum() > 10 and crown[ring].mean() > 0.25 and raised.any() and (rough[f["rr"], f["cc"]][raised] > 2.5).mean() > 0.6:
         under_tree[f["rr"], f["cc"]] = True
 over = bmask & ((exg > 0.06) | under_tree) & np.isfinite(cell_maxh) & (top > cell_maxh + 3)
+for _b, *_ in GARDEN_ROOFS.values():
+    over[cells_of(_b)] = False
 top[over] = cell_maxh[over]
 note("roof cells under tree canopy clipped:", int(over.sum()), "of them rough, not green:", int((over & ~(exg > 0.06)).sum()))
 
@@ -684,7 +688,8 @@ def core_roofs(top):
     n_h = 0
     for f in render:
         rr, cc = f["rr"], f["cc"]
-        if len(rr) < 20 or not core[rr, cc].mean() > 0.5 or (f.get("minh") or 0) > 2:
+        # a garden roof stays flat: the hedges and lawns on the Kubicki Arcades read as a ridge
+        if len(rr) < 20 or not core[rr, cc].mean() > 0.5 or (f.get("minh") or 0) > 2 or f["id"] in GARDEN_ROOFS:
             continue
         v, d = top[rr, cc].astype(float), dist[rr, cc]
         if np.percentile(v, 95) - np.percentile(v, 10) < 3:
@@ -1787,7 +1792,9 @@ for _z in range(int(g.min()), int(_lim.max()) + 1):
 deck_near[_rb, _cb] = _top - g[_rb, _cb]
 _solid = ~_skip
 _solid[0] = False
-json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2), vol=vol, solid=_solid), open(OUT / "traffic.json", "w"), separators=(",", ":"))
+json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2), vol=vol, solid=_solid,
+                        roofs=unary_union([b for b, *_ in GARDEN_ROOFS.values()]), paths=roofgardens.PATHS),
+          open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel

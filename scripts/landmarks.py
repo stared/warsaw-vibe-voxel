@@ -603,9 +603,6 @@ def classic_buildings(vol, g, feats, pal, note):
     tw = _feat(feats, "Teatr Wielki")
     if tw is not None:  # ortho 2025: the halls' roofs grey-green patina and grey, not white
         ortho_roof(vol, g, tw["geom"], pal, note, "Teatr Wielki", min_rel=8, allow_glass=False, roof_only=True, inset=1.5)
-    cnk = _feat(feats, "Centrum Nauki Kopernik")
-    if cnk is not None:  # ortho 2025: the roof garden is paths, beds, light skylight cones, not one lawn
-        ortho_roof(vol, g, cnk["geom"], pal, note, "Kopernik", min_rel=4)
     buw = _feat(feats, "Biblioteka Uniwersytecka")
     if buw is not None:  # Commons: verdigris copper frames and glass; ortho: glass atria, the roof garden
         recolour_walls(vol, g, buw["geom"], pal, "#6f9a8a", MAT_IDS["bronze_grid"], note, "BUW")
