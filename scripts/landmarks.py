@@ -575,6 +575,7 @@ def classic_buildings(vol, g, feats, pal, note):
     holy_cross(vol, g, feats, pal, note)
     st_alexander(vol, g, feats, pal, note)
     magdalene(vol, g, feats, pal, note)
+    staszic(vol, g, feats, pal, note)
     f = _feat(feats, "Zamek Ujazdowski")
     if f is not None:  # Commons 2014-2022, raw LiDAR: cream walls to the eaves at 13 m, a green copper hipped roof to 21 m
         # round the court, a square tower at each corner under its green helmet and lantern to 24-26 m
@@ -2026,6 +2027,30 @@ def magdalene(vol, g, feats, pal, note):
     for cy, cx in ((719.5, 3365.5), (721.5, 3350.5), (735.5, 3369.5), (739.5, 3353.5)):
         _onion(vol, g, cy, cx, 16, 5, 2.0, 6, wall, dome, gold)
     note("Magdalene cathedral: five onions")
+
+
+def staszic(vol, g, feats, pal, note, cy=2147.5, cx=1750.0):
+    """Pałac Staszica (Commons 2014-2023, raw LiDAR): cream stone round its court, the arcaded ground floor and two
+    storeys of tall windows to the cornice at 17 m under grey roofs to 21 m; over the north front, by Copernicus, the
+    drum and green copper dome to 28 m"""
+    f = _feat(feats, "Pałac Staszica")
+    if f is None:
+        return
+    cream = "#e7dcc6"
+    classic_rebuild(vol, g, pal, f["geom"], eave=17, slope=0.8, wall_hex=cream, roof_hex="#8f9497", cap=21,
+                    rows=[(1, 4), (7, 4), (12, 3)], bay=3.5, note=note, name="Pałac Staszica")
+    wall, dome = pal(_hex(cream), MAT_IDS["classic"]), pal(_hex("#6f9c8c"), 6)
+    for r in range(int(cy) - 6, int(cy) + 7):
+        for c in range(int(cx) - 6, int(cx) + 7):
+            d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+            gz = int(g[r, c]); col = vol[:, r, c]
+            if d <= 4.2:
+                col[gz + 17:gz + 22] = wall
+                h = int(round(5.5 * math.sqrt(max(0.0, 1 - (d / 4.2) ** 2))))
+                col[gz + 22:gz + 22 + h] = dome
+            if d < 0.8:
+                col[gz + 27:gz + 29] = wall
+    note("Pałac Staszica: dome over the north front")
 
 
 def holy_trinity(vol, g, feats, pal, note):
