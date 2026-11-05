@@ -102,6 +102,102 @@ def bike_weight(t):
     return 1 if hw == "cycleway" or t.get("bicycle") == "designated" else 0.3
 
 
+def bike_open(t):
+    """a footway or crossing riders may take between bike ways (bicycle=yes, a crossing of a cycle path)"""
+    return t.get("bicycle") in ("yes", "permissive") or t.get("cycleway") == "crossing" or "bicycle" in t.get("crossing", "")
+
+
+def join_bike_ways(peds, pn, note, nodes_xy=None, fit_ok=None):
+    """The bike ways as OSM has them break off: at a crossing mapped as a footway, where a path stops a few metres short
+    of the next, where a stretch through a wall was dropped. From every dead end of the bike network the shortest way
+    to another part of it is opened to riders: first over ways open to bikes (bicycle=yes, the crossings), then over
+    any footway, up to 120 m; a dead end with no such way to a bike way within 12 m gets a straight link to it"""
+    import heapq
+    adj = defaultdict(list)
+    for i, e in enumerate(peds):
+        adj[e["a"]].append((i, e["b"])); adj[e["b"]].append((i, e["a"]))
+    par = {}
+
+    def root(n):
+        while par.setdefault(n, n) != n:
+            par[n] = par[par[n]]
+            n = par[n]
+        return n
+    for e in peds:
+        if e.get("bk"):
+            par[root(e["a"])] = root(e["b"])
+    deg = defaultdict(int)
+    for e in peds:
+        if e.get("bk"):
+            deg[e["a"]] += 1; deg[e["b"]] += 1
+    opened = 0
+    for n0 in [n for n, k in deg.items() if k == 1]:
+        r0 = root(n0)
+        best = {n0: (0.0, None)}
+        q = [(0.0, n0)]
+        while q:
+            d, n = heapq.heappop(q)
+            if d > best[n][0]:
+                continue
+            if n != n0 and deg.get(n) and root(n) != r0:
+                k = n  # reached another part: open the way back
+                while best[k][1] is not None:
+                    i, prev = best[k][1]
+                    if not peds[i].get("bk"):
+                        peds[i]["bk"] = 0.3
+                        opened += 1
+                    k = prev
+                par[r0] = root(n)
+                break
+            for i, m in adj[n]:
+                e = peds[i]
+                cost = e["L"] * (1 if e.get("bk") or e.get("bko") else 1.5)
+                nd = d + cost
+                if nd <= 120 and nd < best.get(m, (1e9,))[0]:
+                    best[m] = (nd, (i, n))
+                    heapq.heappush(q, (nd, m))
+    linked = 0
+    if nodes_xy is not None:  # gaps: OSM's ways stopping short of each other, stretches dropped as through a wall
+        from scipy.spatial import cKDTree
+        z_of = {}
+        for e in peds:
+            if e.get("bk"):
+                z_of[e["a"]] = e["p"][0][2]; z_of[e["b"]] = e["p"][-1][2]
+        deg2 = defaultdict(int)
+        for e in peds:
+            if e.get("bk"):
+                deg2[e["a"]] += 1; deg2[e["b"]] += 1
+        bn = list(deg2)
+        tree = cKDTree([nodes_xy[n] for n in bn])
+        for n0 in [n for n, k in deg2.items() if k == 1]:
+            x0, y0 = nodes_xy[n0]
+            cand = sorted((math.dist((x0, y0), nodes_xy[bn[i]]), bn[i]) for i in tree.query_ball_point((x0, y0), 12) if bn[i] != n0)
+            for dd, m in cand:
+                if dd < 1 or any(e["a"] in (n0, m) and e["b"] in (n0, m) for e in peds[-50:]):
+                    continue
+                x1, y1 = nodes_xy[m]
+                k = max(2, int(dd))
+                p = [[round(x0 + (x1 - x0) * i / k, 1), round(y0 + (y1 - y0) * i / k, 1),
+                      int(round(z_of[n0] + (z_of[m] - z_of[n0]) * i / k))] for i in range(k + 1)]
+                if fit_ok is not None and not fit_ok(p):
+                    continue
+                peds.append(dict(a=n0, b=m, p=p, L=round(dd, 1), w=0.3, bk=0.5))
+                par[root(n0)] = root(m)
+                linked += 1
+                break
+    for e in peds:
+        e.pop("bko", None)
+    size = defaultdict(float)  # a scrap of bike way left on its own (under 300 m) is drawn, not ridden
+    for e in peds:
+        if e.get("bk"):
+            size[root(e["a"])] += e["L"]
+    for e in peds:
+        if e.get("bk") and size[root(e["a"])] < 300:
+            del e["bk"]
+    comps = len({root(n) for n in deg if size[root(n)] >= 300})
+    note(f"traffic: bike network joined across {opened} footway links and {linked} short gaps, {comps} parts left")
+
+
 def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=None, paths=()):
     """surf: (D, W) uint8, 1 = carriageway, 2 = tram bed; used to validate OSM lane counts against the paving.
     nd_mean: height of the walking/driving surface above the ground where it is a bridge deck (voxelize.py passes the
@@ -407,6 +503,8 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         bk = bike_weight(t)
         if bk:
             e["bk"] = bk
+        elif bike_open(t):
+            e["bko"] = 1
         is_cross = t.get("footway") == "crossing" or t.get("cycleway") == "crossing" or "crossing" in t
         signalled = t.get("crossing") == "traffic_signals" or t.get("crossing:signals") == "yes" \
             or any(n in ped_sig for n in seg)
@@ -627,6 +725,8 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         note(f"traffic: paths fitted to the voxels ({n_lift} m lifted onto the drawn surface), "
              f"{len(peds) - len(keep)} footpath edges through walls dropped")
         peds = keep
+    pxy = {i: nodes[n] for n, i in pidx.items()}
+    join_bike_ways(peds, pn, note, pxy, (lambda p: fit(p, (0.0,), vol, solid, W, D)[2] <= 2) if vol is not None else None)
 
     for c in ctrls:
         c["x"], c["y"] = round(c["x"], 1), round(c["y"], 1)
