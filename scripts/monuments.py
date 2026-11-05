@@ -195,7 +195,7 @@ MONUMENTS = {
     # Bolesław Prus, 1977, Anna Kamieńska-Łapińska (Commons): the writer, a gaunt 4.5 m figure in a long coat, rough
     # dark bronze, on a low granite slab among the shrubs by Krakowskie Przedmieście
     "Pomnik Bolesława Prusa": dict(
-        at=(21.016377, 52.24173), phi=270, clear=3,
+        at=(21.016377, 52.24173), phi=270, clear=4,
         parts=[B(0, 0, 3, 2, 0, 1, GRANITE), B(0, 0, 2, 1, 1, 5, WORN_BRONZE), B(0, 0, 1, 1, 5, 6, WORN_BRONZE)]),
     # Praska Kapela Podwórkowa, 2006, Andrzej Renes (Commons): five street musicians in brown bronze, life size, in a
     # loose ring on the pavement of Ząbkowska and Brzeska: fiddle, banjo, accordion, guitar, the drummer seated
@@ -205,13 +205,16 @@ MONUMENTS = {
     # Ronald Reagan, 2011, Wiesław Zawadzki (Commons 2011-2020): a dark bronze figure from the waist up behind a red
     # granite stele with the presidential seal, the bronze flag falling down its side, on a pale stone platform
     "Pomnik Ronalda Reagana": dict(
-        at=(21.024177, 52.224646), phi=0, clear=3,
-        parts=[B(0, 0, 4, 4, 0, 0.5, PALE_GRANITE), B(0, 0.5, 2, 1, 0.5, 2, ("#8c3b2e", STONE)),
-               B(0, -0.5, 2, 1, 0.5, 3, DARK_BRONZE), B(0, -0.5, 1, 1, 3, 4, DARK_BRONZE)]),
+        # facing the US embassy across Aleje Ujazdowskie (west; Commons 2011: seen from behind with the embassy ahead)
+        at=(21.024177, 52.224646), phi=270, clear=5,
+        parts=[B(0, 0, 4, 4, 0, 0.5, PALE_GRANITE), B(0, 0.5, 2, 1, 0.5, 3, ("#8c3b2e", STONE)),
+               B(0, -0.5, 2, 1, 0.5, 3.5, DARK_BRONZE), B(0, -0.5, 1, 1, 3.5, 4.5, DARK_BRONZE),
+               B(1.2, 0.2, 1, 1, 0.5, 3.5, GREY_BRONZE)]),
     # Roman Dmowski, 2006, Kazimierz Gustaw Zemła (Commons): a 5 m figure in a long coat, hat in hand, in dark rough
-    # bronze, on a low dark plinth on Plac Na Rozdrożu
+    # bronze, on a low dark plinth on Plac Na Rozdrożu; at the back of the paved square the 2025 ortho shows (OSM's point
+    # is in the trees beside it), facing the avenue north-west, the trees behind him as in every photo
     "Pomnik Romana Dmowskiego": dict(
-        at=(21.025039, 52.218507), phi=0, clear=3,
+        at=(21.025081, 52.218569), phi=315, clear=4,
         parts=[B(0, 0, 4, 4, 0, 0.5, GRANITE), B(0, 0, 2, 2, 0.5, 5, DARK_BRONZE), B(0, 0, 1, 1, 5, 6, DARK_BRONZE)]),
     # Kamień milowy, the zero mile of Polish roads (Commons): a 3 m dark granite pier, bronze tablets with the distances
     # to the cities on its faces, at the corner of Emilii Plater and Aleje Jerozolimskie
