@@ -160,6 +160,11 @@ def ground_walls(dtm, dtm_s):
 
 
 g = np.round(ground_walls(dtm, dtm_s) - BASE).astype(np.int32)  # ground occupies z in [0, g)
+# rounding a smooth slope leaves single cells 1 m under all eight neighbours (38.49 to 38, round 38.51 to 39): a dark
+# hole in a pavement or a lawn every few metres; such a cell takes their level
+_gpit = ndimage.minimum_filter(g, footprint=np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])) - g == 1
+g[_gpit] += 1
+note("ground: rounding pits lifted:", int(_gpit.sum()))
 nd_max = dsm_max - dtm
 nd_mean = dsm_mean - dtm
 
