@@ -573,6 +573,12 @@ def classic_buildings(vol, g, feats, pal, note):
     presidential_palace(vol, g, feats, pal, note)
     bristol(vol, g, feats, pal, note)
     holy_cross(vol, g, feats, pal, note)
+    st_alexander(vol, g, feats, pal, note)
+    f = _feat(feats, "Filharmonia Narodowa")
+    if f is not None:  # Commons 2010-2019: pale stone, arched ground floor windows, tall windows between pilasters
+        # to the cornice at 22 m, the stage house to 27 m (raw LiDAR); not an office grid
+        classic_rebuild(vol, g, pal, f["geom"], eave=22, slope=3, wall_hex="#e2dbc9", roof_hex="#9c9e9d", cap=27,
+                        rows=[(2, 3), (8, 6), (16, 3)], bay=4.5, note=note, name="Filharmonia Narodowa")
     f = _feat(feats, "Hotel Europejski")
     if f is not None:  # Commons 2019-2026 (after the Raffles restoration): bright white stucco, a tall arcaded ground
         # floor and three storeys to the cornice at ~22 m, the dark charcoal mansard rounding the corners to 28 m
@@ -1929,6 +1935,49 @@ def holy_cross(vol, g, feats, pal, note):
                     gz = int(g[r, c])
                     vol[gz + z0:gz + z1, r, c] = dark
     note("Holy Cross towers: helmets to 54 and 45 m")
+
+
+def st_alexander(vol, g, feats, pal, note, cy=3164.0, cx=1688.5, R=10.5):
+    """Kościół Świętego Aleksandra on Plac Trzech Krzyży (Commons 2010-2016; raw LiDAR): the white rotunda, its
+    base to 13 m, the narrower drum with its arched windows to 19 m under a shallow pale green copper dome to 24 m
+    and a lantern; a portico of six columns under a pediment to the north and to the south."""
+    f = _feat(feats, "Kościół Świętego Aleksandra")
+    if f is None:
+        return
+    white, dome, dark = pal(_hex("#eeebe2"), MAT_IDS["classic"]), pal(_hex("#86ab98"), 12), pal((40, 44, 46), MAT_IDS["window"])
+    rr, cc = _cells_geom(f["geom"].buffer(1), *g.shape)
+    for r, c in zip(rr, cc):
+        vol[int(g[r, c]) + 1:int(g[r, c]) + 40, r, c] = 0
+    Rd = R - 1.2
+    for r in range(int(cy - R) - 1, int(cy + R) + 2):
+        for c in range(int(cx - R) - 1, int(cx + R) + 2):
+            d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+            if d > R:
+                continue
+            gz = int(g[r, c]); col = vol[:, r, c]
+            col[gz:gz + 13] = white
+            if d > Rd:
+                continue
+            col[gz + 13:gz + 19] = white
+            h = 19 + int(round(5 * math.sqrt(max(0.0, 1 - (d / Rd) ** 2))))
+            col[gz + 19:gz + h] = dome
+            if d < 1.6:
+                col[gz + h:gz + h + 2] = white
+                col[gz + h + 2] = dome
+            if d > Rd - 1 and 3 <= (math.degrees(math.atan2(r + 0.5 - cy, c + 0.5 - cx)) % 36) <= 8:
+                col[gz + 14:gz + 17] = dark
+    for r0, r1, front in ((3146, 3154, 3146), (3174, 3182, 3182)):
+        for r in range(r0, r1 + 1):
+            for c in range(1683, 1695):
+                gz = int(g[r, c]); col = vol[:, r, c]
+                col[gz] = white
+                ped = 15 - int(abs(c + 0.5 - 1689) / 2)
+                col[gz + 10:gz + max(ped, 12)] = white
+                if r == front and c in (1683, 1685, 1687, 1690, 1692, 1694):
+                    col[gz + 1:gz + 10] = white
+                elif c in (1683, 1694) and abs(r - front) >= 2:
+                    col[gz + 1:gz + 10] = white
+    note("St Alexander's rotunda and porticos rebuilt")
 
 
 def holy_trinity(vol, g, feats, pal, note):
