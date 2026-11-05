@@ -309,7 +309,12 @@ for oid, typ, t, geom in osm.areas:
     if t.get("place") == "square" or t.get("highway") == "pedestrian" or t.get("landuse") in ("commercial", "retail", "residential"):
         containers.append((geom, C[SURF.get(t.get("surface"), "paving")]))
     if t.get("landuse") in LANDUSE:
-        soft.append((geom, C[LANDUSE[t["landuse"]]]))
+        key = LANDUSE[t["landuse"]]
+        if key == "grass":  # a lawn the 2025 ortho sees paved over (a pavement widened along Jana Pawła II) is paving
+            rr_, cc_ = cells_of(geom)
+            if len(rr_) >= 30 and np.median(exg[rr_, cc_]) < 0 and np.median(lum[rr_, cc_]) > 120:
+                key = "paving2"
+        soft.append((geom, C[key]))
     if t.get("leisure") in ("pitch", "track"):  # its colour as the ortho sees it: red tartan, green turf or a grey court; the
         # surface tags disagree with it (a green turf pitch tagged tartan by Zamoyski's school, red courts untagged)
         inner = geom.buffer(-1) if geom.area > 60 else geom
