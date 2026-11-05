@@ -81,7 +81,6 @@ if "gardens" in sys.argv[1:]:
         c0, r0, c1, r1 = (int(v) for v in geom.bounds)
         boxes.append((max(r0 - 2, 0), r1 + 3, max(c0 - 2, 0), c1 + 3))
 landmarks.sigismund_column(vol, g, st["feats"], _osm, pal, note)
-landmarks.syrenka(vol, g, _osm, pal, note)
 if "monuments" in sys.argv[1:]:
     import monuments
     from osm import to_grid

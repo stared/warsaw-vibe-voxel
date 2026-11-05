@@ -631,7 +631,6 @@ def details(vol, g, top, topi, bmask, feats, pal, C, osm, cells_of, note, leaf_i
     details_geometry(vol, g, feats, pal, note)
     roofgardens.build(vol, g, bmask, pal, osm, cells_of, _orto(), C["garden"], note)
     sigismund_column(vol, g, feats, osm, pal, note)
-    syrenka(vol, g, osm, pal, note)
     global MON_TOP
     MON_TOP = monuments.build(vol, g, pal, note, keep=set(leaf_ids) | {C["trunk"]})
     H = vol.shape[0]
@@ -2076,22 +2075,6 @@ def sigismund_column(vol, g, feats, osm, pal, note):
     vol[g0 + 22, r0, c0] = gold                               # the cross, raised
     vol[g0 + 21, r0, c0 + 1] = gold
     note(f"Sigismund's Column rebuilt at ({r0}, {c0}), 22 m")
-
-
-def syrenka(vol, g, osm, pal, note):
-    """The Old Town Mermaid in the middle of the Rynek's round basin (OSM amenity=fountain 778976855; Konstanty Hegel
-    1855, a copy since 2008; Commons 2010-2019): a granite pedestal ~2 m over the water, the dark bronze figure ~2.5 m
-    with her sword raised."""
-    geom = next((gm for i, typ, t, gm in osm.areas if i == 778976855), None)
-    if geom is None:
-        note("Syrenka: no basin in OSM"); return
-    c0, r0 = (int(v) for v in geom.centroid.coords[0])
-    z0 = int(g[r0, c0])
-    granite, bronze = pal(_hex("#7d7a74"), 0), pal(_hex("#4d5a4a"), MAT_IDS["metal"])
-    vol[z0:z0 + 2, r0, c0] = granite
-    vol[z0 + 2:z0 + 4, r0, c0] = bronze
-    vol[z0 + 4, r0, c0] = bronze  # the raised arm and sword
-    note(f"Syrenka on the Rynek at ({r0}, {c0})")
 
 
 CASTLE_TOWER = 249083894  # Wieża Zegarowa, the clock tower's OSM part (19 m in OSM; 60 m: research_oldtown.md)

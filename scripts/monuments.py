@@ -20,6 +20,7 @@ LIGHT, SAND, MARBLE = ("#cfcac0", STONE), ("#d6c39c", STONE), ("#eeece6", STONE)
 CONCRETE, BASALT, STEEL = ("#bdbab2", STONE), ("#807a71", STONE), ("#b3b1aa", STONE)
 RELIEF, SAPPER, SILVER = ("#55635b", METAL), ("#4f5a53", METAL), ("#c4c6c4", METAL)
 DARK_BRONZE, DARK_GRANITE, RED_GRANITE = ("#4a453e", METAL), ("#4b4b4e", STONE), ("#8f6f66", STONE)
+PALE_GRANITE, FROND = ("#c9c6bf", STONE), ("#4f7a3a", STONE)
 PINK_GRANITE, GREY_BRONZE, WORN_BRONZE = ("#b4a598", STONE), ("#59605a", METAL), ("#4f5a50", METAL)
 MID_GRANITE, COPPER, MERMAID = ("#8f8d88", STONE), ("#7a5236", METAL), ("#4d6b5e", METAL)
 
@@ -66,6 +67,56 @@ def crosses(w, d, z):
     return out
 
 
+def uprising():
+    """Pomnik Powstania Warszawskiego (1989, Wincenty Kućma; Commons and the 2025 ortho): a long slab of pale granite
+    tipped up from the west to 10 m over its sheer east end, a falling building, the insurgents' dark bronze group
+    bursting out from under it towards the square; behind it to the north-west a smaller tipped slab over the group
+    going down into the sewer; grid frame (a east, b north) from the large slab's middle"""
+    out = []
+    for k in range(15):  # the large slab: 2 m thick, its underside rising half a metre a metre
+        lo = 0.5 * k
+        out.append(B(-6.5 + k, -2, 1, 4, lo, lo + 2, PALE_GRANITE))
+    out += [B(8.5, -2, 1, 4, 0, 9, PALE_GRANITE)]  # its sheer end down to the ground
+    for k in range(9):  # the small slab, rising to the north-east
+        lo = 0.5 * k
+        out.append(B(-11.5 + k, 3.5, 1, 6, lo, lo + 2, PALE_GRANITE))
+    out += [B(-3, 3.5, 1, 6, 0, 6, PALE_GRANITE)]
+    for a, h in ((-4, 2), (-2, 3), (0, 3), (2, 4), (4, 3), (6, 4)):  # the fighters, under the slab and out of it
+        out += [B(a, -4.5, 1, 1, 0, h, DARK_BRONZE), B(a + 0.5, -3.5, 1, 1, 0, max(h - 1, 1), DARK_BRONZE)]
+    out += [B(-9, 1, 1, 1, 0, 2, DARK_BRONZE), B(-7, 1, 1, 1, 0, 2, DARK_BRONZE)]  # down into the sewer
+    out += [B(7.5, -0.5 + k, 1, 1, 0, 6 + 2 * (k % 2), DARK_BRONZE) for k in range(3)]  # the torn wall's piers
+    return out
+
+
+def palm():
+    """Palma (2002, Joanna Rajkowska; Commons 2010-2023): an artificial date palm on the roundabout's lawn, a slim
+    grey-brown trunk to 15 m and a star of drooping green fronds, the same in every season"""
+    out = [B(0, 0, 5, 5, 0, 1, ("#6f8f4a", 8)), B(0, 0, 1, 1, 1, 14, ("#7d6e5c", STONE)), B(0, 0, 1, 1, 14, 15, FROND)]
+    for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+        out += [B(a, b, 1, 1, 13, 15, FROND), B(2 * a, 2 * b, 1, 1, 13, 14, FROND)]
+        if a and b:
+            out.append(B(a, 2 * b, 1, 1, 13, 14, FROND))  # keeps the diagonal frond touching by a face
+            out.append(B(2 * a, b, 1, 1, 13, 14, FROND))
+    out += [B(3 * a, 0, 1, 1, 12, 13, FROND) for a in (-1, 1)] + [B(0, 3 * b, 1, 1, 12, 13, FROND) for b in (-1, 1)]
+    out += [B(2 * a, 0, 1, 1, 12, 13, FROND) for a in (-1, 1)] + [B(0, 2 * b, 1, 1, 12, 13, FROND) for b in (-1, 1)]
+    return out
+
+
+def arcade():
+    """Grób Nieznanego Żołnierza (the three arches left of the Saxon Palace's colonnade; Commons 1925-2024 and the
+    ortho): 14 m along the square's west side, 8 m deep, piers of pale stone with the arches between them open to
+    the square and through, the entablature and a balustrade on top to 8 m; the tomb and the eternal flame under the
+    middle arch. Frame: a along the arcade (north), b towards the square (east)"""
+    st = ("#d9d3c6", STONE)
+    out = [B(0, 0, 14, 8, 0, 0.5, ("#bdb8ae", STONE))]
+    for a in (-6.5, -2.2, 2.2, 6.5):  # four piers across the three openings, each 2 m by the full depth
+        out.append(B(a, 0, 1.5 if abs(a) > 6 else 2, 8, 0, 5, st))
+    out += [B(0, 0, 14, 8, 5, 6.5, st), B(0, 0, 14, 8, 6.5, 7, ("#cdc7ba", STONE))]
+    out += [B(a, b, 1, 1, 7, 8, st) for a in range(-6, 7, 2) for b in (-3.5, 3.5)]  # the balustrade's posts
+    out += [B(0, 0, 2, 1, 0.5, 1, ("#4b4b4e", STONE)), B(0, 1.5, 1, 1, 0.5, 1.5, ("#3b3b3b", METAL))]
+    return out
+
+
 def sappers():
     """Pomnik Chwała Saperom (1975, Stanisław Kulon), the 2025 ortho with Commons 2006-2026: six welded steel blades in
     a ring round the kneeling sapper, each leaning out from the centre, a mine's blast; a blade stands edge-on to the
@@ -100,6 +151,74 @@ def radial(r, half, u):
 
 MONUMENTS = {
     "Pomnik Chwała Saperom": dict(at=(21.041212, 52.228660), phi=0, parts=sappers()),
+    "Pomnik Powstania Warszawskiego": dict(at=(21.005937, 52.249364), phi=18, parts=uprising()),
+    # Konstanty Hegel 1855, a copy since 2008 (Commons 1960s-2019): in the middle of the Rynek's round basin a pale
+    # grey stone pedestal 2 m over the water, the dark bronze mermaid on it, her tail coiled, the sword raised in her
+    # right hand and the round shield on her left arm
+    "Syrenka Staromiejska": dict(
+        at=(21.012172, 52.249788), phi=0,
+        parts=[B(0, 0, 2, 2, 0, 2, ("#b5b2aa", STONE)), B(0, 0, 2, 2, 2, 3, DARK_BRONZE), B(0, 0, 1, 1, 3, 4, DARK_BRONZE),
+               B(1, 0, 1, 1, 3, 6, DARK_BRONZE), B(-1, 0, 1, 1, 3, 4, DARK_BRONZE)]),
+    "Grób Nieznanego Żołnierza": dict(at=(21.011302, 52.240952), phi=90, parts=arcade(), clear=9),
+    # Juliusz Słowacki, 2001, Ludmiła Stefanowicz (Commons 2009-2016): the poet, 4 m of dark bronze, cloak drawn round
+    # him, on a tall polished black granite block over a low stepped base, before the Bank's palace, facing the theatre
+    "Pomnik Juliusza Słowackiego": dict(
+        at=(21.002319, 52.24285), phi=135, clear=4,
+        parts=[B(0, 0, 6, 6, 0, 1, GRANITE), B(0, 0, 3, 3, 1, 6, BLACK), B(0, 0, 2, 2, 6, 9, DARK_BRONZE),
+               B(0.5, 0, 1, 1, 9, 10, DARK_BRONZE)]),
+    # Charles de Gaulle, 2005, Jean Cardot (Commons): striding west to east in his greatcoat, 3.5 m of dark bronze on a
+    # 4.5 m block of dark granite, in a round lawn ringed with steps
+    "Pomnik Charles'a de Gaulle'a": dict(
+        at=(21.021548, 52.23151), phi=90, clear=4,
+        parts=[B(0, 0, 8, 8, 0, 1, GRANITE), B(0, 0, 3, 3, 1, 5, DARK_GRANITE),
+               B(0, -0.5, 1, 1, 5, 7, DARK_BRONZE), B(0, 0.5, 1, 1, 5, 7, DARK_BRONZE), B(0, 0, 1, 2, 7, 8, DARK_BRONZE),
+               B(0, 0, 1, 1, 8, 9, DARK_BRONZE)]),
+    # Napoleon, 2011 (Commons 2011-2023): his bust in bicorne, the eagles under it, dark bronze on a tall pale granite
+    # stele with the N, on a two-step base in the middle of Plac Zawiszy's footway, facing north
+    "Pomnik Napoleona": dict(
+        at=(21.013782, 52.23422), phi=0, clear=3,
+        parts=[B(0, 0, 4, 4, 0, 1, GRANITE), B(0, 0, 2, 2, 1, 4, PALE_GRANITE), B(0, 0, 2, 1, 4, 5, DARK_BRONZE),
+               B(0, 0, 1, 1, 5, 6, DARK_BRONZE)]),
+    # Matka Boska Passawska, 1683 (Commons 1930s-2023): the crowned Madonna and child in pale sandstone on a tall
+    # stepped pedestal behind a railing with two lamps, under the trees by the church, facing the street (west)
+    "Matka Boska Passawska": dict(
+        at=(21.014199, 52.245052), phi=270, clear=3,
+        parts=[B(0, 0, 4, 4, 0, 1, SAND), B(0, 0, 2, 2, 1, 5, SAND), B(0, 0, 2, 2, 5, 6, SAND),
+               B(0, 0, 1, 1, 6, 8, ("#e3d8c2", STONE)), B(0, 0, 1, 1, 8, 9, ("#c9a24a", METAL))]
+              + [B(x, -2.5, 1, 1, 0, 4, BLACK) for x in (-2, 2)]),
+    # Bartolomeo Colleoni, 1931, a cast of Verrocchio's (Commons 2010-2020): the condottiere in armour on his horse in
+    # green-grey bronze over a 2 m stone block, in the Academy of Fine Arts' garden, riding north
+    "Pomnik Colleoniego": dict(
+        at=(21.015545, 52.239365), phi=0, clear=4,
+        parts=[B(0, 0, 3, 6, 0, 2, ("#8d8a83", STONE)), B(0, 0, 2, 5, 2, 2.5, ("#8d8a83", STONE))]
+              + rider(0, 0, 2, PATINA, arm=True)),
+    # Bolesław Prus, 1977, Anna Kamieńska-Łapińska (Commons): the writer, a gaunt 4.5 m figure in a long coat, rough
+    # dark bronze, on a low granite slab among the shrubs by Krakowskie Przedmieście
+    "Pomnik Bolesława Prusa": dict(
+        at=(21.016377, 52.24173), phi=270, clear=3,
+        parts=[B(0, 0, 3, 2, 0, 1, GRANITE), B(0, 0, 2, 1, 1, 5, WORN_BRONZE), B(0, 0, 1, 1, 5, 6, WORN_BRONZE)]),
+    # Praska Kapela Podwórkowa, 2006, Andrzej Renes (Commons): five street musicians in brown bronze, life size, in a
+    # loose ring on the pavement of Ząbkowska and Brzeska: fiddle, banjo, accordion, guitar, the drummer seated
+    "Pomnik Praskiej Kapeli Podwórkowej": dict(
+        at=(21.034164, 52.251668), phi=180, clear=4,
+        parts=[B(x, y, 1, 1, 0, 2, ("#6b5845", METAL)) for x, y in ((-2, 0), (-1, 1.5), (0.5, 2), (2, 1), (1.5, -0.5))]),
+    # Ronald Reagan, 2011, Wiesław Zawadzki (Commons 2011-2020): a dark bronze figure from the waist up behind a red
+    # granite stele with the presidential seal, the bronze flag falling down its side, on a pale stone platform
+    "Pomnik Ronalda Reagana": dict(
+        at=(21.024177, 52.224646), phi=0, clear=3,
+        parts=[B(0, 0, 4, 4, 0, 0.5, PALE_GRANITE), B(0, 0.5, 2, 1, 0.5, 2, ("#8c3b2e", STONE)),
+               B(0, -0.5, 2, 1, 0.5, 3, DARK_BRONZE), B(0, -0.5, 1, 1, 3, 4, DARK_BRONZE)]),
+    # Roman Dmowski, 2006, Kazimierz Gustaw Zemła (Commons): a 5 m figure in a long coat, hat in hand, in dark rough
+    # bronze, on a low dark plinth on Plac Na Rozdrożu
+    "Pomnik Romana Dmowskiego": dict(
+        at=(21.025039, 52.218507), phi=0, clear=3,
+        parts=[B(0, 0, 4, 4, 0, 0.5, GRANITE), B(0, 0, 2, 2, 0.5, 5, DARK_BRONZE), B(0, 0, 1, 1, 5, 6, DARK_BRONZE)]),
+    # Kamień milowy, the zero mile of Polish roads (Commons): a 3 m dark granite pier, bronze tablets with the distances
+    # to the cities on its faces, at the corner of Emilii Plater and Aleje Jerozolimskie
+    "Kamień Milowy": dict(
+        at=(21.010979, 52.230021), phi=0, clear=2,
+        parts=[B(0, 0, 1, 1, 0, 3, ("#4f504d", STONE)), B(0, 0, 1, 1, 3, 4, ("#b08a4a", METAL))]),
+    "Palma": dict(at=(21.020867, 52.231846), phi=0, parts=palm(), clear=5),
     "Saperzy nad Wisłą": dict(at=(21.044794, 52.228289), phi=301,  # its other half, off the Czerniakowski bridgehead
                               # (Commons 2022): a dark steel post in the water by the steps, pale figures on it
                               parts=[B(0, 0, 1, 1, 0, 4, BLACK), B(0, 0, 2, 2, 4, 4.5, LIGHT)]
@@ -243,6 +362,35 @@ MONUMENTS = {
 }
 
 
+def attach(vol, g, rc, zmax):
+    """a thin piece turned off the grid (a sword, an arm, a crossbar) can come to touch the rest only by an edge once
+    its cells are whole: each piece of the monument's box not held by the ground gets a straight run of its own
+    voxels, axis by axis, to the nearest voxel that is"""
+    from scipy import ndimage
+    r0, c0 = rc.min(0) - 1
+    r1, c1 = rc.max(0) + 2
+    zlo = int(g[r0:r1, c0:c1].min()) - 1
+    box = vol[zlo:zmax + 3, r0:r1, c0:c1]
+    for _ in range(8):
+        lab, n = ndimage.label(box != 0)
+        held = set(np.unique(lab[0]).tolist()) - {0}
+        loose = [i for i in range(1, n + 1) if i not in held]
+        if not loose:
+            return
+        for i in loose:
+            pts = np.argwhere(lab == i)
+            fix = np.argwhere((lab != 0) & (lab != i))
+            d = ((pts[:, None, :] - fix[None, :, :]) ** 2).sum(-1)
+            a, b = np.unravel_index(np.argmin(d), d.shape)
+            p, q = pts[a].copy(), fix[b]
+            v = box[tuple(p)]
+            for ax in (1, 2, 0):  # across first, then down, so a sword joins the arm that holds it
+                while p[ax] != q[ax]:
+                    p[ax] += 1 if q[ax] > p[ax] else -1
+                    if box[tuple(p)] == 0:
+                        box[tuple(p)] = v
+
+
 def build(vol, g, pal, note, keep=()):
     """every monument into the volume; returns each cell's new top (absolute z, 0 where none) for the labels"""
     D, W = g.shape
@@ -275,6 +423,10 @@ def build(vol, g, pal, note, keep=()):
         foot = np.unique(np.concatenate([np.stack([r, c], 1) for z, r, c, p in cells if p["z0"] == 0]), axis=0)
         z0 = int(g[foot[:, 0], foot[:, 1]].max())
         allrc = np.unique(np.concatenate([np.stack([r, c], 1) for z, r, c, p in cells]), axis=0)
+        if m.get("clear"):  # what stood there in the LiDAR, crowns and trunks too (the Palm read as a leafy tree)
+            near = np.hypot(dc, dr) <= m["clear"]
+            for r, c in zip(rr[near], cc[near]):
+                vol[g[r, c]:, r, c] = 0
         zmax = z0 + max(int(math.ceil(p["z1"])) for p in m["parts"])
         for r, c in allrc:  # what the LiDAR or an OSM outline left on the spot (not the trees around it)
             col = vol[g[r, c]:zmax + 2, r, c]
@@ -287,5 +439,6 @@ def build(vol, g, pal, note, keep=()):
             else:
                 vol[z0 + z, r, c] = v
             mon_top[r, c] = np.maximum(mon_top[r, c], z0 + z + 1)
+        attach(vol, g, allrc, zmax)
         note(f"monument {name} at ({int(r0)}, {int(c0)}), {zmax - z0} m")
     return mon_top
