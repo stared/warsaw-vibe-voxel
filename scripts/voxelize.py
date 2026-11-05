@@ -767,6 +767,16 @@ def core_roofs(top):
 CORE_GEOM = landmarks.historic_core()
 core_roofs(top)
 topi = np.where(bmask, np.round(top), 0).astype(np.int32)
+# single LiDAR pits in a flat roof (1-3 m deep, up to 3 cells, building all round): each read as a black speck under
+# the ambient occlusion (Bristol's, Europejski's, BGK's roofs); outside the old town's fitted pitched roofs
+_cl = ndimage.grey_closing(topi, size=(3, 3))
+_pit = bmask & (_cl - topi >= 1) & (_cl - topi <= 3) & (ndimage.minimum_filter(bmask.astype(np.uint8), 3) > 0)
+_pit[cells_of(CORE_GEOM)] = False
+_pl, _pn = ndimage.label(_pit)
+if _pn:
+    _pit &= np.r_[False, ndimage.sum(_pit, _pl, range(1, _pn + 1)) <= 3][_pl]
+topi[_pit] = _cl[_pit]
+note("roof pits filled:", int(_pit.sum()))
 boti = np.round(bot_rel).astype(np.int32)
 bmask &= topi >= 2
 
@@ -1003,7 +1013,9 @@ roofcol = np.zeros((D, W), np.uint16)
 for f in sorted(render, key=lambda f: f["maxh"] or 0):
     roofcol[f["rr"], f["cc"]] = f["roof"]
 roofcol = np.where(roofcol_fix > 0, roofcol_fix, roofcol)
-green_roof = bmask & (exg > 0.08) & (topi < 40) & ~over
+# (patina copper is green in the ortho too, but as blue as it is green: Holy Cross's and the palaces' roofs had grown
+# lime gardens; planted roofs are yellow-green, blue under 0.85 of green -- BUW's garden 0.70, patina 0.98-0.99)
+green_roof = bmask & (exg > 0.08) & (topi < 40) & ~over & (cellcol[..., 2] < 0.85 * cellcol[..., 1])
 # a green roof is an area, not a rim: the ortho's green along parapets (crowns hanging over the edge, copper, moss)
 # put lime garden voxels on cornices and ledges all over the city. Opened by 1 cell, patches of 12+ cells, and not
 # where the LiDAR stands 2 m above the roof (a crown over it)
