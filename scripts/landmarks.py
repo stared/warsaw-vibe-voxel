@@ -577,6 +577,7 @@ def classic_buildings(vol, g, feats, pal, note):
     magdalene(vol, g, feats, pal, note)
     staszic(vol, g, feats, pal, note)
     carmelites(vol, g, feats, pal, note)
+    holy_saviour(vol, g, feats, pal, note)
     f = _feat(feats, "Zamek Ujazdowski")
     if f is not None:  # Commons 2014-2022, raw LiDAR: cream walls to the eaves at 13 m, a green copper hipped roof to 21 m
         # round the court, a square tower at each corner under its green helmet and lantern to 24-26 m
@@ -2097,6 +2098,46 @@ def carmelites(vol, g, feats, pal, note):
                     col[gz + z0:gz + z0 + 4] = stone
                     col[gz + z0 + 4:gz + z0 + h] = cu if d < 0.8 else 0
     note("Carmelites: the west front and its domes")
+
+
+def holy_saviour(vol, g, feats, pal, note):
+    """the Church of the Holy Saviour on Plac Zbawiciela (Commons 2007-2021, raw LiDAR): white stone, the nave's eaves at
+    24 m under a green copper roof to 31 m; on the front to the square two square towers, white to 44 m with arched
+    belfry openings, then a narrower white lantern stage and a dark helmet and spire to 64-66 m"""
+    f = _by_id(feats, 30241250)
+    if f is None:
+        return
+    white = "#ebe8e1"
+    classic_rebuild(vol, g, pal, f["geom"], eave=24, slope=1.0, wall_hex=white, roof_hex="#7fa596", cap=31,
+                    rows=[(4, 8), (15, 6)], bay=4.5, note=note, name="Kościół Zbawiciela")
+    stone, helm = pal(_hex(white), MAT_IDS["classic"]), pal(_hex("#2f3a37"), 6)
+    dark = pal((40, 44, 46), MAT_IDS["window"])
+    for (cy, cx), peak in (((4078.5, 1021.5), 63), ((4084.5, 1037.5), 66)):
+        for r in range(int(cy) - 4, int(cy) + 5):
+            for c in range(int(cx) - 4, int(cx) + 5):
+                d = max(abs(r + 0.5 - cy), abs(c + 0.5 - cx))
+                gz = int(g[r, c]); col = vol[:, r, c]
+                if d <= 3.5:
+                    col[gz + 1:gz + 70] = 0
+                    col[gz:gz + 44] = stone
+                    if d > 2.5 and (abs(r + 0.5 - cy) < 1.2 or abs(c + 0.5 - cx) < 1.2):
+                        col[gz + 36:gz + 42] = dark  # the belfry's arched opening on each face
+                        col[gz + 26:gz + 31] = dark
+                if d <= 2.5:
+                    col[gz + 44:gz + 50] = stone
+                    if d > 1.5 and (abs(r + 0.5 - cy) < 1 or abs(c + 0.5 - cx) < 1):
+                        col[gz + 45:gz + 49] = dark
+                if d <= 2.5:
+                    col[gz + 50:gz + 52] = helm
+                if d <= 1.5:
+                    col[gz + 52:gz + 55] = helm
+                if d <= 2.0:
+                    col[gz + 55:gz + 57] = helm  # the lantern's bulb
+                if d <= 1.0:
+                    col[gz + 57:gz + 59] = helm
+                if d <= 0.6:
+                    col[gz + 59:gz + peak] = helm
+    note("Holy Saviour's towers")
 
 
 def holy_trinity(vol, g, feats, pal, note):
