@@ -319,7 +319,13 @@ for oid, typ, t, geom in osm.areas:
     if "construction:leisure" in t or "construction:landuse" in t:
         soft.append((geom, C["fresh"]))
     if t.get("amenity") == "parking" and t.get("parking") not in ("underground", "multi-storey", "rooftop"):
-        hard.append((geom, C[SURF.get(t.get("surface"), "parking")]))
+        key = SURF.get(t.get("surface"), "parking")
+        if "surface" not in t:  # an untagged car park the 2025 ortho sees pale is paved (Plac Centralny's south end,
+            # mapped as 9000 m2 of parking, is the new square's paving with a few cars)
+            rr_, cc_ = cells_of(geom)
+            if len(rr_) >= 20 and np.percentile(lum[rr_, cc_], 60) > 150:
+                key = "paving2"
+        hard.append((geom, C[key]))
 containers.sort(key=lambda s: -s[0].area)
 soft.sort(key=lambda s: -s[0].area)
 burn(gcol, containers)
