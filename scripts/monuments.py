@@ -116,6 +116,17 @@ def uw_gate():
     out += [B(0, 0, 1, 5, 6, 7, iron), B(0, 0, 1, 1, 7, 8, gold)]
     return out
 
+
+def candelabrum(H=18):
+    """one of Plac Konstytucji's three candelabra (1952; Commons 2018-2026): a stone base, a fluted dark shaft to
+    about 18 m, a ring of dark lantern arms with white globes round its top and a spire over them"""
+    stone, dark, glow = ("#bfb5a1", STONE), ("#3e4442", METAL), ("#f2eedc", STONE)
+    out = [B(0, 0, 3, 3, 0, 2, stone), B(0, 0, 2, 2, 2, 4, stone), B(0, 0, 1, 1, 4, H - 3, dark),
+           B(0, 0, 3, 3, H - 6, H - 5, dark), B(0, 0, 1, 1, H - 3, H, dark)]
+    for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        out += [B(2 * a, 2 * b, 1, 1, H - 6, H - 4, glow), B(a, b, 1, 1, H - 4, H - 3, glow)]
+    return out
+
 def palm():
     """Palma (2002, Joanna Rajkowska; Commons 2010-2023): an artificial date palm on the roundabout's lawn, a slim
     grey-brown trunk to 15 m and a star of drooping green fronds, the same in every season"""
@@ -260,6 +271,10 @@ MONUMENTS = {
     "Samolot MWP H": dict(at=(21.026043, 52.231453), phi=150, parts=plane(14, 9, "#9aa19a")),
     "Samolot MWP I": dict(at=(21.026236, 52.231495), phi=30, parts=plane(12, 8, "#a3a8a2")),
     "Brama Uniwersytecka": dict(at=(21.017197, 52.239798), phi=0, parts=uw_gate(), clear=6),
+    # Plac Konstytucji's three candelabra (1952; Commons 2018-2026, the raw LiDAR's 18-22 m posts at these cells)
+    "Kandelabr Plac Konstytucji zachodni": dict(at=(21.01606, 52.221722), phi=0, parts=candelabrum(22), clear=3),
+    "Kandelabr Plac Konstytucji środkowy": dict(at=(21.016492, 52.221808), phi=0, parts=candelabrum(18), clear=3),
+    "Kandelabr Plac Konstytucji wschodni": dict(at=(21.016931, 52.221935), phi=0, parts=candelabrum(18), clear=3),
     "Palma": dict(at=(21.020867, 52.231846), phi=0, parts=palm(), clear=5),
     "Saperzy nad Wisłą": dict(at=(21.044794, 52.228289), phi=301,  # its other half, off the Czerniakowski bridgehead
                               # (Commons 2022): a dark steel post in the water by the steps, pale figures on it

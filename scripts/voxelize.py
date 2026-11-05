@@ -914,8 +914,9 @@ def wall_style(f):
         col = hex_rgb("#a95f45")
     core = CORE.contains(f["geom"].representative_point())
     royal = not core and h < 26 and ROYAL.intersects(f["geom"])
+    mdm = not core and not royal and MDM.contains(f["geom"].representative_point())
     if col is None:
-        walls = CORE_WALLS if core else ROYAL_WALLS if royal else WALL_DEFAULTS
+        walls = CORE_WALLS if core else ROYAL_WALLS if royal else MDM_WALLS if mdm else WALL_DEFAULTS
         col = hex_rgb(walls[stable_hash(f["id"]) % len(walls)])
     if btype in SACRED or tag(f, "amenity") == "place_of_worship":
         return pal(soften(col), M_CLASSIC)  # stone or brick, tall windows: not the shader's office grid of storeys
@@ -930,6 +931,11 @@ def wall_style(f):
 _rr = [l_ for _, t_, l_ in osm.lines if t_.get("name") in ("Nowy Świat", "Krakowskie Przedmieście") and t_.get("highway")]
 ROYAL = _uu([l_.buffer(14) for l_ in _rr]) if _rr else Point(-1e6, -1e6)
 ROYAL_WALLS = ["#efe9dc", "#ece7da", "#e6d7b8", "#e3bcae", "#eddcb6", "#f1ece2", "#d9a487", "#e8e2d4"]
+
+# MDM (1950-52, Marszałkowska from Plac Zbawiciela to Wilcza round Plac Konstytucji; Commons 2018-2026): warm
+# sandstone-clad blocks, the same few shades of honey and ochre
+MDM = LineString([(1036, 3700), (1036, 4020)]).buffer(110)
+MDM_WALLS = ["#d8c6a2", "#d2bd96", "#dccba8", "#cfb995"]
 
 ROOF_OVERRULED = []
 
