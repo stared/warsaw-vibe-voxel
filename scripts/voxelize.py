@@ -113,7 +113,7 @@ def stable_hash(*a):
 pal = Palette()
 C = {  # ground & misc palette (MagicaVoxel-like pastel)
     "paving": pal("#c6c2b8"), "paving2": pal("#b5b4af"), "asphalt": pal("#5f636b"), "asphalt_l": pal("#6e7178"),
-    "sett": pal("#8f8981"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
+    "sett": pal("#8f8981"), "road_paving": pal("#a49f97"), "concrete": pal("#bdbab2"), "cycle": pal("#8a5a52"), "gravel": pal("#d8ccb5"),
     "grass": pal("#86b45a", M_GRASS), "grass2": pal("#79a852", M_GRASS), "garden": pal("#73a34e", M_GRASS),
     "scrub": pal("#5f8f45", M_LEAF), "flower": pal("#d98fb3", M_GRASS), "flower2": pal("#e8c25e", M_GRASS),
     "dirt": pal("#a58a66"), "dirt2": pal("#8e7455"), "fresh": pal("#93865a", M_GRASS),
@@ -331,11 +331,14 @@ for oid, t, line in osm.lines:
             bridge_roads.append((line, w))  # (not the Karowa footbridge, a living_street for service vans only)
         continue
     if hw in ROADS or base in ROADS:
-        _s = t.get("surface") or area_surface(line)
+        _s = t.get("surface") or (area_surface(line) if base in ("service", "living_street") else None)
         n_inherit += _s is not None and "surface" not in t
+        # a carriageway of paving stones in the sidewalks' colour vanished into them (Plac Krasińskich, Krakowskie
+        # Przedmieście): granite carriageways a darker grey
+        _k = "road_paving" if SURF.get(_s) == "paving" else SURF.get(_s, "asphalt")
         if base in ("trunk", "primary", "secondary", "tertiary", "unclassified", "residential"):
-            road_lines.append((oid, line, C[SURF.get(_s, "asphalt")]))
-        road_shapes.append((poly, C[SURF.get(_s, "asphalt")]))
+            road_lines.append((oid, line, C[_k]))
+        road_shapes.append((poly, C[_k]))
     elif hw == "cycleway":  # one red the whole way, whatever its stretches are tagged (asphalt, paving stones): drawn last
         cycle_shapes.append((poly, C["cycle"]))
     elif hw == "steps":
@@ -371,18 +374,26 @@ _cyc = np.zeros((D, W), np.uint16)  # a footway area drawn over a cycleway besid
 burn(_cyc, [(sh, 1) for sh, _ in cycle_shapes])
 gcol[(_cyc > 0) & (road_mask == 0)] = C["cycle"]
 is_road = road_mask > 0
-_ped = [C[k] for k in ("paving", "paving2", "kerb", "cycle", "steps", "platform", "gravel", "grass", "dirt")]
-_bad = []
-for oid, line, own in road_lines:
-    pts = [line.interpolate(d) for d in np.arange(0, line.length, 1.0)]
-    rc = [(int(p.y), int(p.x)) for p in pts if 0 <= p.y < D and 0 <= p.x < W]
-    off = sum(gcol[r, c] in _ped and gcol[r, c] != own for r, c in rc)
-    if off >= 6:
-        _bad.append((int(off), oid, rc[0]))
-_bad.sort(reverse=True)
-note(f"carriageway sanity: {len(_bad)} roads with 6+ m of their centreline painted as pavement: {_bad[:8]}")
-if _bad:
-    raise SystemExit("carriageways painted as pavement; see the sanity line above")
+_ped = [C[k] for k in ("paving", "paving2", "kerb", "steps", "platform", "gravel", "grass", "dirt")]  # (a cycle crossing's red is road)
+
+
+def carriageway_sanity(surface, stage):
+    """every carriageway's centreline in its own colour: the build stops if a road has 6 m or more of it painted as
+    pavement (a junction square, an area drawn over it, a pit filled over a road ramp)"""
+    bad = []
+    for oid, line, own in road_lines:
+        pts = [line.interpolate(d) for d in np.arange(0, line.length, 1.0)]
+        rc = [(int(p.y), int(p.x)) for p in pts if 0 <= p.y < D and 0 <= p.x < W]
+        off = sum(surface(r, c) in _ped and surface(r, c) != own for r, c in rc)
+        if off >= 6:
+            bad.append((int(off), oid, rc[0]))
+    bad.sort(reverse=True)
+    note(f"carriageway sanity ({stage}): {len(bad)} roads with 6+ m of their centreline painted as pavement: {bad[:8]}")
+    if bad:
+        raise SystemExit("carriageways painted as pavement; see the sanity line above")
+
+
+carriageway_sanity(lambda r, c: gcol[r, c], "ground colours")
 
 # rails & trams (only open-air)
 rail_beds, rails = [], []
@@ -407,10 +418,10 @@ for oid, t, line in osm.lines_with("railway"):
             rails.append((line.offset_curve(off), C["rail"]))
         except Exception:
             pass
-for oid, typ, t, geom in osm.areas_with("railway", ("platform",)):
-    if not tunnelish(t):
-        rail_beds.append((geom, C["platform"]))
 burn(gcol, rail_beds)
+_pf = np.zeros((D, W), np.uint16)  # a platform mapped over the carriageway beside it (Wybrzeże Kościuszkowskie) stops at the road
+burn(_pf, [(geom, 1) for oid, typ, t, geom in osm.areas_with("railway", ("platform",)) if not tunnelish(t)])
+gcol[(_pf > 0) & (road_mask == 0)] = C["platform"]
 burn(gcol, rails, all_touched=True)
 
 # water
@@ -440,7 +451,7 @@ zlota_line = _uu(_zl) if _zl else None
 splash_pads = [geom for oid, typ, t, geom in osm.areas if t.get("fountain") == "splash_pad" and not tunnelish(t)]
 
 # zebra crossings + lane markings on asphalt
-asph = np.isin(gcol, [C["asphalt"], C["asphalt_l"], C["parking"]])
+asph = np.isin(gcol, [C["asphalt"], C["asphalt_l"], C["parking"], C["road_paving"]])
 n_cross = 0
 for oid, t, line in osm.lines:
     if not (t.get("footway") == "crossing" or t.get("cycleway") == "crossing" or
@@ -1786,6 +1797,7 @@ from shapely.geometry import Polygon as _Poly
 landmarks.PIERS = [_Poly(l.coords) for oid, t, l in osm.lines if t.get("bridge:support") and l.is_closed and len(l.coords) >= 4]
 import underpass
 underpass.build(vol, g, pal, C, osm, note)
+carriageway_sanity(lambda r, c: vol[g[r, c] - 1, r, c], "after the underpasses")
 if os.environ.get("LMCACHE"):  # the volume before the curated landmark details, for scripts/patch.py
     import pickle
     Path("data/cache").mkdir(parents=True, exist_ok=True)

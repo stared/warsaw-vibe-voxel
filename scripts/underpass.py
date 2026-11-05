@@ -81,6 +81,7 @@ def build(vol, g, pal, C, osm, note):
     IDS.clear()
     tun, land, steps = ways(osm)
     floor, wall, rail = C["paving2"], pal("#a9a59c"), pal("#c9c6be")
+    roads = [C[k] for k in ("asphalt", "asphalt_l", "mark", "parking", "trambed", "sett", "cycle", "hatch", "road_paving")]
     # the street over each passage: the highest ground along it; the corridor's walking level 4 m under it
     level = {}
     for wid, ns, ln in tun + land:
@@ -104,7 +105,9 @@ def build(vol, g, pal, C, osm, note):
         ring = g[rr, cc]
         street = int(np.percentile(ring, 80))
         zf = level[bot]
-        low = (ring < street) & (ring >= street - 5)
+        # (never a carriageway: a road ramping down into a tunnel beside the stairs is no pit -- Plac Krasińskich's)
+        road = np.isin(vol[np.maximum(ring - 1, 0), rr, cc], roads)
+        low = (ring < street) & (ring >= street - 5) & ~road
         for r, c in zip(rr[low], cc[low]):
             vol[g[r, c] - 1:street, r, c] = C["paving"]
             g[r, c] = street
