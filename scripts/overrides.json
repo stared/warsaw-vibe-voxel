@@ -1,6 +1,16 @@
 {
   "_doc": "Per-building curation applied on top of LiDAR+OSM. Keyed by OSM element id (way/relation) or by name. Fields: wall/roof {colour, material}; zones: facade split along the footprint's long axis (from/to are fractions 0..1, measured from end 'origin': west|east|north|south); crown: facade band at the top {height, colour, material, sign_colour, tip: only the first fraction of the long axis from the origin end}; min_part_height: apply only to parts taller than this; label {name, en, kind, height, year, rebuilt, by, building} as in landmarks.LABELS; sources. Materials: wall, glass, concrete, metal, pkin, bronze_grid, sign. Areas (any OSM area id, e.g. a stadium): stripes {colours, width (m along the perimeter), material, min_height} paint the walls of every building part inside it in vertical bands by angle around the area's centre; stripes.bands [{to (m above ground), colour | checker [two colours] + cell [w, h m] + p/dp (share of the second colour, rising with height), material}] paint by height instead, or {to, repeat [[m, colour, material], ...]} cycled floor by floor; smooth {masts, mast_h, outline, podium} rebuilds a stadium roof as one surface (median height by distance from the smoothed outer edge) with thin masts round the rim.",
   "buildings": {
+    "61052514": {
+      "name": "Teatr Polski",
+      "wall": {"colour": "#b9ae94", "material": "classic"},
+      "_note": "warm grey-olive stone, the rounded corner with its oculus (Commons 2010-2019); was grey-white"
+    },
+    "3045382": {
+      "name": "Ministerstwo Edukacji Narodowej (al. Szucha 25)",
+      "wall": {"colour": "#cdbfa2", "material": "wall"},
+      "_note": "sandstone cladding, the pillared portico on Szucha (Commons 2010-2023); was grey-white"
+    },
     "34627281": {
       "name": "Pałac Lubomirskich",
       "wall": {"colour": "#e2cdc6", "material": "wall"},
