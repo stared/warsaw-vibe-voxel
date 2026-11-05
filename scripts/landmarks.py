@@ -574,6 +574,15 @@ def classic_buildings(vol, g, feats, pal, note):
     bristol(vol, g, feats, pal, note)
     holy_cross(vol, g, feats, pal, note)
     st_alexander(vol, g, feats, pal, note)
+    magdalene(vol, g, feats, pal, note)
+    f = _feat(feats, "Zamek Ujazdowski")
+    if f is not None:  # Commons 2014-2022, raw LiDAR: cream walls to the eaves at 13 m, a green copper hipped roof to 21 m
+        # round the court, a square tower at each corner under its green helmet and lantern to 24-26 m
+        classic_rebuild(vol, g, pal, f["geom"], eave=13, slope=1.0, wall_hex="#ece4cf", roof_hex="#8fb3a2", cap=21,
+                        rows=[(2, 2), (6, 2), (10, 2)], bay=3.6, note=note, name="Zamek Ujazdowski")
+        wall, dome, gold = pal(_hex("#ece4cf"), MAT_IDS["classic"]), pal(_hex("#7fa596"), 6), pal(_hex("#c9a24a"), 6)
+        for cy, cx in ((4328, 1848), (4347, 1894), (4395, 1876), (4375, 1828)):
+            _onion(vol, g, cy + 0.5, cx + 0.5, 0, 17, 2.6, 7, wall, dome, gold)
     f = _feat(feats, "Filharmonia Narodowa")
     if f is not None:  # Commons 2010-2019: pale stone, arched ground floor windows, tall windows between pilasters
         # to the cornice at 22 m, the stage house to 27 m (raw LiDAR); not an office grid
@@ -1978,6 +1987,45 @@ def st_alexander(vol, g, feats, pal, note, cy=3164.0, cx=1688.5, R=10.5):
                 elif c in (1683, 1694) and abs(r - front) >= 2:
                     col[gz + 1:gz + 10] = white
     note("St Alexander's rotunda and porticos rebuilt")
+
+
+def _onion(vol, g, cy, cx, z0, drum, R, bulb, col_drum, col_dome, gold, win=None):
+    """a drum of radius R (window slits if win) from z0 to z0+drum, an onion over it swelling to 1.2 R and drawn in
+    to a point over `bulb` m, a gold cross on top"""
+    zb = z0 + drum
+    for r in range(int(cy - 1.3 * R) - 1, int(cy + 1.3 * R) + 2):
+        for c in range(int(cx - 1.3 * R) - 1, int(cx + 1.3 * R) + 2):
+            d = math.hypot(r + 0.5 - cy, c + 0.5 - cx)
+            gz = int(g[r, c]); col = vol[:, r, c]
+            if d <= R:
+                col[gz + z0:gz + zb] = col_drum
+                if win is not None and d > R - 1 and int(math.degrees(math.atan2(r + 0.5 - cy, c + 0.5 - cx)) // 30) % 2:
+                    col[gz + z0 + 1:gz + zb - 1] = win
+            for k in range(bulb):
+                t = (k + 0.5) / bulb
+                rad = 1.2 * R * math.sin(math.pi * (0.25 + 0.75 * t)) ** 0.8
+                if d <= rad:
+                    col[gz + zb + k] = col_dome
+            if d < 0.75:
+                col[gz + zb + bulb:gz + zb + bulb + 2] = gold
+
+
+def magdalene(vol, g, feats, pal, note):
+    """the Orthodox cathedral of St Mary Magdalene in Praga (Commons 2012-2019; raw LiDAR): ochre-yellow walls to
+    ~17 m under dark roofs, the central drum and its big dark onion to 38 m, four small onions on drums at the corners
+    to 26 m, gold crosses"""
+    f = _feat(feats, "Cerkiew metropolitalna Świętej Równej Apostołom Marii Magdaleny")
+    if f is None:
+        return
+    yellow = "#dcb35e"
+    classic_rebuild(vol, g, pal, f["geom"], eave=16, slope=0.6, wall_hex=yellow, roof_hex="#56665f", cap=19,
+                    rows=[(4, 6)], bay=4, note=note, name="Magdalene cathedral")
+    wall, dome, gold = pal(_hex(yellow), MAT_IDS["classic"]), pal(_hex("#4f6a63"), 6), pal(_hex("#c9a24a"), 6)
+    dark = pal((40, 44, 46), MAT_IDS["window"])
+    _onion(vol, g, 728.5, 3361.5, 16, 10, 3.6, 11, wall, dome, gold, dark)
+    for cy, cx in ((719.5, 3365.5), (721.5, 3350.5), (735.5, 3369.5), (739.5, 3353.5)):
+        _onion(vol, g, cy, cx, 16, 5, 2.0, 6, wall, dome, gold)
+    note("Magdalene cathedral: five onions")
 
 
 def holy_trinity(vol, g, feats, pal, note):
