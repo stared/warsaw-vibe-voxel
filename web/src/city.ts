@@ -10,7 +10,7 @@ const RINGS: [string, number][] = [['Buildings in view', 0], ['Buildings within 
 
 // The city at 1 m, as much of it as the budget allows (triangles of 1 m buildings, city blocks nearest to the focus
 // first; on most computers all of it), shown as it arrives, in one order:
-//   1. the ground: the terrain, one small file; where the budget leaves some city out, the 8 m level as clay instead
+//   1. the ground: the terrain, one small file; where the budget leaves some city out, the whole map at 8 m as clay
 //   2. landmarks: their tiles first, each landmark as soon as all its tiles are in (not over clay)
 //   3. everything else, nearest to the view first, each building once all its tiles are in; over clay a city block
 //      turns real once every tile under it is in, and back to clay when the budget moves on
@@ -28,13 +28,17 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   const d = S.dims[1], total = d.nx * d.ny, { W, D } = meta, index = (tx: number, ty: number) => ty * d.nx + tx;
   const zonesIn = Promise.all([fetchGzip('data/zones.bin'), fetchJson<Zones>('data/zones.json')]);
   let terrain: Awaited<ReturnType<typeof loadTerrain>> | null = null;
-  if (!Number.isFinite(budget())) {
+  const d8 = S.dims[8], n8 = d8.nx * d8.ny, clayIn: Promise<void>[] = [];
+  let claysIn = 0;
+  if (Number.isFinite(budget())) {
+    for (let ty = 0; ty < d8.ny; ty++) for (let tx = 0; tx < d8.nx; tx++) clayIn.push(S.request(8, tx, ty, 1e9).then(() => { claysIn++; }));
+    S.pump();
+  } else {
     caption.show('Terrain', 0, 2 * total);
     terrain = await loadTerrain(meta, scene, d.nx, d.ny);
   }
-  document.querySelector('#loading')?.classList.add('hidden');
-
   const [zbuf, zones] = await zonesIn;
+  document.querySelector('#loading')?.classList.add('hidden');
   const bld = new Uint16Array(zbuf, W * D * 2, W * D);
   S.bldMap = { data: bld, W };
   const nb = zones.buildings.length, shown = new Uint8Array(128 * Math.ceil((nb + 1) / 128));
@@ -105,12 +109,12 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   const clayMat = makeVoxelMaterial(U, { clay: true }), clayDepth = makeClayDepthMaterial(U);
   const startClay = () => {
     clay = 'loading';
-    caption.hide();
     if (stage === 1) toStage2();
-    const d8 = S.dims[8], ps = [];
-    for (let ty = 0; ty < d8.ny; ty++) for (let tx = 0; tx < d8.nx; tx++) ps.push(S.request(8, tx, ty, 1e9));
-    S.pump();
-    Promise.all(ps).then(() => {
+    if (!clayIn.length) {
+      for (let ty = 0; ty < d8.ny; ty++) for (let tx = 0; tx < d8.nx; tx++) clayIn.push(S.request(8, tx, ty, 1e9).then(() => { claysIn++; }));
+      S.pump();
+    }
+    Promise.all(clayIn).then(() => {
       for (const n of S.nodes.values()) if (n.s === 8 && n.mesh) { n.mesh.material = clayMat; n.mesh.customDepthMaterial = clayDepth; n.mesh.visible = true; }
       terrain?.dropUnder(new Uint8Array(total).fill(1));
       U.uZOn.value = 1;
@@ -136,21 +140,23 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   S.pump();
 
   // the caption's parts of the long building stage: what you see, then rings around you
-  const progress = (f: THREE.Vector3, tilesNow: number, folNow: number) => {
-    if (clay !== 'none') return;
-    if (stage === 4) { caption.finish('Foliage', 2 * total); return; }
-    if (stage === 3) { caption.show('Foliage', total + folNow, 2 * total); return; }
-    if (stage === 1) { caption.show('Landmarks', tilesNow, 2 * total); return; }
+  const progress = (f: THREE.Vector3, wanted: number, tilesNow: number, folNow: number) => {
+    const base = clay === 'none' ? 0 : n8, all = base + 2 * wanted;
+    if (stage === 4 && clay !== 'loading') { caption.finish('Foliage', all); return; }
+    if (clay === 'loading' && claysIn < n8) { caption.show('Ground', claysIn, all); return; }
+    if (stage >= 3) { caption.show('Foliage', base + wanted + folNow, all); return; }
+    if (stage === 1) { caption.show('Landmarks', tilesNow, all); return; }
     const size = [0, 0, 0, 0];
-    let ends = 0;
+    let ends = base;
     for (let i = 0; i < total; i++) {
-      if (lmPrio.has(i)) { ends++; continue; }
+      if (!want[i]) continue;
+      if (clay === 'none' && lmPrio.has(i)) { ends++; continue; }
       const r = away(i, f);
       size[seen[i] ? 0 : r < 1000 ? 1 : r < 2000 ? 2 : 3]++;
     }
     let part = 0;
-    for (ends += size[0]; part < 3 && tilesNow >= ends; ends += size[++part]);
-    caption.show(RINGS[part][0], tilesNow, 2 * total);
+    for (ends += size[0]; part < 3 && base + tilesNow >= ends; ends += size[++part]);
+    caption.show(RINGS[part][0], base + tilesNow, all);
   };
 
   S.update = () => {
@@ -198,7 +204,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
     }
     if (stage === 3 && folNow === wanted) stage = 4;
     if (terrain && stage >= 2) terrain.dropUnder(inTile);
-    if (terrain && stage >= 3) terrain.dispose();
+    if (terrain && stage >= 3 && whole) terrain.dispose();
     if (changed) shownTex.needsUpdate = true;
     realTris = 0;
     for (let k = 0; k < nk; k++) {
@@ -211,7 +217,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
       if (key !== flagKey) { flagKey = key; flagTex.needsUpdate = true; }
       S.dropQueued((n) => n.s === 8 || want[index(n.tx, n.ty)] > 0 || n.pinned > now);
     }
-    progress(f, tilesNow, folNow);
+    progress(f, wanted, tilesNow, folNow);
     S.pump();
   };
 
@@ -219,7 +225,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   return {
     // a building's label once it shows; the others (parks, the river) with the foliage; over clay, all of them
     gate: (x: number, z: number) => { const b = labelled.get(`${x},${z}`) ?? -1; return clay !== 'none' || (b >= 0 ? shown[b + 1] > 0 : stage >= 4); },
-    get complete() { return stage >= 4 || clay === 'ready'; },
+    get complete() { return stage >= 4 && clay !== 'loading'; },
     get realTris() { return realTris; },
     // every tile the budget asks for is in
     get settled() { return settled; },
