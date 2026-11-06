@@ -12,6 +12,7 @@ import { Hud } from './hud';
 import { Labels } from './labels';
 import { always, blank, gpu, remember, startStats, track, trackLater } from './stats';
 import { Nav, type Mode, type Ride } from './nav/nav';
+import { Perf } from './perf';
 import { makePost } from './post';
 import type { SearchItem } from './search';
 import { StreetLife } from './sim/life';
@@ -69,6 +70,7 @@ let barRect: DOMRect | null = null;
 let climate: Climate | null = null;
 let places: Label[] = [];
 const caption = new Caption();
+const perf = new Perf((b) => { budget = b; });
 let setWindows: ((hour: number, day: number) => void) | null = null;
 
 nav.cancelFly = () => { fly = null; };
@@ -279,6 +281,8 @@ async function boot() {
   city = await installCity({ streamer, uniforms, meta, scene, focus, camera, caption, budget: () => budget });
   labels = new Labels(meta.labels, onLabel);
   labels.gate = city.gate;
+  perf.range(Math.min(ceiling, city.cityTris));
+  perf.show(budget);
   hud = new Hud(renderer.domElement, nav.mode);
   bar.search.setItems(searchItems(meta));
   fetchJson<{ places: Place[] }>('data/places.json').then(({ places }) => bar.search.setItems([...searchItems(meta),
@@ -305,6 +309,7 @@ renderer.setAnimationLoop((now) => {
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
   adapt(dt, now);
+  perf.frame(now, document.hidden);
   nav.update(dt);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   const above = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3;
@@ -333,7 +338,7 @@ renderer.setAnimationLoop((now) => {
     bar.showRiver(now - riverSeen < 2000);
   }
   barRect ??= bar.rect;
-  labels?.update(camera, world, barRect, hud?.rects ?? []);
+  labels?.update(camera, world, barRect, [...(hud?.rects ?? []), ...perf.rects]);
 });
 
 window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post, budget: () => budget };
@@ -365,11 +370,14 @@ function adapt(dt: number, now: number) {
   frames.length = 0;
   if (median > (loading ? 1 / 20 : 1 / 27)) {
     calm = 0;
+    if (perf.manual) return;
     if (!loading && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); onResize(); return; }
     budget = Math.max(0.2e6, Math.min(budget, city.realTris) * 0.75);
-  } else if (p90 < 1 / 45 && budget < ceiling && ++calm >= 5) {
+    perf.show(budget);
+  } else if (p90 < 1 / 45 && budget < ceiling && !perf.manual && ++calm >= 5) {
     calm = 0;
     budget = Math.min(ceiling, budget * 1.25 >= city.cityTris ? Infinity : budget * 1.25);
+    perf.show(budget);
   } else if (p90 >= 1 / 45) calm = 0;
 }
 
