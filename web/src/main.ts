@@ -267,6 +267,7 @@ async function boot() {
   loadWindows(meta, uniforms).then((set) => { setWindows = set; }).catch((e) => console.warn('windows', e));
   streamer = new TileStreamer(meta, makeVoxelMaterial(uniforms), scene);
   world = nav.world = streamer.world;
+  daylight.casters(streamer.group, () => life?.group ?? null);
   nav.streamer = streamer;
   map.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(meta.W, meta.H, meta.D));
   const v0 = views[qs.get('view') ?? ''] ?? views.overview, cam = qs.get('cam')?.split(',').map(Number);
@@ -333,6 +334,7 @@ renderer.setAnimationLoop((now) => {
   daylight.sky.mesh.position.copy(camera.position);
   streamer?.update(camera);
   daylight.fitShadow(focus(), camera, viewDist, map);
+  if (stillChanged()) daylight.redrawShadow();
   post.composer.render();
   report(now);
   if (flood && now - riverT > 250) {
@@ -345,6 +347,18 @@ renderer.setAnimationLoop((now) => {
 });
 
 window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post };
+
+// what the city's shadow map shows: which tiles are drawn, and what folds, hides or thins them in its depth pass
+let stillKey = '';
+function stillChanged() {
+  if (!streamer || !uniforms) return false;
+  let n = 0, ids = 0;
+  for (const m of streamer.group.children) if (m.visible) { n++; ids += m.id; }
+  const U = uniforms, key = `${n},${ids},${U.uStage?.value},${U.uBldOn?.value.version},${U.uFolOn.value},${U.uDay.value},${U.uFolMap.value.id}`;
+  if (key === stillKey) return false;
+  stillKey = key;
+  return true;
+}
 
 // slow frames (the median of 15 over 45 ms): one pixel per CSS pixel
 function adapt(dt: number) {

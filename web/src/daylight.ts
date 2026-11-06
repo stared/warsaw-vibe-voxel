@@ -5,6 +5,17 @@ import { clamp, lerp, smooth } from './util';
 import type { VoxelUniforms } from './voxelMaterial';
 import { visibility, WEATHERS, type Weather } from './weather';
 
+// The city's shadow map is drawn only when the city or the light changes; what moves (traffic, people) has its own map
+// from a twin of the sun, of no intensity, redrawn every frame. The sun's light is dimmed by both.
+const SHADOW = 'directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;';
+if (!THREE.ShaderChunk.lights_fragment_begin.includes(SHADOW)) throw new Error('three: lights_fragment_begin changed');
+THREE.ShaderChunk.lights_fragment_begin = THREE.ShaderChunk.lights_fragment_begin.replace(SHADOW, `
+  #if UNROLLED_LOOP_INDEX == 0 && NUM_DIR_LIGHT_SHADOWS > 1
+  ${SHADOW.replace(') : 1.0;', ') * getShadow( directionalShadowMap[ 1 ], directionalLightShadows[ 1 ].shadowMapSize, directionalLightShadows[ 1 ].shadowIntensity, directionalLightShadows[ 1 ].shadowBias, directionalLightShadows[ 1 ].shadowRadius, vDirectionalShadowCoord[ 1 ] ) : 1.0;')}
+  #elif UNROLLED_LOOP_INDEX != 1
+  ${SHADOW}
+  #endif`);
+
 export class Daylight {
   hour = 0;
   exposure = 1.15;
@@ -16,6 +27,12 @@ export class Daylight {
   bloom: { intensity: number } | null = null;
   ao: { intensity: number; aoRadius: number } | null = null;
   private readonly sun = new THREE.DirectionalLight(0xffffff, 3);
+  private readonly twin = new THREE.DirectionalLight(0xffffff, 0);
+  private readonly gate = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)),
+    new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+  private still: THREE.Object3D | null = null;
+  private moving: () => THREE.Object3D | null = () => null;
+  private shown: [boolean, boolean] | null = null;
   private readonly hemi = new THREE.HemisphereLight(0xbfd6ff, 0x6b5a48, 0.6);
   private readonly pmrem: THREE.PMREMGenerator;
   private readonly lightDir = new THREE.Vector3(0, 1, 0);
@@ -30,9 +47,46 @@ export class Daylight {
     sun.shadow.mapSize.set(size, size);
     sun.shadow.bias = -0.0004;
     sun.shadow.radius = 3;
-    scene.add(sun, sun.target, this.hemi, this.sky.mesh);
+    sun.shadow.autoUpdate = false;
+    sun.shadow.needsUpdate = true;
+    const twin = this.twin;
+    twin.castShadow = true;
+    twin.shadow.mapSize.set(size, size);
+    scene.add(sun, sun.target, twin, twin.target, this.hemi, this.sky.mesh);
+    this.watchShadows(scene);
     this.pmrem = new THREE.PMREMGenerator(renderer);
   }
+
+  // the first object the shadow pass meets: it shows each map only its own casters, and the main pass shows them all again
+  private watchShadows(scene: THREE.Scene) {
+    const g = this.gate;
+    g.castShadow = true;
+    g.frustumCulled = false;
+    scene.add(g);
+    scene.children.unshift(scene.children.pop()!);
+    g.onBeforeShadow = (_r, _o, _c, shadowCamera) => {
+      const still = this.still, moving = this.moving();
+      if (!still) return;
+      this.shown ??= [still.visible, moving?.visible ?? false];
+      const city = shadowCamera === this.sun.shadow.camera;
+      still.visible = city && this.shown[0];
+      if (moving) moving.visible = !city && this.shown[1];
+    };
+    g.onBeforeRender = () => {
+      if (!this.shown || !this.still) return;
+      this.still.visible = this.shown[0];
+      const moving = this.moving();
+      if (moving) moving.visible = this.shown[1];
+      this.shown = null;
+    };
+  }
+
+  casters(still: THREE.Object3D, moving: () => THREE.Object3D | null) {
+    this.still = still;
+    this.moving = moving;
+  }
+
+  redrawShadow() { this.sun.shadow.needsUpdate = true; }
 
   // the grid is turned (scripts/aoi.py): compass bearings turn by theta in the scene
   set theta(t: number) { this.northTheta = t; this.apply(this.hour); }
@@ -105,8 +159,15 @@ export class Daylight {
     const R = clamp(dist * 1.15, 300, Math.max(map.max.x, map.max.z) * 0.75), texel = (2 * R) / sun.shadow.mapSize.x;
     const L = this.lightDir;
     const key = `${Math.round(f.x / (texel * 8))},${Math.round(f.z / (texel * 8))},${R.toFixed(0)},${L.x.toFixed(4)},${L.y.toFixed(4)}`;
-    if (key === this.shadowKey) return;
-    this.shadowKey = key;
+    if (key !== this.shadowKey) {
+      this.shadowKey = key;
+      this.fitSun(f, R, texel, map);
+    }
+    this.fitTwin();
+  }
+
+  private fitSun(f: THREE.Vector3, R: number, texel: number, map: THREE.Box3) {
+    const sun = this.sun, L = this.lightDir;
     const c = new THREE.Vector3(f.x, 0, f.z);
     sun.target.position.copy(c);
     sun.position.copy(c).addScaledVector(L, 2500);
@@ -120,5 +181,17 @@ export class Daylight {
     cam.far = -b.min.z + 10;
     cam.updateProjectionMatrix();
     sun.shadow.needsUpdate = true;
+  }
+
+  private fitTwin() {
+    const sun = this.sun, twin = this.twin, a = sun.shadow, b = twin.shadow;
+    twin.position.copy(sun.position); twin.target.position.copy(sun.target.position);
+    twin.updateMatrixWorld(); twin.target.updateMatrixWorld();
+    const ca = a.camera, cb = b.camera;
+    if (cb.left !== ca.left || cb.right !== ca.right || cb.top !== ca.top || cb.bottom !== ca.bottom || cb.near !== ca.near || cb.far !== ca.far) {
+      Object.assign(cb, { left: ca.left, right: ca.right, top: ca.top, bottom: ca.bottom, near: ca.near, far: ca.far });
+      cb.updateProjectionMatrix();
+    }
+    Object.assign(b, { bias: a.bias, normalBias: a.normalBias, radius: a.radius, intensity: a.intensity });
   }
 }
