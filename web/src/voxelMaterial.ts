@@ -34,18 +34,17 @@ export interface VoxelUniforms {
   uWinCol: U<THREE.Vector3[]>;
   uAlbedo: U<number>;
   uPkinLight: U<THREE.Color>;
+  uStage: U<number>;
+  uBldOn: U<THREE.Texture>;
+  uZOn: U<number>;
+  uZBlk: U<THREE.Texture>;
+  uZFBlk: U<THREE.Texture>;
 }
-export interface BuildUniforms { uStage: U<number>; uBldOn: U<THREE.Texture> }
-export interface ZoneUniforms {
-  uZBlk: U<THREE.Texture>; uZBld: U<THREE.Texture>; uZFBlk: U<THREE.Texture>; uZFBld: U<THREE.Texture>;
-  uZMode: U<number>; uZFocus: U<THREE.Vector2>; uZRad: U<number>;
-}
-export type Engine = 'city' | 'zones';
 
 const tiny = (format: THREE.PixelFormat, data: Uint8Array | Uint16Array, type?: THREE.TextureDataType) => dataTexture(data, 1, 1, format, type);
 
-export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partial<BuildUniforms & ZoneUniforms> {
-  const base: VoxelUniforms = {
+export function makeUniforms(meta: Meta): VoxelUniforms {
+  return {
     uPalette: { value: makePaletteTexture(meta.palette) },
     uLampMap: { value: makeLampTexture(meta) },
     uSize: { value: new THREE.Vector2(meta.W, meta.D) },
@@ -70,11 +69,12 @@ export function makeUniforms(meta: Meta, engine: Engine): VoxelUniforms & Partia
     uWinCol: { value: Array.from({ length: 8 }, () => new THREE.Vector3(0.7, 0.25, 0.05)) },
     uAlbedo: { value: 0.7 },
     uPkinLight: { value: new THREE.Color(0.95, 0.74, 0.4) },
+    uStage: { value: 0 },
+    uBldOn: { value: tiny(THREE.RedFormat, new Uint8Array(1)) },
+    uZOn: { value: 0 },
+    uZBlk: { value: tiny(THREE.RedIntegerFormat, new Uint16Array(1), THREE.UnsignedShortType) },
+    uZFBlk: { value: tiny(THREE.RedFormat, new Uint8Array(1)) },
   };
-  if (engine === 'city') return { ...base, uStage: { value: 0 }, uBldOn: { value: tiny(THREE.RedFormat, new Uint8Array(1)) } };
-  const ids = () => tiny(THREE.RedIntegerFormat, new Uint16Array(1), THREE.UnsignedShortType);
-  return { ...base, uZBlk: { value: ids() }, uZBld: { value: ids() }, uZFBlk: { value: tiny(THREE.RedFormat, new Uint8Array(1)) },
-    uZFBld: { value: tiny(THREE.RedFormat, new Uint8Array(1)) }, uZMode: { value: 0 }, uZFocus: { value: new THREE.Vector2() }, uZRad: { value: 1e9 } };
 }
 
 function makePaletteTexture(palette: Meta['palette']) {
@@ -161,19 +161,14 @@ const BUILD_VERTEX = `
     }
   }`;
 
+// Where the budget leaves the city to the 8 m clay (city.ts, uZOn): a city block is real once uZFBlk says so
 const ZONES_PARS = `
-  uniform highp usampler2D uZBlk; uniform highp usampler2D uZBld; uniform sampler2D uZFBlk; uniform sampler2D uZFBld;
-  uniform int uZMode; uniform vec2 uZFocus; uniform float uZRad;
-  bool zflag(sampler2D t, uint id) { int w = textureSize(t, 0).x; return texelFetch(t, ivec2(int(id) % w, int(id) / w), 0).r > 0.5; }
+  uniform int uZOn; uniform highp usampler2D uZBlk; uniform sampler2D uZFBlk;
   bool zreal(vec3 c) {
-    ivec2 p = clamp(ivec2(c.x, c.z), ivec2(0), textureSize(uZBlk, 0) - 1);
-    vec2 d = c.xz + 0.5 - uZFocus;
-    if (uZMode == 1) return max(abs(d.x), abs(d.y)) < uZRad;
-    if (uZMode == 2) return length(d) < uZRad;
-    uint b = texelFetch(uZBld, p, 0).r;
-    if ((uZMode == 3 || uZMode == 6) && b > 0u) return zflag(uZFBld, b);
-    if (uZMode == 3) return length(d) < uZRad;
-    return zflag(uZFBlk, texelFetch(uZBlk, p, 0).r);
+    if (uZOn == 0) return true;
+    uint id = texelFetch(uZBlk, clamp(ivec2(c.x, c.z), ivec2(0), textureSize(uZBlk, 0) - 1), 0).r;
+    int w = textureSize(uZFBlk, 0).x;
+    return texelFetch(uZFBlk, ivec2(int(id) % w, int(id) / w), 0).r > 0.5;
   }`;
 
 const FRAG_PARS = `
@@ -379,18 +374,16 @@ const SURFACE = `
   if (m != ${MAT.LAMP} && m != ${MAT.JET} && m != ${MAT.SIGN}) col *= mix(1.0, uAlbedo, smoothstep(0.2, 0.6, dot(col, vec3(0.2126, 0.7152, 0.0722))));
   diffuseColor.rgb = col * mix(0.62, 1.0, vAO);
   if (vHide > 0.5) { diffuseColor.rgb = vec3(0.42, 0.41, 0.39); gEmissive = vec3(0.0); }
-  #ifdef ZONES
   #ifdef CLAY
   if (zreal(cell)) discard;
   #else
   if (!zreal(cell)) discard;
   #endif
-  #endif
   #ifdef CLAY
-  if (uClay != 0) { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }
+  { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }
   #endif`;
 
-export function makeBuildDepthMaterial(uniforms: VoxelUniforms & BuildUniforms) {
+export function makeBuildDepthMaterial(uniforms: VoxelUniforms) {
   const m = new THREE.MeshDepthMaterial();
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -415,17 +408,15 @@ export function makeBuildDepthMaterial(uniforms: VoxelUniforms & BuildUniforms) 
   return m;
 }
 
-// clay: the stand-in city outside the real area (zones.ts); uClay 0 keeps its colours
+// clay: the 8 m stand-in for the city outside the budget (city.ts)
 export function makeVoxelMaterial(uniforms: VoxelUniforms, { clay = false } = {}) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
-  const clayU = { uClay: { value: 1 } };
-  const building = 'uStage' in uniforms, zones = 'uZMode' in uniforms;
   mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms, clay ? clayU : {});
-    const defs = (zones ? `#define ZONES\n${ZONES_PARS}\n` : '') + (clay ? '#define CLAY\nuniform int uClay;\n' : '');
+    Object.assign(shader.uniforms, uniforms);
+    const defs = `${ZONES_PARS}\n` + (clay ? '#define CLAY\n' : '');
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
-        attribute vec4 vattr; attribute float vpal; ${building ? BUILD_PARS : ''}
+        attribute vec4 vattr; attribute float vpal; ${BUILD_PARS}
         varying vec3 vVox; varying vec3 vN; varying float vAO; varying float vGz; flat varying int vPal; varying float vHide;
         ${NORMAL_FROM_IDX}`)
       // vattr.x = face axis (0-5) + 8 x the wall's direction in plan (mesher.worker.ts): a staircase wall is lit as its plane
@@ -436,7 +427,7 @@ export function makeVoxelMaterial(uniforms: VoxelUniforms, { clay = false } = {}
         'directionalLightShadows[ i ].shadowNormalBias', '(directionalLightShadows[ i ].shadowNormalBias + (nAng > 0.5 ? 1.2 : 0.0))'))
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vVox = position; vN = normalFromIdx(nAx); vAO = vattr.y / 3.0; vGz = vattr.z; vPal = int(vpal + 0.5); vHide = 0.0;
-        ${building ? `${BUILD_VERTEX} vHide = hideB;` : ''}`);
+        ${BUILD_VERTEX} vHide = hideB;`);
     shader.fragmentShader = defs + shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${FRAG_PARS}`)
       .replace('#include <color_fragment>', SURFACE)
@@ -447,8 +438,8 @@ export function makeVoxelMaterial(uniforms: VoxelUniforms, { clay = false } = {}
         float aoF = mix(0.55, 1.0, vAO);
         reflectedLight.indirectDiffuse *= aoF; reflectedLight.indirectSpecular *= aoF;`);
   };
-  mat.customProgramCacheKey = () => `voxel-${building ? 'b' : ''}${zones ? 'z' : ''}${clay ? 'c' : ''}`;
-  return Object.assign(mat, { clay: clayU.uClay });
+  mat.customProgramCacheKey = () => `voxel${clay ? '-clay' : ''}`;
+  return mat;
 }
 
 export type VoxelMaterial = ReturnType<typeof makeVoxelMaterial>;

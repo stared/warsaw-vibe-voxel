@@ -23,7 +23,7 @@ import { $, coarsePointer, ease, el, fetchJson, lerp } from './util';
 import { pkinLight } from './sky';
 import { type Climate, Precip, typical, type Weather, WEATHERS } from './weather';
 import type { World } from './world';
-import { makeUniforms, makeVoxelMaterial, type BuildUniforms, type Engine, type ZoneUniforms } from './voxelMaterial';
+import { makeUniforms, makeVoxelMaterial } from './voxelMaterial';
 import './style.css';
 
 declare global {
@@ -38,16 +38,18 @@ const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
 
 startStats();
 const qs = new URLSearchParams(location.search);
-const engine = pickEngine();
+// triangles of 1 m city to draw around the focus (city.ts); phones: the 1 m tiles of the whole map need ~1 GB of GPU
+const phone = Math.min(screen.width, screen.height) < 600;
+const budget = phone ? 0.75e6 : Infinity;
 const renderer = makeRenderer();
-always({ engine, gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
+always({ engine: Number.isFinite(budget) ? 'zones' : 'city', gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
   memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null });
 renderer.domElement.addEventListener('webglcontextlost', () => track('contextlost'));
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.5, 9000);
 const controls = makeControls();
 const post = makePost(renderer, scene, camera);
-const daylight = new Daylight(renderer, scene, engine === 'zones' ? 2048 : 4096);
+const daylight = new Daylight(renderer, scene, phone ? 2048 : 4096);
 const nav = new Nav(camera, controls, renderer.domElement, scene, (v) => flyTo(v), onMode);
 const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)], river: RIVER, onDay: (d) => { setDay(d); share(); trackLater('date', { day: d }); },
   onDayEnd: () => { if (weatherName === 'typical') setWeather('typical'); },
@@ -55,7 +57,7 @@ const bar = new Bar({ days: DAYS, weathers: ['typical', ...Object.keys(WEATHERS)
   onWeather: (w) => { setWeather(w); share(); track('weather', { weather: w }); }, onRiver: (cm) => { flood?.setGauge(cm); trackLater('river', { cm }); } });
 const precip = new Precip(scene);
 const map = new THREE.Box3();
-const tiltShift = qs.get('tilt') !== '0' && innerWidth >= 600 && (engine === 'city' || qs.get('tilt') === '1');
+const tiltShift = qs.get('tilt') !== '0' && innerWidth >= 600 && !phone;
 let world: World | null = null, labels: Labels | null = null, hud: Hud | null = null;
 let life: StreetLife | null = null, flood: Flood | null = null, fountains: Fountains | null = null;
 let city: Awaited<ReturnType<typeof installCity>> | null = null;
@@ -80,15 +82,6 @@ addEventListener('keydown', (e) => {
 });
 tamePinch(renderer.domElement);
 boot();
-
-// phones get the real area over clay (zones.ts); ?engine=full insists on the whole city
-function pickEngine(): Engine {
-  if (Math.min(screen.width, screen.height) < 600 && !qs.get('shape') && qs.get('engine') !== 'full') {
-    qs.set('shape', 'budget'); qs.set('budget', '0.75');
-    history.replaceState(null, '', `?${qs}`);
-  }
-  return qs.get('shape') ? 'zones' : 'city';
-}
 
 function makeRenderer() {
   const r = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
@@ -261,7 +254,7 @@ async function boot() {
   [meta, climate] = await Promise.all([fetchJson<Meta>('data/meta.json'), fetchJson<Climate>('data/climate.json')]);
   views = meta.views;
   places = meta.labels;
-  uniforms = makeUniforms(meta, engine);
+  uniforms = makeUniforms(meta);
   loadFoliage(meta, uniforms).then((city) => bar.setDays({ 'leaves out': city.leaf, 'trees in colour': city.colour, 'leaves down': city.fall, ...DAYS }))
     .catch((e) => console.warn('foliage', e));
   loadWindows(meta, uniforms).then((set) => { setWindows = set; }).catch((e) => console.warn('windows', e));
@@ -281,14 +274,9 @@ async function boot() {
   setDay(md ? dayOfYear(new Date(new Date().getFullYear(), md[0] - 1, md[1])) : TODAY);
   setWeather((qs.get('weather') ?? '') in WEATHERS ? qs.get('weather')! : 'typical', true);
   setHour(qs.get('hour') ? +qs.get('hour')! : timesOf(daylight.day)['golden hour']);
-  if (engine === 'zones') {
-    await (await import('./zones')).installZones({ streamer, uniforms: uniforms as typeof uniforms & ZoneUniforms, meta, focus, qs, composer: post.composer, n8: post.n8, camera });
-    document.body.classList.remove('loading');
-  } else {
-    city = await installCity({ streamer, uniforms: uniforms as typeof uniforms & BuildUniforms, meta, scene, focus, camera, caption });
-  }
+  city = await installCity({ streamer, uniforms, meta, scene, focus, camera, caption, budget: () => budget });
   labels = new Labels(meta.labels, onLabel);
-  if (city) labels.gate = city.gate;
+  labels.gate = city.gate;
   hud = new Hud(renderer.domElement, nav.mode);
   bar.search.setItems(searchItems(meta));
   fetchJson<{ places: Place[] }>('data/places.json').then(({ places }) => bar.search.setItems([...searchItems(meta),

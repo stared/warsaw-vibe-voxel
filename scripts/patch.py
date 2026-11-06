@@ -105,6 +105,8 @@ if "monuments" in sys.argv[1:]:
         c, r = (int(v) for v in to_grid(*m["at"]))
         boxes.append((max(r - 40, 0), r + 41, max(c - 40, 0), c + 41))
 keep = np.array(ids.pop("debris_keep"), dtype=vol.dtype)
+for k in ("keep_ids", "skip_ids"):  # caches written before level 8 became the only coarse level
+    ids.pop(k, None)
 for b in boxes:
     debris.drop_debris(vol, g, keep, note, box=b)
 if "bkind" in st:  # the whole-city support pass, as in the full build (its fixes reach into the boxes too)

@@ -1944,9 +1944,7 @@ _lut[[i for i, e in enumerate(pal.entries) if e[3] == M_GRASS]] = _lut[C["bare"]
 np.savez_compressed("data/ground.npz", g=g.astype(np.int16), rgb=_lut[_ids],
                     b=np.where(bmask, topi, 0).astype(np.int16))  # building height above ground (photo-pose tools)
 import tiles
-EXPORT_IDS = dict(keep_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LAMP},
-                         skip_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
-                         face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK},
+EXPORT_IDS = dict(face_ids={i for i, e in enumerate(pal.entries) if e[3] == M_CLOCK},
                          fol_ids={i for i, e in enumerate(pal.entries) if e[3] == M_LEAF} | {C["trunk"]},
                          grass_ids={i for i, e in enumerate(pal.entries) if e[3] == M_GRASS}, bare_id=C["bare"])
 # nothing hangs in the air: crowns get trunks, building pieces walls or posts, specks go (debris.support_floating)

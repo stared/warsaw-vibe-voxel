@@ -15,13 +15,14 @@ cd web && pnpm install && pnpm dev     # http://localhost:5173  (?view=pkin&hour
 
 ## Streaming (web/src/stream.ts)
 
-The city is a quadtree of tiles (`web/public/data/tiles/{1,2,4,8}/x_y.bin`, ~15 MB gzipped in all): 128 × 128 cells
-of 1, 2, 4 or 8 m. The viewer loads the whole map at 8 m up front (0.3 MB), then refines what is in view until a
-cell of the coarser level would span more than ~3 px (`?err=` to experiment), with full 1 m detail around wherever
-you walk or ride. Tiles are meshed in workers; a parent stays on screen until its children are ready, so there are
-no holes; hidden tiles are dropped beyond 150 MB. The traffic simulation runs within ~900 m of the camera.
+The city is in tiles (`web/public/data/tiles/{1,1f,8}/x_y.bin`): 128 × 128 cells of 1 m (buildings and ground;
+foliage in `1f`) or 8 m. One engine (`web/src/city.ts`) draws as much of the city at 1 m as a budget allows: triangles
+of 1 m buildings, city blocks nearest to the focus first (`scripts/zones.py`). On most computers the budget covers the
+whole map; where it does not (phones), the 8 m level stands in as clay, and a block turns real once every tile under it
+is in. Tiles are meshed in workers. The city's shadow map is redrawn only when the city or the light changes; traffic
+and people cast into a second one, every frame. The traffic simulation runs within ~900 m of the camera.
 
-Measured on the old 1.5 km map vs this 4 × 3 km one (`tools/mem.mjs`, `tools/bench.mjs`, `tools/jank.mjs`,
+Older measurements, of a level-of-detail quadtree since removed (`tools/mem.mjs`, `tools/bench.mjs`, `tools/jank.mjs`,
 `tools/longtasks.mjs`; headless Chrome on an M-series Mac, same six views):
 
 | | 1.5 km, all in memory | 4 × 3 km, streamed |

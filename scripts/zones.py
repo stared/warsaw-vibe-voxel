@@ -1,5 +1,5 @@
-"""PROTOTYPE (proto-ghost): which building and which city block every 1 m column belongs to, so the viewer can show
-whole buildings / whole blocks for real (never cut through) and the rest as clay.
+"""Which building and which city block every 1 m column belongs to: the viewer (web/src/city.ts) shows each building
+once it is whole, and spends its triangle budget on the blocks nearest the focus, the rest as clay.
 
 Blocks: the ground cut along streets, railways and water; a street's columns go to the nearest block, so two blocks
 meet on its centreline. A building belongs whole to the block holding most of its footprint. Very large blocks

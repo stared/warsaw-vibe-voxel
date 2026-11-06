@@ -37,8 +37,7 @@ function decode(buf: ArrayBuffer, N: number) {
   let nr = 0;
   for (let i = 0; i < n2; i++) nr += counts[i];
   const runs = new Uint16Array(buf.slice(n2 * 3, n2 * 3 + nr * 6));
-  const detail = new Uint16Array(buf.slice(n2 * 3 + nr * 6)); // coarse levels: thin structures as 1 m voxels (x, y, z, palette)
-  return { counts, ground, runs, detail };
+  return { counts, ground, runs };
 }
 
 const copyColumns = (c: Columns): Columns => ({ counts: c.counts.slice(), ground: c.ground.slice(), runs: c.runs });
@@ -47,14 +46,14 @@ const columnBuffers = (c: Columns) => [c.counts.buffer, c.ground.buffer, c.runs.
 self.onmessage = async (e: MessageEvent<MeshRequest>) => {
   const m = e.data;
   try {
-    const { counts, ground, runs, detail } = decode(await fetchGzip(m.url), m.N);
+    const { counts, ground, runs } = decode(await fetchGzip(m.url), m.N);
     const keep = m.keep || m.dataOnly ? copyColumns({ counts, ground, runs }) : null;
     if (m.dataOnly) {
       post({ type: 'node', key: m.key, dataOnly: true, data: keep, pos: new Int16Array(), attr: new Uint8Array(), pal: new Uint16Array(), bld: null, quads: 0 }, columnBuffers(keep!));
       return;
     }
     const under = typeof m.under === 'string' ? decode(await fetchGzip(m.under), m.N) : m.under ?? null;
-    const out = meshTile(m.N, m.s, m.x0, m.y0, { counts, ground, runs }, detail, m.bld, under);
+    const out = meshTile(m.N, m.s, m.x0, m.y0, { counts, ground, runs }, m.bld, under);
     const transfer: Transferable[] = [out.pos.buffer, out.attr.buffer, out.pal.buffer];
     if (out.bld) transfer.push(out.bld.buffer);
     if (keep) transfer.push(...columnBuffers(keep));
@@ -109,7 +108,7 @@ function topOf(c: RawColumns, off: Uint32Array, n: number) {
 }
 
 // bldIds (1 m tiles): the building of each column (scripts/zones.py, 0: none); faces never merge across buildings
-function meshTile(N: number, s: number, x0: number, y0: number, cols: Columns, detail: Uint16Array, bldIds: Uint16Array | null, under: RawColumns | null) {
+function meshTile(N: number, s: number, x0: number, y0: number, cols: Columns, bldIds: Uint16Array | null, under: RawColumns | null) {
   const S = N + 2, SS = S * S, { ground } = cols;
   const off = offsetsOf(cols.counts, SS), uoff = under && offsetsOf(under.counts, SS);
   const zmax = Math.max(topOf(cols, off, SS), under && uoff ? topOf(under, uoff, SS) : 0);
@@ -126,7 +125,6 @@ function meshTile(N: number, s: number, x0: number, y0: number, cols: Columns, d
   const bidAt = (x: number, y: number) => (bldIds ? bldIds[Math.min(N - 1, Math.max(0, y)) * N + Math.min(N - 1, Math.max(0, x))] : 0);
   const out = new QuadBuffer();
   meshFaces(N, s, x0, y0, vol, sz, ground, bidAt, out);
-  if (detail.length) meshDetail(N, s, x0, y0, detail, ground, bidAt, out);
   const n = out.count;
   return { pos: out.pos.slice(0, n * 3), attr: out.attr.slice(0, n * 4), pal: out.pal.slice(0, n), quads: n / 4, bld: bldIds ? out.bld.slice(0, n) : null };
 }
@@ -251,43 +249,5 @@ function emitMerged(mask: Float64Array, nu: number, nv: number, d: number, u: nu
       }
       i += w;
     }
-  }
-}
-
-// thin structures at true size: vertical runs of one colour become boxes; faces against another detail voxel are culled
-function meshDetail(N: number, s: number, x0: number, y0: number, detail: Uint16Array, ground: Uint8Array,
-  bidAt: (x: number, y: number) => number, out: QuadBuffer) {
-  const S = N + 2;
-  const key = (x: number, y: number, z: number) => (z * 2048 + y) * 2048 + x;
-  const have = new Set<number>(), order: number[] = [];
-  for (let k = 0; k < detail.length; k += 4) { have.add(key(detail[k], detail[k + 1], detail[k + 2])); order.push(k); }
-  order.sort((a, b) => detail[a] - detail[b] || detail[a + 1] - detail[b + 1] || detail[a + 2] - detail[b + 2]);
-  const quad = (d: number, dir: number, base: number[], w: number, h: number, palIdx: number, gm: number, bid: number) => {
-    const u = (d + 1) % 3, v = (d + 2) % 3;
-    const corners = [[...base], [...base], [...base], [...base]];
-    corners[1][u] += w; corners[2][u] += w; corners[2][v] += h; corners[3][v] += h;
-    out.reserve(4);
-    for (const c of QUAD_ORDER[dir > 0 ? 1 : 0]) {
-      const p = corners[c];
-      out.vertex(p[0] + x0, p[2], p[1] + y0, d * 2 + (dir > 0 ? 1 : 0), 3, gm, 1, palIdx, bid);
-    }
-  };
-  for (let i = 0; i < order.length;) {
-    const k = order[i], x = detail[k], y = detail[k + 1], z0 = detail[k + 2], p = detail[k + 3];
-    let j = i + 1;
-    while (j < order.length && detail[order[j]] === x && detail[order[j] + 1] === y && detail[order[j] + 2] === z0 + (j - i) && detail[order[j] + 3] === p) j++;
-    const h = j - i;
-    i = j;
-    const gm = ground[(Math.floor(x / s) + 1) + S * (Math.floor(y / s) + 1)], bid = s === 1 ? bidAt(x, y) : 0;
-    for (const [dx, dy, d, dir] of [[-1, 0, 0, -1], [1, 0, 0, 1], [0, -1, 1, -1], [0, 1, 1, 1]]) {
-      let covered = true;
-      for (let z = z0; z < z0 + h && covered; z++) covered = have.has(key(x + dx, y + dy, z));
-      if (covered) continue;
-      const base = [x + (dir > 0 && d === 0 ? 1 : 0), y + (dir > 0 && d === 1 ? 1 : 0), z0];
-      if (d === 0) quad(0, dir, base, 1, h, p, gm, bid);
-      else quad(1, dir, base, h, 1, p, gm, bid);
-    }
-    if (!have.has(key(x, y, z0 - 1))) quad(2, -1, [x, y, z0], 1, 1, p, gm, bid);
-    if (!have.has(key(x, y, z0 + h))) quad(2, 1, [x, y, z0 + h], 1, 1, p, gm, bid);
   }
 }

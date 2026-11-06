@@ -41,7 +41,7 @@ function makeJob(node: TileNode, dataOnly: boolean, prio: number): Job {
 }
 
 // Loads voxel tiles (scripts/tiles.py: N x N cells of s metres) and meshes them in a pool of workers. What to load and
-// show is up to the engine on top (city.ts, or zones.ts on phones), which sets update().
+// show is up to city.ts, which sets update().
 export class TileStreamer implements ColumnSource {
   readonly N: number;
   readonly levels: number[];
