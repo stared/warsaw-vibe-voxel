@@ -377,11 +377,11 @@ function adapt(dt: number, now: number) {
     if (!loading && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); onResize(); return; }
     budget = Math.max(0.2e6, Math.min(budget, city.realTris) * 0.75);
     perf.show(budget);
-  } else if (p90 < 1 / 45 && budget < ceiling && !perf.manual && city.settled && ++calm >= 5) {
+  } else if (p90 < 1 / 30 && budget < ceiling && !perf.manual && city.settled && ++calm >= 5) {
     calm = 0;
     budget = Math.min(ceiling, budget * 1.25 >= city.cityTris ? Infinity : budget * 1.25);
     perf.show(budget);
-  } else if (p90 >= 1 / 45) calm = 0;
+  } else if (p90 >= 1 / 30) calm = 0;
 }
 
 // usage stats: pulses dense at first, then every minute
