@@ -39,11 +39,12 @@ const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
 
 startStats();
 const qs = new URLSearchParams(location.search);
-// triangles of 1 m city to draw around the focus (city.ts), set by the frames (adapt); phones start and stay at most at
-// 0.75 M: the 1 m tiles of the whole map need ~1 GB of GPU
+// triangles of 1 m city to draw around the focus (city.ts), set by the frames (adapt): computers start at 4 M (of ~14 M)
+// and grow while frames stay smooth, up to the whole city; phones stay at 0.75 M at most, as the 1 m tiles of the whole
+// map need ~1 GB of GPU
 const phone = Math.min(screen.width, screen.height) < 600;
 const ceiling = phone ? 0.75e6 : Infinity;
-let budget = ceiling;
+let budget = phone ? 0.75e6 : 4e6;
 const renderer = makeRenderer();
 always({ engine: Number.isFinite(budget) ? 'zones' : 'city', gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
   memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null });
@@ -343,7 +344,7 @@ renderer.setAnimationLoop((now) => {
   labels?.update(camera, world, barRect, [...(hud?.rects ?? []), ...perf.rects]);
 });
 
-window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post, budget: () => budget };
+window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post, budget: () => budget, city: () => city };
 
 // what the city's shadow map shows: which tiles are drawn, and what folds, hides or thins them in its depth pass
 let stillKey = '';
@@ -351,15 +352,15 @@ function stillChanged() {
   if (!streamer || !uniforms) return false;
   let n = 0, ids = 0;
   for (const m of streamer.group.children) if (m.visible) { n++; ids += m.id; }
-  const U = uniforms, key = `${n},${ids},${U.uStage?.value},${U.uBldOn?.value.version},${U.uFolOn.value},${U.uDay.value},${U.uFolMap.value.id}`;
+  const U = uniforms, key = `${n},${ids},${U.uStage.value},${U.uBldOn.value.version},${U.uZOn.value},${U.uZFBlk.value.version},${U.uFolOn.value},${U.uDay.value},${U.uFolMap.value.id}`;
   if (key === stillKey) return false;
   stillKey = key;
   return true;
 }
 
 // Slow frames (the median of 30 over 1/27 s; 1/20 s while the city loads, past its first 10 s): one pixel per CSS pixel
-// once loaded, else a quarter less city. Smooth ones (the slowest tenth under 1/45 s, five times running): a quarter
-// more, up to the ceiling.
+// once loaded, else a quarter less city. Smooth ones (the slowest tenth under 1/45 s, five times running, with all the
+// city asked for in): a quarter more, up to the ceiling.
 let calm = 0;
 function adapt(dt: number, now: number) {
   if (!city || document.hidden || dt > 0.5) { frames.length = 0; return; }
@@ -376,7 +377,7 @@ function adapt(dt: number, now: number) {
     if (!loading && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); onResize(); return; }
     budget = Math.max(0.2e6, Math.min(budget, city.realTris) * 0.75);
     perf.show(budget);
-  } else if (p90 < 1 / 45 && budget < ceiling && !perf.manual && ++calm >= 5) {
+  } else if (p90 < 1 / 45 && budget < ceiling && !perf.manual && city.settled && ++calm >= 5) {
     calm = 0;
     budget = Math.min(ceiling, budget * 1.25 >= city.cityTris ? Infinity : budget * 1.25);
     perf.show(budget);

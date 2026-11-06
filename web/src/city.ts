@@ -3,7 +3,7 @@ import type { Caption } from './caption';
 import type { TileStreamer } from './stream';
 import type { Meta, Zones } from './types';
 import { dataTexture, fetchGzip, fetchJson } from './util';
-import { makeBuildDepthMaterial, makeVoxelMaterial, type VoxelUniforms } from './voxelMaterial';
+import { makeBuildDepthMaterial, makeClayDepthMaterial, makeVoxelMaterial, type VoxelUniforms } from './voxelMaterial';
 
 const T = 128;
 const RINGS: [string, number][] = [['Buildings in view', 0], ['Buildings within 1 km', 1000], ['Buildings within 2 km', 2000], ['Buildings to the edge', Infinity]];
@@ -102,7 +102,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
 
   // clay: the whole map at 8 m, fetched the first time the budget leaves some city out; the terrain goes then
   let clay: 'none' | 'loading' | 'ready' = 'none';
-  const clayMat = makeVoxelMaterial(U, { clay: true });
+  const clayMat = makeVoxelMaterial(U, { clay: true }), clayDepth = makeClayDepthMaterial(U);
   const startClay = () => {
     clay = 'loading';
     caption.hide();
@@ -111,7 +111,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
     for (let ty = 0; ty < d8.ny; ty++) for (let tx = 0; tx < d8.nx; tx++) ps.push(S.request(8, tx, ty, 1e9));
     S.pump();
     Promise.all(ps).then(() => {
-      for (const n of S.nodes.values()) if (n.s === 8 && n.mesh) { n.mesh.material = clayMat; n.mesh.visible = true; }
+      for (const n of S.nodes.values()) if (n.s === 8 && n.mesh) { n.mesh.material = clayMat; n.mesh.customDepthMaterial = clayDepth; n.mesh.visible = true; }
       terrain?.dropUnder(new Uint8Array(total).fill(1));
       U.uZOn.value = 1;
       clay = 'ready';
@@ -121,7 +121,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   const depthMat = makeBuildDepthMaterial(U), folMat = makeVoxelMaterial(U);
   folMat.polygonOffset = true; folMat.polygonOffsetFactor = -1; folMat.polygonOffsetUnits = -2; // grass wins over the base's bare earth
   const inTile = new Uint8Array(total), folTile = new Uint8Array(total), complete = new Uint8Array(nb), counted = new Set<string>();
-  let lmShown = 0, stage = 1, last = 0, flagKey = '', realTris = 0;
+  let lmShown = 0, stage = 1, last = 0, flagKey = '', realTris = 0, settled = false;
   const show = (b: number) => { if (!shown[b + 1]) { shown[b + 1] = 255; if (isLandmark.has(b)) lmShown++; } };
   function toStage2() {
     stage = U.uStage.value = 2;
@@ -189,6 +189,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
     }
     let wanted = 0, tilesNow = 0, folNow = 0;
     for (let i = 0; i < total; i++) if (want[i]) { wanted++; tilesNow += inTile[i]; folNow += folTile[i]; }
+    settled = tilesNow === wanted;
     if (stage === 1 && lmShown === landmarks.length) toStage2();
     if (stage === 2 && tilesNow === wanted) stage = U.uStage.value = 3;
     if (stage >= 3) for (let ty = 0; ty < d.ny; ty++) for (let tx = 0; tx < d.nx; tx++) {
@@ -220,6 +221,8 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
     gate: (x: number, z: number) => { const b = labelled.get(`${x},${z}`) ?? -1; return clay !== 'none' || (b >= 0 ? shown[b + 1] > 0 : stage >= 4); },
     get complete() { return stage >= 4 || clay === 'ready'; },
     get realTris() { return realTris; },
+    // every tile the budget asks for is in
+    get settled() { return settled; },
     cityTris,
   };
 }

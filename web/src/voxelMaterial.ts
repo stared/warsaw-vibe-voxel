@@ -385,6 +385,22 @@ const SURFACE = `
   { gEmissive = vec3(0.0); gRough = 0.95; gMetal = 0.0; diffuseColor.rgb = vec3(0.62, 0.61, 0.59) * mix(0.75, 1.0, vAO); }
   #endif`;
 
+// the clay's shadow: none where the city is real (it casts its own)
+export function makeClayDepthMaterial(uniforms: VoxelUniforms) {
+  const m = new THREE.MeshDepthMaterial();
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\nattribute vec4 vattr; varying vec3 vVox; varying vec3 vN; ${NORMAL_FROM_IDX}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>\nvVox = position; vN = normalFromIdx(mod(vattr.x, 8.0));`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${ZONES_PARS}\nvarying vec3 vVox; varying vec3 vN;`)
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\nif (zreal(floor(vVox - vN * 0.5 + 1e-3))) discard;`);
+  };
+  m.customProgramCacheKey = () => 'voxel-clay-depth';
+  return m;
+}
+
 export function makeBuildDepthMaterial(uniforms: VoxelUniforms) {
   const m = new THREE.MeshDepthMaterial();
   m.onBeforeCompile = (shader) => {

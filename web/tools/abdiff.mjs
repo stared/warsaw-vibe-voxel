@@ -19,6 +19,7 @@ async function shot(base, view, file) {
   });
   await page.goto(`${base}/?ui=0&view=${view}&${query}`);
   await page.waitForFunction(() => window.__three && window.__ready && !document.body.classList.contains('loading'), null, { timeout: 600000, polling: 250 });
+  await page.waitForFunction(() => !window.__three.budget || window.__three.budget() === Infinity, null, { timeout: 180000, polling: 500 }).catch(() => {});
   await page.waitForFunction(() => { const s = window.__streamer; return s && s.inflight === 0 && s.queue.length === 0; }, null, { timeout: 120000, polling: 250 }).catch(() => {});
   await page.waitForTimeout(2000);
   await page.evaluate((life) => {
