@@ -120,7 +120,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   const depthMat = makeBuildDepthMaterial(U), folMat = makeVoxelMaterial(U);
   folMat.polygonOffset = true; folMat.polygonOffsetFactor = -1; folMat.polygonOffsetUnits = -2; // grass wins over the base's bare earth
   const inTile = new Uint8Array(total), folTile = new Uint8Array(total), complete = new Uint8Array(nb), counted = new Set<string>();
-  let lmShown = 0, stage = 1, last = 0, flagKey = '';
+  let lmShown = 0, stage = 1, last = 0, flagKey = '', realTris = 0;
   const show = (b: number) => { if (!shown[b + 1]) { shown[b + 1] = 255; if (isLandmark.has(b)) lmShown++; } };
   function toStage2() {
     stage = U.uStage.value = 2;
@@ -198,8 +198,13 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
     if (terrain && stage >= 2) terrain.dropUnder(inTile);
     if (terrain && stage >= 3) terrain.dispose();
     if (changed) shownTex.needsUpdate = true;
+    realTris = 0;
+    for (let k = 0; k < nk; k++) {
+      const real = blkWant[k + 1] > 0 && blockTiles[k].every((i) => inTile[i]);
+      flags[k + 1] = real ? 255 : 0;
+      if (real) realTris += blocks[k][7] || 0;
+    }
     if (clay === 'ready') {
-      for (let k = 0; k < nk; k++) flags[k + 1] = blkWant[k + 1] && blockTiles[k].every((i) => inTile[i]) ? 255 : 0;
       const key = flags.join('');
       if (key !== flagKey) { flagKey = key; flagTex.needsUpdate = true; }
       S.dropQueued((n) => n.s === 8 || want[index(n.tx, n.ty)] > 0 || n.pinned > now);
@@ -213,6 +218,8 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
     // a building's label once it shows; the others (parks, the river) with the foliage; over clay, all of them
     gate: (x: number, z: number) => { const b = labelled.get(`${x},${z}`) ?? -1; return clay !== 'none' || (b >= 0 ? shown[b + 1] > 0 : stage >= 4); },
     get complete() { return stage >= 4 || clay === 'ready'; },
+    get realTris() { return realTris; },
+    cityTris,
   };
 }
 

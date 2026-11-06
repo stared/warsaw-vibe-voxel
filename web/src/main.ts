@@ -38,9 +38,11 @@ const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
 
 startStats();
 const qs = new URLSearchParams(location.search);
-// triangles of 1 m city to draw around the focus (city.ts); phones: the 1 m tiles of the whole map need ~1 GB of GPU
+// triangles of 1 m city to draw around the focus (city.ts), set by the frames (adapt); phones start and stay at most at
+// 0.75 M: the 1 m tiles of the whole map need ~1 GB of GPU
 const phone = Math.min(screen.width, screen.height) < 600;
-const budget = phone ? 0.75e6 : Infinity;
+const ceiling = phone ? 0.75e6 : Infinity;
+let budget = ceiling;
 const renderer = makeRenderer();
 always({ engine: Number.isFinite(budget) ? 'zones' : 'city', gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
   memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null });
@@ -302,7 +304,7 @@ renderer.setAnimationLoop((now) => {
   stepWeather(now);
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
-  adapt(dt);
+  adapt(dt, now);
   nav.update(dt);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   const above = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3;
@@ -334,7 +336,7 @@ renderer.setAnimationLoop((now) => {
   labels?.update(camera, world, barRect, hud?.rects ?? []);
 });
 
-window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post };
+window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post, budget: () => budget };
 
 // what the city's shadow map shows: which tiles are drawn, and what folds, hides or thins them in its depth pass
 let stillKey = '';
@@ -348,14 +350,27 @@ function stillChanged() {
   return true;
 }
 
-// slow frames (the median of 15 over 45 ms): one pixel per CSS pixel
-function adapt(dt: number) {
-  if (document.body.classList.contains('loading') || renderer.getPixelRatio() <= 1) return;
+// Slow frames (the median of 30 over 1/27 s; 1/20 s while the city loads, past its first 10 s): one pixel per CSS pixel
+// once loaded, else a quarter less city. Smooth ones (the slowest tenth under 1/45 s, five times running): a quarter
+// more, up to the ceiling.
+let calm = 0;
+function adapt(dt: number, now: number) {
+  if (!city || document.hidden || dt > 0.5) { frames.length = 0; return; }
+  const loading = document.body.classList.contains('loading');
+  if (loading && now < 10000) return;
   frames.push(dt);
-  if (frames.length < 15) return;
-  const median = frames.sort((a, b) => a - b)[7];
+  if (frames.length < 30) return;
+  frames.sort((a, b) => a - b);
+  const median = frames[15], p90 = frames[27];
   frames.length = 0;
-  if (median > 0.045) { renderer.setPixelRatio(1); onResize(); }
+  if (median > (loading ? 1 / 20 : 1 / 27)) {
+    calm = 0;
+    if (!loading && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); onResize(); return; }
+    budget = Math.max(0.2e6, Math.min(budget, city.realTris) * 0.75);
+  } else if (p90 < 1 / 45 && budget < ceiling && ++calm >= 5) {
+    calm = 0;
+    budget = Math.min(ceiling, budget * 1.25 >= city.cityTris ? Infinity : budget * 1.25);
+  } else if (p90 >= 1 / 45) calm = 0;
 }
 
 // usage stats: pulses dense at first, then every minute
@@ -389,7 +404,7 @@ function pulse(due: number) {
     const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize;
     track('pulse', { n: ++pulses, phase: phase(), stage: loadedAt ? null : caption.at.stage, share: progress(), frames: t.length,
       median: q(0.5), p95: q(0.95), worst: q(1), slow: t.filter((x) => x > 50).length, late: Math.round(late),
-      ratio: renderer.getPixelRatio(), mode: nav.mode, near: nearest(), heap: heap ? Math.round(heap / 1e6) : null });
+      ratio: renderer.getPixelRatio(), budget: Number.isFinite(budget) ? Math.round(budget / 1e3) : null, mode: nav.mode, near: nearest(), heap: heap ? Math.round(heap / 1e6) : null });
     remember({ last_t: +(performance.now() / 1000).toFixed(1), last_phase: phase(), last_share: progress(), last_stage: caption.at.stage });
   }
   times.length = 0;
