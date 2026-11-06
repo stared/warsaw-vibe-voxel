@@ -89,6 +89,7 @@ boot();
 
 function makeRenderer() {
   const r = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+  r.info.autoReset = false;
   r.setPixelRatio(Math.min(devicePixelRatio, 2));
   r.setSize(innerWidth, innerHeight);
   r.shadowMap.enabled = true;
@@ -309,7 +310,6 @@ renderer.setAnimationLoop((now) => {
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
   adapt(dt, now);
-  perf.frame(now, document.hidden);
   nav.update(dt);
   if (nav.mode === 'orbit') { controls.update(); nav.clamp(); keepInside(); }
   const above = camera.position.y - (world ? world.groundAt(camera.position.x, camera.position.z) : 18) + 3;
@@ -330,7 +330,9 @@ renderer.setAnimationLoop((now) => {
   streamer?.update(camera);
   daylight.fitShadow(focus(), camera, viewDist, map);
   if (stillChanged()) daylight.redrawShadow();
+  renderer.info.reset();
   post.composer.render();
+  perf.frame(now, document.hidden, renderer.info.render.triangles);
   report(now);
   if (flood && now - riverT > 250) {
     riverT = now;

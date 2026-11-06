@@ -286,7 +286,9 @@ const SURFACE = `
     if (uFolOn > 0.5) {
       vec3 fo = foliageAt(cell);
       if (hash13(cell * 1.7 + 3.1) > fo.x) {
+        #ifndef CLAY
         if (leafGone(cell, fo)) discard;
+        #endif
         col = vec3(0.2, 0.17, 0.14) * (0.8 + 0.4 * h);
       } else {
         col = mix(col, uFolCol[int(fo.z)] * (0.75 + 0.45 * h), smoothstep(0.0, 0.3, fo.y - 0.85 * hash13(cell * 0.9 + 1.3)));

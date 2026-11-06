@@ -18,6 +18,11 @@ export class Caption {
     this.box.classList.remove('off');
   }
 
+  hide() {
+    this.finished = true;
+    this.box.classList.add('off');
+  }
+
   finish(stage: string, total: number) {
     if (this.finished) return;
     this.show(stage, total, total);

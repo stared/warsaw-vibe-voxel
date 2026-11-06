@@ -105,6 +105,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
   const clayMat = makeVoxelMaterial(U, { clay: true });
   const startClay = () => {
     clay = 'loading';
+    caption.hide();
     if (stage === 1) toStage2();
     const d8 = S.dims[8], ps = [];
     for (let ty = 0; ty < d8.ny; ty++) for (let tx = 0; tx < d8.nx; tx++) ps.push(S.request(8, tx, ty, 1e9));
@@ -176,7 +177,7 @@ export async function installCity({ streamer: S, uniforms: U, meta, scene, focus
         continue;
       }
       n.used = now;
-      if (counted.has(n.key)) continue;
+      if (counted.has(n.key)) { if (n.mesh) n.mesh.visible = true; continue; }
       counted.add(n.key);
       if (n.foliage) { folTile[i] = 1; if (n.mesh) { n.mesh.material = folMat; n.mesh.visible = true; } continue; }
       inTile[i] = 1;
