@@ -104,6 +104,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; /* p
 #perf { position: fixed; right: 14px; top: 14px; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
   font: 11px Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
 #perf .fps { color: #fff; font-weight: 500; min-height: 13px; }
+#perf .fps .mark { color: rgba(255,255,255,.62); margin-left: 4px; }
 #perf .row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 #perf input[type=range] { width: 96px; height: 16px; margin: 0; background: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
 #perf input[type=range]::-webkit-slider-runnable-track { height: 2px; background: rgba(255,255,255,.55); border-radius: 1px; box-shadow: 0 0 2px rgba(0,0,0,.6); }
