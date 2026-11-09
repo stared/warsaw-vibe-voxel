@@ -45,11 +45,10 @@ const qs = new URLSearchParams(location.search);
 const phone = Math.min(screen.width, screen.height) < 600;
 const ceiling = phone ? 0.75e6 : Infinity;
 let level = 0.75;
-const budgetAt = (l: number) => (l >= 1 ? ceiling : Math.min(ceiling, 0.2e6 * ((city?.cityTris ?? 14e6) / 0.2e6) ** l));
+const budget = () => (level >= 1 ? ceiling : Math.min(ceiling, 0.2e6 * ((city?.cityTris ?? 14e6) / 0.2e6) ** level));
 const pixelsAt = (l: number) => Math.max(0.5, Math.min(1, 0.4 + 0.8 * l)) * Math.min(devicePixelRatio, 2);
-const budget = () => budgetAt(level);
 const renderer = makeRenderer();
-always({ engine: 'zones', gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
+always({ gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
   memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null });
 renderer.domElement.addEventListener('webglcontextlost', () => track('contextlost'));
 const scene = new THREE.Scene();
@@ -74,7 +73,8 @@ let barRect: DOMRect | null = null;
 let climate: Climate | null = null;
 let places: Label[] = [];
 const caption = new Caption();
-const perf = new Perf((l) => { setLevel(l); });
+const perf = new Perf(setLevel);
+perf.show(level);
 let setWindows: ((hour: number, day: number) => void) | null = null;
 
 nav.cancelFly = () => { fly = null; };
@@ -286,7 +286,6 @@ async function boot() {
   city = await installCity({ streamer, uniforms, meta, scene, focus, camera, caption, budget });
   labels = new Labels(meta.labels, onLabel);
   labels.gate = city.gate;
-  perf.show(level);
   hud = new Hud(renderer.domElement, nav.mode);
   bar.search.setItems(searchItems(meta));
   fetchJson<{ places: Place[] }>('data/places.json').then(({ places }) => bar.search.setItems([...searchItems(meta),
@@ -363,21 +362,22 @@ function stillChanged() {
   return true;
 }
 
-// The level from steady frames: a frame that redrew the city's shadow, or one after the tab was away, says nothing about
-// the level, so it is left out. Each window (30 frames, or 1 s when slower): slow (the median over 1/27 s) twice
-// running, a step down, bigger the slower, and growing stops there for a minute; smooth (the slowest tenth under 1/30 s) twice running with all
-// the city asked for in, a step up, bigger while frames keep to the screen's own rate.
+// The level from steady frames: frames that redrew the city's shadow or changed the pixels are left out. In windows of
+// 30 frames (or 1 s): slow twice running (median under 27 fps), a step down, bigger the slower, and no growing past it
+// for a minute; smooth twice running (the slowest tenth over 30 fps) with all the city asked for in, a step up, bigger
+// at the screen's own rate.
 let busy = false, stillDue = false, redrawnAt = 0, slow = 0, calm = 0, cap = 1, capAt = 0, windowAt = 0;
 function setLevel(l: number) {
   level = Math.max(0, Math.min(1, l));
   const px = pixelsAt(level);
   if (Math.abs(px - renderer.getPixelRatio()) > 0.01) { renderer.setPixelRatio(px); onResize(); busy = true; }
+  perf.show(level);
 }
 function adapt(dt: number, now: number) {
-  const was = busy;
+  const skip = busy;
   busy = false;
   if (!city || document.hidden || dt > 0.5) { frames.length = 0; return; }
-  if (was) return;
+  if (skip) return;
   if (!frames.length) windowAt = now;
   frames.push(dt);
   if (frames.length < 30 && (frames.length < 6 || now - windowAt < 1000)) return;
@@ -392,13 +392,11 @@ function adapt(dt: number, now: number) {
     slow = 0;
     setLevel(level - 0.08 * Math.min(3, median * 27));
     cap = level; capAt = now;
-    perf.show(level);
-  } else if (p90 < 1 / 30 && city.settled && level < Math.min(1, cap)) {
+  } else if (p90 < 1 / 30 && city.settled && level < cap) {
     slow = 0;
     if (++calm < 2) return;
     calm = 0;
     setLevel(Math.min(cap, level + (p90 < 1 / 50 ? 0.1 : 0.04)));
-    perf.show(level);
   } else { slow = 0; calm = 0; }
 }
 

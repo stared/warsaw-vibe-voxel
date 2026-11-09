@@ -39,7 +39,7 @@ def events(days):
     _, rows = query(f"SELECT event, timestamp, properties FROM events WHERE timestamp > now() - INTERVAL {days} DAY "
                     "AND properties.pid IS NOT NULL ORDER BY timestamp LIMIT 100000")
     ev = pd.DataFrame([{'event': e, 'ts': t, **json.loads(p)} for e, t, p in rows])
-    for c in ['t', 'share', 'median', 'p95', 'worst', 'slow', 'frames', 'late', 'heap', 'ratio', 'seconds', 'first']:
+    for c in ['t', 'share', 'median', 'p95', 'worst', 'slow', 'frames', 'late', 'heap', 'ratio', 'seconds', 'first', 'level']:
         if c in ev: ev[c] = pd.to_numeric(ev[c], errors='coerce')
     return ev
 
@@ -80,6 +80,8 @@ def pages(ev):
     loading = pu[pu.phase == 'loading']
     P['last_stage'] = loading.groupby('pid').stage.last()
     P['early_frame_ms'] = pu[(pu.t < 15) & (pu.frames > 0)].groupby('pid')['median'].median()
+    P['device'] = np.where(P.device_type.isin(['Mobile', 'Tablet']), 'phone', 'computer')
+    P['level_last'] = pu.dropna(subset=['level']).groupby('pid').level.last() if 'level' in pu else np.nan
     P['tier'] = P.apply(tier, axis=1)
     P['bot'] = bots(P)
     return P
@@ -87,7 +89,7 @@ def pages(ev):
 
 def tier(r):
     g = r.gpu if isinstance(r.gpu, str) else ''
-    if r.engine == 'zones': return 'phone version (zones)'
+    if r.device_type in ('Mobile', 'Tablet'): return 'phone or tablet'
     if not g: return 'no renderer'
     if 'Basic Render' in g or 'SwiftShader' in g: return 'no GPU (software)'
     if 'Apple M' in g: return 'Apple M Pro/Max' if any(k in g for k in ['Pro', 'Max', 'Ultra']) else 'Apple M base'
@@ -143,27 +145,27 @@ def report(ev, P):
     print(f'\nreal visitors: {len(H)} page views of {len(P)}; loaded {H.loaded.mean():.0%}')
     print('load_p90 above ~300 s is mostly tabs left in the background while loading')
     print('fps_p10: the slowest tenth; p95ms: frame time of the slowest 5% of frames')
-    for by in ['engine', 'tier', ['os', 'browser'], 'build']:
+    for by in ['device', 'tier', ['os', 'browser'], 'build']:
         show(f'by {by}', table(H, by))
 
-    c = H[H.engine == 'city']
+    c = H[H.device == 'computer']
     rows = []
     for T in [10, 20, 30, 45, 60, 90, 120, 180]:
         rows.append({'t': T, 'loaded': (c.loaded_s <= T).mean(), 'left before loading': ((c.last_t < T) & ~(c.loaded_s <= T)).mean()})
-    show('full city: loaded vs gone by time t', pd.DataFrame(rows).set_index('t').round(2))
+    show('computers: loaded vs gone by time t', pd.DataFrame(rows).set_index('t').round(2))
 
     cl = c[c.loaded]
     cl = cl.assign(workers=(cl.cores - 2).clip(2, 10), fps_band=pd.cut(cl.fps, [0, 15, 30, 45, 1000]))
-    show('full city load time by mesher workers (cores - 2, max 10)', cl.groupby('workers').loaded_s.agg(['size', 'median', q(.9)]).round(0))
-    show('full city load time by fps after load', cl.groupby('fps_band', observed=True).loaded_s.agg(['size', 'median', q(.9)]).round(0))
+    show('computers: load time by mesher workers (cores - 2, max 10)', cl.groupby('workers').loaded_s.agg(['size', 'median', q(.9)]).round(0))
+    show('computers: load time by fps after load', cl.groupby('fps_band', observed=True).loaded_s.agg(['size', 'median', q(.9)]).round(0))
 
     f = c[c.fps.notna()].assign(mpx_band=pd.cut(c.mpx, [0, 1.5, 3, 5, 40]))
-    show('full city fps (median) by GPU tier and megapixels drawn', f.pivot_table(index='tier', columns='mpx_band', values='fps', aggfunc='median', observed=True).round(0))
-    show('full city fps (p10) by GPU tier and megapixels drawn', f.pivot_table(index='tier', columns='mpx_band', values='fps', aggfunc=q(.1), observed=True).round(0))
-    show('pixel-ratio fallback taken', f.assign(dropped=f.ratio_last < f.ratio_first).groupby('tier').dropped.agg(['size', 'mean']).round(2))
+    show('computers: fps (median) by GPU tier and megapixels drawn', f.pivot_table(index='tier', columns='mpx_band', values='fps', aggfunc='median', observed=True).round(0))
+    show('computers: fps (p10) by GPU tier and megapixels drawn', f.pivot_table(index='tier', columns='mpx_band', values='fps', aggfunc=q(.1), observed=True).round(0))
+    show('render size (0-1) the page ended at, by GPU tier', f.groupby('tier').level_last.agg(['size', 'median', q(.1), q(.9)]).round(2))
 
     e = H[H.loaded & H.fps.notna()].assign(after=lambda d: d.last_t - d.loaded_s, fps_band=lambda d: pd.cut(d.fps, [0, 15, 30, 45, 1000]))
-    show('time on page after load and actions, by fps', e.groupby(['engine', 'fps_band'], observed=True).agg(
+    show('time on page after load and actions, by fps', e.groupby(['device', 'fps_band'], observed=True).agg(
         n=('after', 'size'), after_p50=('after', 'median'), after_p90=('after', q(.9)), actions=('actions', 'mean')).round(1))
 
     cr = ev[ev.event == 'crashed'][['pid', 'last_t', 'last_phase', 'last_stage']].join(P[['os', 'browser', 'tier']], on='pid')
