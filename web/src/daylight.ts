@@ -25,6 +25,7 @@ export class Daylight {
   readonly sky = new Sky();
   uniforms: VoxelUniforms | null = null;
   bloom: { intensity: number } | null = null;
+  redraws = 0;
   ao: { intensity: number; aoRadius: number } | null = null;
   private readonly sun = new THREE.DirectionalLight(0xffffff, 3);
   private readonly twin = new THREE.DirectionalLight(0xffffff, 0);
@@ -69,6 +70,7 @@ export class Daylight {
       if (!still) return;
       this.shown ??= [still.visible, moving?.visible ?? false];
       const city = shadowCamera === this.sun.shadow.camera;
+      if (city) this.redraws++;
       still.visible = city && this.shown[0];
       if (moving) moving.visible = !city && this.shown[1];
     };
@@ -156,12 +158,15 @@ export class Daylight {
     if (map.isEmpty()) return;
     const sun = this.sun, f = focus;
     const dist = viewDist + Math.max(0, camera.position.y - (map.min.y + 80));
-    const R = clamp(dist * 1.15, 300, Math.max(map.max.x, map.max.z) * 0.75), texel = (2 * R) / sun.shadow.mapSize.x;
+    // refit in steps (a tenth in size, a sixteenth across), not every frame the view moves: each refit redraws the city
+    const top = Math.max(map.max.x, map.max.z) * 0.75, R = clamp(dist * 1.15, 300, top);
+    const Rq = Math.min(top, 1.1 ** Math.ceil(Math.log(R) / Math.log(1.1))), g = Rq / 16;
+    const c = new THREE.Vector3(Math.round(f.x / g) * g, 0, Math.round(f.z / g) * g), Rf = Rq + 0.75 * g, texel = (2 * Rf) / sun.shadow.mapSize.x;
     const L = this.lightDir;
-    const key = `${Math.round(f.x / (texel * 8))},${Math.round(f.z / (texel * 8))},${R.toFixed(0)},${L.x.toFixed(4)},${L.y.toFixed(4)}`;
+    const key = `${c.x},${c.z},${Rq.toFixed(1)},${L.x.toFixed(4)},${L.y.toFixed(4)}`;
     if (key !== this.shadowKey) {
       this.shadowKey = key;
-      this.fitSun(f, R, texel, map);
+      this.fitSun(c, Rf, texel, map);
     }
     this.fitTwin();
   }

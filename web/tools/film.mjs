@@ -13,7 +13,7 @@ for (let i = 0; (Date.now() - t0) / 1000 < +secs; i++) {
   const s = await page.evaluate(() => ({
     loading: document.body.classList.contains('loading'),
     cap: document.querySelector('.caption:not(.off)')?.textContent ?? '',
-    budget: window.__three?.budget?.(), real: window.__three?.city?.()?.realTris,
+    budget: window.__three?.budget?.(), level: window.__three?.level?.(), ratio: window.__three?.renderer.getPixelRatio(), real: window.__three?.city?.()?.realTris,
     fps: document.querySelector('#perf .fps')?.textContent ?? '',
   })).catch(() => ({}));
   const t = ((Date.now() - t0) / 1000).toFixed(0);

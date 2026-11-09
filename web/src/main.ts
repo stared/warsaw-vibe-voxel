@@ -39,14 +39,17 @@ const DAYS = { midsummer: 172, midwinter: 355, today: TODAY };
 
 startStats();
 const qs = new URLSearchParams(location.search);
-// triangles of 1 m city to draw around the focus (city.ts), set by the frames (adapt): computers start at 4 M (of ~14 M)
-// and grow while frames stay smooth, up to the whole city; phones stay at 0.75 M at most, as the 1 m tiles of the whole
-// map need ~1 GB of GPU
+// Render size, one level from 0 to 1 (the slider; set by the frames, adapt): how much of the city is 1 m around the focus
+// (city.ts; the rest is 8 m clay), from 0.2 M triangles of buildings to all of them, and in its lower part how many
+// pixels, down to half of the screen's. Phones hold 0.75 M at most, as the 1 m tiles of the whole map need ~2 GB of GPU.
 const phone = Math.min(screen.width, screen.height) < 600;
 const ceiling = phone ? 0.75e6 : Infinity;
-let budget = phone ? 0.75e6 : 4e6;
+let level = 0.75;
+const budgetAt = (l: number) => (l >= 1 ? ceiling : Math.min(ceiling, 0.2e6 * ((city?.cityTris ?? 14e6) / 0.2e6) ** l));
+const pixelsAt = (l: number) => Math.max(0.5, Math.min(1, 0.4 + 0.8 * l)) * Math.min(devicePixelRatio, 2);
+const budget = () => budgetAt(level);
 const renderer = makeRenderer();
-always({ engine: Number.isFinite(budget) ? 'zones' : 'city', gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
+always({ engine: 'zones', gpu: gpu(renderer.getContext()), cores: navigator.hardwareConcurrency ?? null,
   memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? null });
 renderer.domElement.addEventListener('webglcontextlost', () => track('contextlost'));
 const scene = new THREE.Scene();
@@ -71,7 +74,7 @@ let barRect: DOMRect | null = null;
 let climate: Climate | null = null;
 let places: Label[] = [];
 const caption = new Caption();
-const perf = new Perf((b) => { budget = b; });
+const perf = new Perf((l) => { setLevel(l); });
 let setWindows: ((hour: number, day: number) => void) | null = null;
 
 nav.cancelFly = () => { fly = null; };
@@ -91,7 +94,7 @@ boot();
 function makeRenderer() {
   const r = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   r.info.autoReset = false;
-  r.setPixelRatio(Math.min(devicePixelRatio, 2));
+  r.setPixelRatio(pixelsAt(level));
   r.setSize(innerWidth, innerHeight);
   r.shadowMap.enabled = true;
   r.shadowMap.type = THREE.PCFShadowMap;
@@ -280,11 +283,10 @@ async function boot() {
   setDay(md ? dayOfYear(new Date(new Date().getFullYear(), md[0] - 1, md[1])) : TODAY);
   setWeather((qs.get('weather') ?? '') in WEATHERS ? qs.get('weather')! : 'typical', true);
   setHour(qs.get('hour') ? +qs.get('hour')! : timesOf(daylight.day)['golden hour']);
-  city = await installCity({ streamer, uniforms, meta, scene, focus, camera, caption, budget: () => budget });
+  city = await installCity({ streamer, uniforms, meta, scene, focus, camera, caption, budget });
   labels = new Labels(meta.labels, onLabel);
   labels.gate = city.gate;
-  perf.range(Math.min(ceiling, city.cityTris));
-  perf.show(budget);
+  perf.show(level);
   hud = new Hud(renderer.domElement, nav.mode);
   bar.search.setItems(searchItems(meta));
   fetchJson<{ places: Place[] }>('data/places.json').then(({ places }) => bar.search.setItems([...searchItems(meta),
@@ -330,9 +332,12 @@ renderer.setAnimationLoop((now) => {
   daylight.sky.mesh.position.copy(camera.position);
   streamer?.update(camera);
   daylight.fitShadow(focus(), camera, viewDist, map);
-  if (stillChanged()) daylight.redrawShadow();
+  const redraws = daylight.redraws;
+  if (stillChanged()) stillDue = true;
+  if (stillDue && now - redrawnAt > 300) { stillDue = false; redrawnAt = now; daylight.redrawShadow(); }
   renderer.info.reset();
   post.composer.render();
+  if (daylight.redraws !== redraws) busy = true;
   perf.frame(now, document.hidden, renderer.info.render.triangles);
   report(now);
   if (flood && now - riverT > 250) {
@@ -344,7 +349,7 @@ renderer.setAnimationLoop((now) => {
   labels?.update(camera, world, barRect, [...(hud?.rects ?? []), ...perf.rects]);
 });
 
-window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post, budget: () => budget, city: () => city };
+window.__three = { camera, controls, nav, bar, scene, renderer, flyTo, setHour, setDay, setWeather, map, daylight, post, budget, level: () => level, city: () => city };
 
 // what the city's shadow map shows: which tiles are drawn, and what folds, hides or thins them in its depth pass
 let stillKey = '';
@@ -358,30 +363,43 @@ function stillChanged() {
   return true;
 }
 
-// Slow frames (the median of 30 over 1/27 s; 1/20 s while the city loads, past its first 10 s): one pixel per CSS pixel
-// once loaded, else a quarter less city. Smooth ones (the slowest tenth under 1/45 s, five times running, with all the
-// city asked for in): a quarter more, up to the ceiling.
-let calm = 0;
+// The level from steady frames: a frame that redrew the city's shadow, or one after the tab was away, says nothing about
+// the level, so it is left out. Each window (30 frames, or 1 s when slower): slow (the median over 1/27 s) twice
+// running, a step down, bigger the slower, and growing stops there for a minute; smooth (the slowest tenth under 1/30 s) twice running with all
+// the city asked for in, a step up, bigger while frames keep to the screen's own rate.
+let busy = false, stillDue = false, redrawnAt = 0, slow = 0, calm = 0, cap = 1, capAt = 0, windowAt = 0;
+function setLevel(l: number) {
+  level = Math.max(0, Math.min(1, l));
+  const px = pixelsAt(level);
+  if (Math.abs(px - renderer.getPixelRatio()) > 0.01) { renderer.setPixelRatio(px); onResize(); busy = true; }
+}
 function adapt(dt: number, now: number) {
+  const was = busy;
+  busy = false;
   if (!city || document.hidden || dt > 0.5) { frames.length = 0; return; }
-  const loading = document.body.classList.contains('loading');
-  if (loading && now < 10000) return;
+  if (was) return;
+  if (!frames.length) windowAt = now;
   frames.push(dt);
-  if (frames.length < 30) return;
+  if (frames.length < 30 && (frames.length < 6 || now - windowAt < 1000)) return;
   frames.sort((a, b) => a - b);
-  const median = frames[15], p90 = frames[27];
+  const median = frames[frames.length >> 1], p90 = frames[Math.floor(frames.length * 0.9)];
   frames.length = 0;
-  if (median > (loading ? 1 / 20 : 1 / 27)) {
+  if (perf.manual) return;
+  if (now - capAt > 60000) cap = 1;
+  if (median > 1 / 27) {
     calm = 0;
-    if (perf.manual) return;
-    if (!loading && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); onResize(); return; }
-    budget = Math.max(0.2e6, Math.min(budget, city.realTris) * 0.75);
-    perf.show(budget);
-  } else if (p90 < 1 / 30 && budget < ceiling && !perf.manual && city.settled && ++calm >= 5) {
+    if (++slow < 2) return;
+    slow = 0;
+    setLevel(level - 0.08 * Math.min(3, median * 27));
+    cap = level; capAt = now;
+    perf.show(level);
+  } else if (p90 < 1 / 30 && city.settled && level < Math.min(1, cap)) {
+    slow = 0;
+    if (++calm < 2) return;
     calm = 0;
-    budget = Math.min(ceiling, budget * 1.25 >= city.cityTris ? Infinity : budget * 1.25);
-    perf.show(budget);
-  } else if (p90 >= 1 / 30) calm = 0;
+    setLevel(Math.min(cap, level + (p90 < 1 / 50 ? 0.1 : 0.04)));
+    perf.show(level);
+  } else { slow = 0; calm = 0; }
 }
 
 // usage stats: pulses dense at first, then every minute
@@ -415,7 +433,7 @@ function pulse(due: number) {
     const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize;
     track('pulse', { n: ++pulses, phase: phase(), stage: loadedAt ? null : caption.at.stage, share: progress(), frames: t.length,
       median: q(0.5), p95: q(0.95), worst: q(1), slow: t.filter((x) => x > 50).length, late: Math.round(late),
-      ratio: renderer.getPixelRatio(), budget: Number.isFinite(budget) ? Math.round(budget / 1e3) : null, mode: nav.mode, near: nearest(), heap: heap ? Math.round(heap / 1e6) : null });
+      ratio: renderer.getPixelRatio(), budget: Number.isFinite(budget()) ? Math.round(budget() / 1e3) : null, level: +level.toFixed(2), mode: nav.mode, near: nearest(), heap: heap ? Math.round(heap / 1e6) : null });
     remember({ last_t: +(performance.now() / 1000).toFixed(1), last_phase: phase(), last_share: progress(), last_stage: caption.at.stage });
   }
   times.length = 0;
