@@ -59,6 +59,18 @@ def fit(p, offs, vol, solid, W, D, step=0.5, decks=False):
     t = (P[k + 1, :2] - P[k, :2]) / np.maximum(seg[k], 1e-6)[:, None]
     H = vol.shape[0]
     zi = np.floor(z0 + 0.5).astype(int)
+    # an end whose height is no drawn surface (a bridge's last node reading the higher deck of the ramp beside it):
+    # the path ramped 8 m through the air to it. It takes the height of the first point within 8 m that stands on one
+    cx, cy = np.clip(x.astype(int), 0, W - 1), np.clip(y.astype(int), 0, D - 1)
+    on = np.zeros(len(s), bool)
+    for dz in (0, 1, -1):
+        zz = np.clip(zi + dz, 1, H - 2)
+        on |= solid[vol[zz - 1, cy, cx]] & ~solid[vol[zz, cy, cx]]
+    for end in (np.arange(len(s)), np.arange(len(s))[::-1]):
+        k = next((j for j in end[:int(8 / step) + 1] if on[j]), None)
+        if k is not None and k != end[0] and abs(zi[k] - zi[end[0]]) >= 2:
+            sel = end[:list(end).index(k)]
+            z0[sel], zi[sel] = z0[k], zi[k]
     best = np.full(len(s), -99)
     blocked = np.zeros(len(s), bool)
     for o in offs:
@@ -238,8 +250,10 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
     vol, solid: the finished volume and which palette ids bear weight; every path is then fitted to it (fit)."""
     data = json.load(open(f"{RAW}/osm.json"))
     # nodes of any bridge way (road, path, tram, rail): drawn on the deck, so agents there move at deck height
+    # (ways that carry traffic only: a bridge's outline, man_made=bridge, shares nodes with the street passing under
+    # it -- cars on Wybrzeże Kościuszkowskie jumped 9 m up onto Poniatowski's viaduct and back down)
     bridge_nodes = {n for e in data["elements"] if e["type"] == "way" and e.get("tags", {}).get("bridge") not in (None, "no")
-                    for n in e.get("nodes", [])}
+                    and ("highway" in e["tags"] or "railway" in e["tags"]) for n in e.get("nodes", [])}
     nodes = {}  # id -> (x, y) grid
     ntags = {}
     ways = []
@@ -584,6 +598,9 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
 
     # signal heads: one per signalled approach, at the stop line on the right-hand kerb
     heads = []
+    if surf is not None:  # a signal stands off the carriageway and the tracks: the nearest such cell (95 of 708 stood
+        from scipy import ndimage as _nd  # in a lane of a wider road, a turn lane or the road across)
+        _kd, (_kr, _kc) = _nd.distance_transform_edt(surf > 0, return_indices=True)
     for e in roads:
         sg = e.get("sig")
         if not sg:
@@ -597,121 +614,136 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
         off = (e["lanes"] + (0 if e["two"] else -e["lanes"] / 2)) * 3.1 + 1.2
         hx, hy = x - dy * off, y + dx * off
         c_, r_ = min(max(int(hx), 0), W - 1), min(max(int(hy), 0), D - 1)
-        heads.append([round(hx, 1), round(hy, 1), int(g[r_, c_]), round(math.atan2(dx, dy), 2), sg["ctrl"], sg["axis"]])
+        if surf is not None and 0 < _kd[r_, c_] <= 8:
+            c_, r_ = int(_kc[r_, c_]), int(_kr[r_, c_])
+            hx, hy = c_ + 0.5, r_ + 0.5
+        heads.append([round(hx, 1), round(hy, 1), z_at(hx, hy, True), round(math.atan2(dx, dy), 2), sg["ctrl"], sg["axis"]])
 
     # ---------------- trams: real route relations (PTv2, one relation per direction), chained and clipped
     way_by_id = {e["id"]: e for e in data["elements"] if e["type"] == "way"}
-    for e in data["elements"]:  # tram ways are railway=*, not highway=*: register their nodes too
-        if e["type"] == "way" and e.get("tags", {}).get("railway") == "tram":
+    def chain(ws):
+        """a route's member ways (node lists) as one node chain, None at its gaps: from the first way on, each time
+        the unused way that starts where the chain ends, the next one in the relation's order if there are several.
+        The first of a run is turned to lead into another. (Each way used to be taken as listed and in its own node
+        order: a first way drawn against the direction of travel joined nothing, and so on down the route -- 11 of
+        the 15 train tracks were single ways of 160-550 m, trains running off their ends into the air; and a
+        relation listed out of order broke where it was)"""
+        ends = defaultdict(list)
+        for k, ns in enumerate(ws):
+            ends[ns[0]].append(k); ends[ns[-1]].append(k)
+        used, seq = [False] * len(ws), []
+        for k0 in range(len(ws)):
+            if used[k0]:
+                continue
+            ns, k = ws[k0], k0
+            if not any(not used[j] and j != k for j in ends[ns[-1]]) and any(not used[j] and j != k for j in ends[ns[0]]):
+                ns = ns[::-1]
+            if seq:
+                seq.append(None)
+            seq.extend(ns)
+            used[k] = True
+            while True:
+                nxt = [j for j in ends[seq[-1]] if not used[j]]
+                if not nxt:
+                    break
+                k = min(nxt, key=lambda j: (j < k, j))
+                ns = ws[k]
+                seq.extend(ns[-2::-1] if seq[-1] == ns[-1] else ns[1:])
+                used[k] = True
+        return seq
+
+    def runs(seq, stop=()):
+        """the pieces of a chain inside the map and off the `stop` nodes; one that leaves the map ends on its edge (it
+        ended on its last node inside, up to 60 m short: trams appeared in the middle of a street)"""
+        def edge(i, o):
+            (xi, yi), (xo, yo) = nodes[i], nodes[o]
+            f = min([(b - a) / (c - a) for a, c, b in ((xi, xo, 3), (xi, xo, W - 3.01), (yi, yo, 3), (yi, yo, D - 3.01))
+                     if (c - b) * (a - b) < 0] or [0])
+            n = -10 ** 9 - len(nodes)
+            nodes[n] = (xi + (xo - xi) * f, yi + (yo - yi) * f)
+            return n
+        piece, prev, out = [], None, []
+        for n in list(seq) + [None]:
+            if n is not None and n not in stop and inside(n):
+                if not piece and prev is not None and prev not in stop and not inside(prev):
+                    piece.append(edge(n, prev))
+                if not piece or piece[-1] != n:
+                    piece.append(n)
+            else:
+                if piece and n is not None and n not in stop:
+                    piece.append(edge(piece[-1], n))
+                if len(piece) >= 2:
+                    out.append(piece)
+                piece = []
+            prev = n
+        return out
+
+    def members(rel):
+        """the ways a route runs on (its members without a stop or platform role), whatever state the way is tagged
+        in: a few metres of route 13 at Wolska are railway=disused while the track is relaid"""
+        ws = []
+        for m in rel.get("members", []):
+            w = way_by_id.get(m["ref"]) if m["type"] == "way" and m.get("role") in ("", "forward", "backward") else None
+            ns = [n for n in w["nodes"] if n in nodes] if w and w.get("tags", {}).get("railway", "platform") != "platform" else []
+            if len(ns) >= 2:
+                ws.append(ns)
+        return ws
+
+    # under the ground a piece ends: the tram goes into the W-Z tunnel at its portal, the trains into the cross-city
+    # tunnel under Śródmieście
+    tunnel_nodes = set()
+    for e in data["elements"]:
+        tg = e.get("tags", {})
+        if e["type"] == "way" and "railway" in tg:
             for nid, p_ in zip(e["nodes"], e.get("geometry") or []):
                 if p_ and nid not in nodes:
                     x, y = _T.transform(p_["lon"], p_["lat"])
                     i, j = to_grid(x, y)
                     nodes[nid] = (float(i), float(j))
+            if tg.get("tunnel") not in (None, "no") or tg.get("covered") == "yes" or _num(tg.get("layer"), 0) < 0:
+                tunnel_nodes.update(e["nodes"][1:-1])
     trams = []
     for rel in data["elements"]:
         t = rel.get("tags", {})
         if rel["type"] != "relation" or t.get("route") != "tram":
             continue
-        seq = []
-        for m in rel.get("members", []):
-            if m["type"] != "way" or m.get("role") not in ("", "forward", "backward"):
-                continue
-            w = way_by_id.get(m["ref"])
-            if not w or w.get("tags", {}).get("railway") not in ("tram", "rail", "light_rail"):
-                continue
-            wt = w.get("tags", {})
-            if wt.get("tunnel") in ("yes", "covered") or str(wt.get("layer", "0")).lstrip("-").isdigit() and int(wt.get("layer", 0)) < 0:
-                if seq and seq[-1] is not None:  # under the W-Z tunnel: the tram goes in at the portal, not over the ground
-                    seq.append(None)
-                continue
-            ns = [n for n in w["nodes"] if n in nodes]
-            if len(ns) < 2:
-                continue
-            if m.get("role") == "backward":
-                ns = ns[::-1]
-            if seq and seq[-1] is None:
-                seq.extend(ns)
-            elif seq:
-                if seq[-1] == ns[-1]:
-                    ns = ns[::-1]
-                elif seq[-1] != ns[0]:
-                    if seq[0] in (ns[0], ns[-1]) and len(seq) == len(w["nodes"]) or seq[0] == ns[-1]:
-                        pass
-                    if seq[-1] not in (ns[0], ns[-1]):
-                        # gap (route leaves the downloaded area or member order is off): start a new chain piece
-                        seq.append(None)
-                seq.extend(ns[1:] if seq[-1] == ns[0] else ns)
-            else:
-                seq = list(ns)
-        # split at gaps, clip to AOI, keep inside runs >= 120 m
-        piece = []
-        for n in seq + [None]:
-            if n is None or not inside(n):
-                if len(piece) >= 2:
-                    pp = pts_of(piece, False)
-                    if length(pp) >= 120:
-                        trams.append(dict(ref=t.get("ref", "?"), p=pp, L=round(length(pp), 1)))
-                piece = []
-            else:
-                if not piece or piece[-1] != n:
-                    piece.append(n)
+        for piece in runs(chain(members(rel)), tunnel_nodes):
+            pp = pts_of(piece, False)
+            if length(pp) >= 120:
+                trams.append(dict(ref=t.get("ref", "?"), p=pp, L=round(length(pp), 1)))
     # identical paths from different refs share track: keep all (each ref runs its own service)
     note(f"traffic: {len(trams)} tram route pieces inside the AOI, lines {sorted({tr['ref'] for tr in trams}, key=lambda r: (len(r), r))}")
 
     # ---------------- trains: the route=train relations (one per direction), on the open-air track only -- a piece
     # ends where the line goes into a tunnel (the cross-city line under Śródmieście) or leaves the map. Routes on the
     # same track share one path; each keeps the stations it stops at (its stop members on the path)
-    tunnel_nodes = set()
-    for e in data["elements"]:
-        tg = e.get("tags", {})
-        if e["type"] == "way" and tg.get("railway") == "rail":
-            for nid, p_ in zip(e["nodes"], e.get("geometry") or []):
-                if p_ and nid not in nodes:
-                    x, y = _T.transform(p_["lon"], p_["lat"])
-                    i, j = to_grid(x, y)
-                    nodes[nid] = (float(i), float(j))
-            if tg.get("tunnel") not in (None, "no") or tg.get("covered") == "yes":
-                tunnel_nodes.update(e["nodes"][1:-1])
     by_track = {}
     for rel in data["elements"]:
         t = rel.get("tags", {})
         if rel["type"] != "relation" or t.get("route") != "train":
             continue
-        seq = []
-        for m in rel.get("members", []):
-            if m["type"] != "way" or m.get("role") not in ("", "forward", "backward"):
-                continue
-            w = way_by_id.get(m["ref"])
-            if not w or w.get("tags", {}).get("railway") != "rail":
-                continue
-            ns = [n for n in w["nodes"] if n in nodes]
-            if len(ns) < 2:
-                continue
-            if m.get("role") == "backward":
-                ns = ns[::-1]
-            if seq and seq[-1] is not None:
-                if seq[-1] == ns[-1]:
-                    ns = ns[::-1]
-                elif seq[-1] != ns[0] and seq[-1] not in (ns[0], ns[-1]):
-                    seq.append(None)
-                seq.extend(ns[1:] if seq[-1] == ns[0] else ns)
-            else:
-                seq.extend(ns)
         stops = {m["ref"] for m in rel.get("members", []) if m["type"] == "node" and str(m.get("role", "")).startswith("stop")}
-        piece = []
-        for n in seq + [None]:
-            if n is None or n in tunnel_nodes or not inside(n):
-                if len(piece) >= 2:
-                    key = tuple(piece)
-                    tr = by_track.setdefault(key, dict(nodes=piece, svc=[]))
-                    tr["svc"].append(dict(ref=t.get("ref") or t.get("name", "?"), op=t.get("operator", ""),
-                                          stops=[k for k, n_ in enumerate(piece) if n_ in stops]))
-                piece = []
-            elif not piece or piece[-1] != n:
-                piece.append(n)
+        for piece in runs(chain(members(rel)), tunnel_nodes):
+            tr = by_track.setdefault(tuple(piece), dict(nodes=piece, svc=[]))
+            tr["svc"].append(dict(ref=t.get("ref") or t.get("name", "?"), op=t.get("operator", ""),
+                                  stops=[k for k, n_ in enumerate(piece) if n_ in stops]))
+    # one path per track: routes that part only at a set of points (the long-distance track's two ways out at the
+    # map's east edge) ran on paths of their own over the same rails, and their trains through one another -- a
+    # train keeps its distance on its own path. They take the path most routes use
+    def span(es):
+        return sum(math.dist(nodes[a], nodes[b]) for a, b in es)
+    tracks = []
+    for tr in sorted(by_track.values(), key=lambda tr: (-len(tr["svc"]), -len(tr["nodes"]))):
+        es = set(zip(tr["nodes"], tr["nodes"][1:]))
+        for k in tracks:
+            if span(es & k["es"]) > 0.5 * min(span(es), span(k["es"])):
+                at_ = {n: i for i, n in enumerate(k["nodes"])}
+                k["svc"] += [dict(v, stops=[at_[tr["nodes"][i]] for i in v["stops"] if tr["nodes"][i] in at_]) for v in tr["svc"]]
+                break
+        else:
+            tracks.append(dict(tr, es=es))
     trains = []
-    for tr in by_track.values():
+    for tr in tracks:
         pp = pts_of(tr["nodes"], False)
         if length(pp) < 150:
             continue
@@ -785,3 +817,12 @@ def build(g, nd_mean, note, surf=None, water=None, vol=None, solid=None, roofs=N
          f"{len(ctrls)} signal controllers, {nsig} signalled approaches; {len(peds)} footpath edges "
          f"({round(sum(e['L'] for e in peds) / 1000, 1)} km), {ncross} signalled crossings")
     return dict(roads=roads, rnodes=rnodes, ctrls=ctrls, heads=heads, peds=peds, pnodes=pn, trams=trams, trains=trains, restr=restr)
+
+
+if __name__ == "__main__":  # traffic.json alone, from the last full build's volume (LMCACHE=1 FINALDUMP=1 voxelize.py)
+    import pickle
+    tin = pickle.load(open("data/cache/traffic_in.pkl", "rb"))
+    import underpass
+    OPEN_CUT, underpass.WALK, underpass.IDS = tin.pop("open_cut"), tin.pop("walk"), tin.pop("ids")
+    json.dump(build(note=print, vol=np.load("data/cache/final_vol.npy", mmap_mode="r"), **tin),
+              open("web/public/data/traffic.json", "w"), separators=(",", ":"))

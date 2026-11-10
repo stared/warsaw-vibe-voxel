@@ -1510,9 +1510,22 @@ for oid, typ, t, geom in osm.areas:
 note("raised planting beds:", n_beds)
 
 # ---------------------------------------------------------------- street furniture
+# a post stands beside the carriageway and the tracks, not in them: OSM's lamp nodes sit on the kerb line, and 89 of
+# them fell a metre or two inside the road as drawn (cars drove through the poles); such a post takes the nearest
+# cell off the road within 4 m, and one deeper in (a lamp hung over the street) gets no pole
+_driven = is_road | np.isin(gcol, [C["trambed"], C["rail"], C["ballast"]])
+_kd, (_kr, _kc) = ndimage.distance_transform_edt(_driven, return_indices=True)
+
+
+def kerb(c, r):
+    if not (0 <= c < W and 0 <= r < D):
+        return None
+    return (int(_kc[r, c]), int(_kr[r, c])) if _kd[r, c] <= 4 else None
+
+
 lamps = []
 for oid, t, p in osm.nodes_with("highway", ("street_lamp",)):
-    c, r = int(p.x), int(p.y)
+    c, r = kerb(int(p.x), int(p.y)) or (-1, -1)
     if not (0 <= c < W and 0 <= r < D) or bmask[r, c]:
         continue
     hgt = int(parse_len(t.get("height")) or (10 if is_road[max(r - 6, 0):r + 7, max(c - 6, 0):c + 7].any() else 6))
@@ -1534,7 +1547,7 @@ for oid, t, line in osm.lines:
         tx, ty = q_.x - p.x, q_.y - p.y
         tl = max(np.hypot(tx, ty), 1e-6)
         side = 5.5 if k_ % 2 else -5.5  # alternate kerbs, clear of the central walkway
-        c, r = int(p.x - ty / tl * side), int(p.y + tx / tl * side)
+        c, r = kerb(int(p.x - ty / tl * side), int(p.y + tx / tl * side)) or (-1, -1)
         if not (0 <= c < W and 0 <= r < D) or bmask[r, c]:
             continue
         if len(lamp_xy) and np.min(np.hypot(lamp_xy[:, 0] - c, lamp_xy[:, 1] - r)) < 9:
@@ -1573,8 +1586,8 @@ for layer in sorted({l for _, _, l in bridge_shapes}):  # upper decks win
     burn(deck_lay, [(p_, l + 1) for p_, c_, l in bridge_shapes if l == layer])
 near_way = ndimage.binary_dilation(deck_col > 0, iterations=3)
 deck_col = np.where((deck_col == 0) & (bridge_area > 0) & near_way, C["deck"], deck_col)
-deck = (deck_col > 0) & ~bmask & (nd_mean > 2)
-deck = ndimage.binary_closing(deck, iterations=2) & ~bmask  # no slits of sky between the carriageways
+deck = (deck_col > 0) & (nd_mean > 2)
+deck = ndimage.binary_closing(deck, iterations=2)  # no slits of sky between the carriageways
 deck_col = np.where(deck & (deck_col == 0), C["deck"], deck_col)
 # the deck's height: a profile along each bridge way -- the DSM (0.5 m) sampled across the way every metre, its 30th
 # percentile (the road surface, not the cars, railings or stays), samples dropped where a higher deck hides the way or
@@ -1668,6 +1681,18 @@ zt_ = np.round(deck_abs - BASE).astype(np.int32)
 if prof is not None and len(prof):
     deck |= abut & (np.abs(dsm_mean - deck_abs) < 1.0)
 deck &= zt_ >= g + 1
+# a building and a deck in one cell: the LiDAR says which is on top. A building whose roof is at the deck or under it
+# stands under the bridge (the shops in the arcades of Poniatowski's viaduct, Warszawa Centralna's halls under Aleja
+# Jana Pawła II: 160 and 180 m of carriageway and tram track were drawn as bare roofs); it keeps its walls up to the
+# deck. A building rising over the deck stands beside it or on it (the viaduct's towers), and there is no deck in it
+_btop = g + topi
+_under = deck & bmask & (_btop <= zt_ + 2)
+deck &= ~bmask | _under
+_ru, _cu = np.nonzero(_under)
+for _z in range(int(zt_[_ru, _cu].min()) if len(_ru) else 0, int(_btop[_ru, _cu].max()) + 4 if len(_ru) else 0):
+    _m = _z >= zt_[_ru, _cu]
+    vol[_z, _ru[_m], _cu[_m]] = 0
+note("deck cells over buildings under a bridge:", int(_under.sum()), "building cells that keep the deck out:", int(((deck_col > 0) & bmask & ~_under).sum()))
 deck_h = np.where(deck, zt_ - g, 0).astype(np.float32)
 landmarks.DECK = np.where(deck, zt_, 0).astype(np.int16)  # the deck top, for the curated bridge structures
 # under a deck over the river nothing hangs but the bridge's own structure (landmarks.py): LiDAR columns caught at the
@@ -1705,7 +1730,7 @@ deck_col[_lm_deck] = C["mark"]
 note("lane marking cells on decks:", int(_lm_deck.sum()))
 _rl = np.zeros((D, W), np.uint16)
 burn(_rl, bridge_rails + rails, all_touched=True)  # (the ground track's too: the deck runs on over the abutments)
-_on = deck & (_rl > 0) & (deck_col == C["ballast"])
+_on = deck & (_rl > 0) & np.isin(deck_col, [C["ballast"], C["trambed"]])  # rails lie on a track bed, a tram's too
 deck_col[_on] = _rl[_on]
 note("rail decks: ballast fill", int(_fill.sum()), "rail cells", int(_on.sum()))
 rr, cc = np.nonzero(deck)
@@ -1818,7 +1843,10 @@ if _sw is not None and n_pyl:
                     n_cab += 1
 note("Most Świętokrzyski stays:", n_cab)
 # lamps on the bridges: OSM maps almost none on the Vistula bridges (0 on Świętokrzyski and Poniatowskiego), but they
-# are lit -- put one every 32 m on each kerb of the deck, as for Złota, unless OSM has a lamp within 12 m
+# are lit -- put one every 32 m on each kerb of the deck, as for Złota, unless OSM has a lamp within 12 m. A kerb is
+# deck that carries no way of its own, with no carriageway or track within 4 m beyond it: the inner side of a
+# carriageway with tram tracks beside it (Poniatowski) has none, and its lamps stood in the trams' way
+_bed = np.isin(deck_col, [C["asphalt"], C["mark"], C["trambed"], C["ballast"], C["rail"]])
 n_bl = 0
 for line, w in bridge_roads:
     for k_, dist in enumerate(np.arange(10, line.length - 6, 32.0)):
@@ -1829,7 +1857,10 @@ for line, w in bridge_roads:
         for side in (-1, 1):
             off = side * (w / 2 + 0.4)
             c, r = int(p.x - ty / tl * off), int(p.y + tx / tl * off)
-            if not (0 <= c < W and 0 <= r < D) or not deck[r, c]:
+            if not (0 <= c < W and 0 <= r < D) or not deck[r, c] or _bed[r, c]:
+                continue
+            if any(_bed[min(max(int(p.y + tx / tl * (off + side * d_)), 0), D - 1), min(max(int(p.x - ty / tl * (off + side * d_)), 0), W - 1)]
+                   for d_ in (1, 2, 3, 4)):
                 continue
             if len(lamp_xy) and np.min(np.hypot(lamp_xy[:, 0] - c, lamp_xy[:, 1] - r)) < 12:
                 continue
@@ -2002,9 +2033,11 @@ deck_near[_rb, _cb] = _top - g[_rb, _cb]
 _solid = ~_skip
 _solid[0] = False
 traffic.OPEN_CUT = OPEN_CUT
-json.dump(traffic.build(g, deck_near, note, qa, water=(gcol == C["water"]) & (_dd <= 2), vol=vol, solid=_solid,
-                        roofs=unary_union([b for b, *_ in GARDEN_ROOFS.values()]), paths=roofgardens.PATHS),
-          open(OUT / "traffic.json", "w"), separators=(",", ":"))
+_tin = dict(g=g, nd_mean=deck_near, surf=qa, water=(gcol == C["water"]) & (_dd <= 2), solid=_solid,
+            roofs=unary_union([b for b, *_ in GARDEN_ROOFS.values()]), paths=roofgardens.PATHS)
+if os.environ.get("LMCACHE"):  # what traffic.py takes, to rebuild traffic.json alone (uv run python scripts/traffic.py)
+    pickle.dump(dict(_tin, open_cut=OPEN_CUT, walk=underpass.WALK, ids=underpass.IDS), open("data/cache/traffic_in.pkl", "wb"))
+json.dump(traffic.build(note=note, vol=vol, **_tin), open(OUT / "traffic.json", "w"), separators=(",", ":"))
 json.dump(report, open(DBG / "report.json", "w"), indent=1, ensure_ascii=False)
 
 # debug: top-down colour of highest voxel

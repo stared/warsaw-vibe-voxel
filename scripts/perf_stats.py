@@ -81,7 +81,7 @@ def pages(ev):
     P['last_stage'] = loading.groupby('pid').stage.last()
     P['early_frame_ms'] = pu[(pu.t < 15) & (pu.frames > 0)].groupby('pid')['median'].median()
     P['device'] = np.where(P.device_type.isin(['Mobile', 'Tablet']), 'phone', 'computer')
-    P['level_last'] = pu.dropna(subset=['level']).groupby('pid').level.last() if 'level' in pu else np.nan
+    P['level_last'] = pu.dropna(subset=['level']).groupby('pid')['level'].last() if 'level' in pu else np.nan
     P['tier'] = P.apply(tier, axis=1)
     P['bot'] = bots(P)
     return P
